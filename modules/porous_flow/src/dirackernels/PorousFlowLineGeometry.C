@@ -8,6 +8,8 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "PorousFlowLineGeometry.h"
+#include "RayTracing.h"
+#include "LineSegment.h"
 #include "libmesh/utility.h"
 
 #include <fstream>
@@ -99,10 +101,31 @@ PorousFlowLineGeometry::PorousFlowLineGeometry(const InputParameters & parameter
 
     for (int i = base.size(); i < 4; i++)
       base.push_back(0); // fill out zeros up to 3 dimensions
+
     _rs.push_back(base[0]);
     _xs.push_back(base[1]);
     _ys.push_back(base[2]);
     _zs.push_back(base[3]);
+
+    // get add point for each cell the line passes through
+    Point p0(base[1], base[2], base[3]);
+    Point p1 = p0 + _line_length * _line_direction;
+    auto ploc = _mesh.getPointLocator();
+    std::vector<Elem *> elems;
+    std::vector<LineSegment> segs;
+    Moose::elementsIntersectedByLine(p0, p1, _mesh, *ploc, elems, segs);
+    for (size_t i = 0; i < segs.size(); i++)
+    {
+      // skip first element because it already has a point from the line_base
+      if (i == 0)
+        continue;
+      auto & seg = segs[i];
+      auto middle = (seg.start() + seg.end()) * 0.5;
+      _rs.push_back(base[0]);
+      _xs.push_back(middle(0));
+      _ys.push_back(middle(1));
+      _zs.push_back(middle(2));
+    }
   }
 
   const int num_pts = _zs.size();
