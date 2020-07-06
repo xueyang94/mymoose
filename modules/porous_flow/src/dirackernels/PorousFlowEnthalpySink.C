@@ -25,7 +25,7 @@ PorousFlowEnthalpySink::validParams()
 PorousFlowEnthalpySink::PorousFlowEnthalpySink(const InputParameters & parameters)
   : PorousFlowPolyLineSink(parameters),
     _pressure(coupledValue("pressure")),
-    _T_in(getPostprocessorValue("T_in")),
+    _T_in(getParam<Real>("T_in")),
     _fp(getUserObject<SinglePhaseFluidProperties>("fp"))
 {
 }
