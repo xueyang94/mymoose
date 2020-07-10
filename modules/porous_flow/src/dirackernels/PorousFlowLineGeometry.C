@@ -157,11 +157,10 @@ PorousFlowLineGeometry::regenPoints()
   Moose::elementsIntersectedByLine(p0, p1, _mesh, *ploc, elems, segs);
   for (size_t i = 0; i < segs.size(); i++)
   {
-    auto & seg = segs[i];
     // elementsIntersectedByLine sometimes returns coincident points - check for this:
+    auto & seg = segs[i];
     if (seg.start() == seg.end())
       continue;
-    std::cout << "segment start=" << seg.start() << ", end=" << seg.end() << "\n";
 
     auto middle = (seg.start() + seg.end()) * 0.5;
     _rs.push_back(_line_base[0]);
@@ -170,12 +169,13 @@ PorousFlowLineGeometry::regenPoints()
     _zs.push_back(middle(2));
   }
 
+  // make the start point be the line base point
   _rs.front() = _line_base[0];
   _xs.front() = _line_base[1];
   _ys.front() = _line_base[2];
   _zs.front() = _line_base[3];
 
-  // add end point only if our line traverses more than one element
+  // force the end point only if our line traverses more than one element
   if (segs.size() > 1)
   {
     _rs.back() = _line_base[0];
