@@ -1,5 +1,3 @@
-!! MOOSE Documentation Stub: Remove this line when content is added.
-
 # Executioner
 
 The Executioner controls the "execution" behavior of the simulation. MOOSE includes several Executioners but
