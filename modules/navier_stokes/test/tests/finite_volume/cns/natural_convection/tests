@@ -7,14 +7,15 @@
       exodiff = average-boussinesq_out.e
       mumps = true
       detail = '1.7e4'
+      strumpack = true
     []
     [ray_1pt4e5]
       type = Exodiff
       input = average-boussinesq.i
       exodiff = ra-1e5.e
-      strumpack = true
-      cli_args = 'Mesh/gen/xmax=2e-2 Mesh/gen/ymax=2e-2 Outputs/file_base=ra-1e5 -pc_factor_mat_solver_type strumpack'
+      cli_args = 'Mesh/gen/xmax=2e-2 Mesh/gen/ymax=2e-2 Outputs/file_base=ra-1e5'
       detail = '1.4e5'
+      strumpack = true
     []
   []
 []
