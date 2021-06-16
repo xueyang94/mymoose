@@ -18,12 +18,14 @@ KKSSplitCHCRes::validParams()
   params.addClassDescription(
       "KKS model kernel for the split Bulk Cahn-Hilliard term. This kernel operates on the "
       "physical concentration 'c' as the non-linear variable");
-  params.addRequiredParam<MaterialPropertyName>(
-      "fa_name",
-      "Base name of an arbitrary phase free energy function F (f_base in the corresponding "
-      "KKSBaseMaterial)");
-  params.addRequiredCoupledVar(
-      "ca", "phase concentration corresponding to the non-linear variable of this kernel");
+  // params.addRequiredParam<MaterialPropertyName>(
+  //     "fa_name",
+  //     "Base name of an arbitrary phase free energy function F (f_base in the corresponding "
+  //     "KKSBaseMaterial)");
+  // params.addRequiredCoupledVar(
+  //     "ca", "phase concentration corresponding to the non-linear variable of this kernel");
+  // params.addRequiredParam<MaterialPropertyName>("ca_name", "phase concentration");
+  params.addRequiredParam<MaterialPropertyName>("A2", "A2");
   params.addCoupledVar("args_a", "Vector of additional arguments to Fa");
   params.addRequiredCoupledVar("w",
                                "Chemical potential non-linear helper variable for the split solve");
@@ -32,32 +34,42 @@ KKSSplitCHCRes::validParams()
 
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
   : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
-    _ca_var(coupled("ca")),
-    _ca_name(getVar("ca", 0)->name()),
-    _dFadca(getMaterialPropertyDerivative<Real>("fa_name", _ca_name)),
+    // _ca_var(coupled("ca")),
+    // _ca_name(getVar("ca", 0)->name()),
+    // _ca_name(getMaterialProperty<Real>("ca_name")),
+    // _dFadca(getMaterialPropertyDerivative<Real>("fa_name", _ca_name)),
+    _A2(getMaterialProperty<Real>("A2")),
+    _dA2dc(getMaterialPropertyDerivative<Real>("A2", _var.name())),
     _d2Fadcadarg(_n_args),
     _w_var(coupled("w")),
     _w(coupledValue("w"))
 {
   // get the second derivative material property
   for (unsigned int i = 0; i < _n_args; ++i)
-    _d2Fadcadarg[i] = &getMaterialPropertyDerivative<Real>("fa_name", _ca_name, i);
+    _d2Fadcadarg[i] = &getMaterialPropertyDerivative<Real>("A2", i);
 }
 
-void
-KKSSplitCHCRes::initialSetup()
-{
-  validateNonlinearCoupling<Real>("fa_name");
-  validateDerivativeMaterialPropertyBase<Real>("fa_name");
-}
+// void
+// KKSSplitCHCRes::initialSetup()
+// {
+//   validateNonlinearCoupling<Real>("fa_name");
+//   validateDerivativeMaterialPropertyBase<Real>("fa_name");
+// }
 
 Real
 KKSSplitCHCRes::computeQpResidual()
 {
   Real residual = SplitCHBase::computeQpResidual();
-  residual += -_w[_qp] * _test[_i][_qp];
+  // residual += -_w[_qp] * _test[_i][_qp];
+  residual = (_A2[_qp] - _w[_qp]) * _test[_i][_qp];
 
   return residual;
+}
+
+Real
+KKSSplitCHCRes::computeQpJacobian()
+{
+  return _test[_i][_qp] * _dA2dc[_qp];
 }
 
 /**
@@ -67,20 +79,19 @@ KKSSplitCHCRes::computeQpResidual()
  * which is:
  * \f$ \nabla u \frac {dF(u)}{du} \phi_j + F(u) \nabla \phi_j \f$
  */
-Real
-KKSSplitCHCRes::computeDFDC(PFFunctionType type)
-{
-  switch (type)
-  {
-    case Residual:
-      return _dFadca[_qp]; // dFa/dca ( = dFb/dcb = dF/dc)
-
-    case Jacobian:
-      return 0.0;
-  }
-
-  mooseError("Invalid type passed in");
-}
+// Real KKSSplitCHCRes::computeDFDC(PFFunctionType type)
+// {
+//   switch (type)
+//   {
+//     case Residual:
+//       return _dFadca[_qp]; // dFa/dca ( = dFb/dcb = dF/dc)
+//
+//     case Jacobian:
+//       return 0.0;
+//   }
+//
+//   mooseError("Invalid type passed in");
+// }
 
 Real
 KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
