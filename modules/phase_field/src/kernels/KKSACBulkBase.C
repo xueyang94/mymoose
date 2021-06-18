@@ -15,10 +15,7 @@ KKSACBulkBase::validParams()
   InputParameters params = ACBulk<Real>::validParams();
   params.addClassDescription("KKS model kernel for the Bulk Allen-Cahn. This operates on the order "
                              "parameter 'eta' as the non-linear variable");
-  // params.addRequiredParam<MaterialPropertyName>(
-  //     "fa_name",
-  //     "Base name of the free energy function F (f_base in the corresponding KKSBaseMaterial)");
-  params.addParam<MaterialPropertyName>(
+  params.addRequiredParam<MaterialPropertyName>(
       "fa_name",
       "Base name of the free energy function F (f_base in the corresponding KKSBaseMaterial)");
   params.addParam<MaterialPropertyName>(

@@ -31,25 +31,7 @@ protected:
   virtual Real computeDFDOP(PFFunctionType type);
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-  /// phase a concentration
-  // std::string _ca_name;
-  // unsigned int _ca_var;
-  // const VariableValue & _ca;
-
-  /// phase b concentration
-  // std::string _cb_name;
-  // unsigned int _cb_var;
-  // const VariableValue & _cb;
-
-  /// Derivative of the free energy function \f$ \frac d{dc_a} F_a \f$
-  // const MaterialProperty<Real> & _prop_dFadca;
-
-  /// Second derivative of the free energy function \f$ \frac {d^2}{dc_a^2} F_a \f$
-  // const MaterialProperty<Real> & _prop_d2Fadca2;
-
-  const MaterialProperty<Real> & _A1;
-
-  /// Mixed partial derivatives of the free energy function wrt ca and
-  /// any other coupled variables \f$ \frac {d^2}{dc_a dq} F_a \f$
-  std::vector<const MaterialProperty<Real> *> _prop_d2Fadcadarg;
+  const MaterialProperty<Real> & _prop_A1;
+  const MaterialProperty<Real> & _prop_dA1;
+  std::vector<const MaterialProperty<Real> *> _prop_dA1darg;
 };
