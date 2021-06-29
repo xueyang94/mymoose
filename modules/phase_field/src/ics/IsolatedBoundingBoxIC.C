@@ -39,8 +39,8 @@ IsolatedBoundingBoxIC::value(const Point & p)
     {
       for (unsigned int i = 0; i < _dim; ++i)
       {
-        if (_c1[b](i) < _c2[b](i) && p(i) >= _c1[b](i) - _int_width &&
-            p(i) <= _c2[b](i) + _int_width)
+        if (_c1[b](i) < _c2[b](i) && p(i) >= _c1[b](i) - 3 * _int_width &&
+            p(i) <= _c2[b](i) + 3 * _int_width)
         {
           if (i != _dim - 1)
             continue;
@@ -56,8 +56,8 @@ IsolatedBoundingBoxIC::value(const Point & p)
           }
           Real f_in = 1.0;
           for (unsigned int j = 0; j < _dim; ++j)
-            f_in *= 0.5 * (std::tanh(2.0 * libMesh::pi * (p(j) - _c1[b](j)) / _int_width) -
-                           std::tanh(2.0 * libMesh::pi * (p(j) - _c2[b](j)) / _int_width));
+            f_in *= 0.5 * (std::tanh(2.0 * (p(j) - _c1[b](j)) / _int_width) -
+                           std::tanh(2.0 * (p(j) - _c2[b](j)) / _int_width));
           value = _outside + (_inside[b] - _outside) * f_in;
         }
         else if (_c1[b](i) >= _c2[b](i))
