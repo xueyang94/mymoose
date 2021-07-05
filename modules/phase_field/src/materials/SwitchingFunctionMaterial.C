@@ -31,9 +31,16 @@ SwitchingFunctionMaterial::SwitchingFunctionMaterial(const InputParameters & par
 {
 }
 
+// unsigned int n_qp{0};
+
 void
 SwitchingFunctionMaterial::computeQpProperties()
 {
+
+  // n_qp += 1;
+
+  // std::cout << "qp point " << n_qp << std::endl;
+
   Real n = _eta[_qp];
   n = n > 1 ? 1 : (n < 0 ? 0 : n);
 

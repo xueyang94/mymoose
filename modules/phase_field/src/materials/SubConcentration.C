@@ -8,6 +8,8 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "SubConcentration.h"
+#include "libmesh/utility.h"
+// #include "MathUtils.h"
 
 registerMooseObject("PhaseFieldApp", SubConcentration);
 
@@ -44,11 +46,28 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _ci_prop[i] = &declareProperty<Real>(_ci_name[i]);
 }
 
+// define a log Taylor expansion function
+Real
+tlog(Real x)
+{
+  Real approx;
+  approx = (x - 1) - Utility::pow<2>(x - 1) / 2 + Utility::pow<3>(x - 1) / 3 -
+           Utility::pow<4>(x - 1) / 4 + Utility::pow<5>(x - 1) / 5 - Utility::pow<6>(x - 1) / 6 +
+           Utility::pow<7>(x - 1) / 7 - Utility::pow<8>(x - 1) / 8 + Utility::pow<9>(x - 1) / 9 -
+           Utility::pow<10>(x - 1) / 10 + Utility::pow<11>(x - 1) / 11 -
+           Utility::pow<12>(x - 1) / 12 + Utility::pow<13>(x - 1) / 13 -
+           Utility::pow<14>(x - 1) / 14 + Utility::pow<15>(x - 1) / 15;
+  return approx;
+}
+
+unsigned int n_qp{0};
+
 void
 SubConcentration::computeQpProperties()
 {
   // std::vector<Real> old_ci{0.668, 0.000045399}; // IC of ci
-  std::vector<Real> old_ci{0.4, 0.8}; // IC of ci
+  std::vector<Real> old_ci{0.6, 0.1}; // IC of ci
+  // std::vector<Real> old_ci{0.5, 0.2};
 
   std::vector<Real> new_ci(2);
 
@@ -64,8 +83,8 @@ SubConcentration::computeQpProperties()
     //                               old_ci[1] * old_ci[1] * _h[_qp] - old_ci[0] * old_ci[0]) -
     //                          (old_ci[0] * old_ci[1] * _h[_qp] * (old_ci[0] - 1) * (old_ci[1] - 1)
     //                          *
-    //                           (400 * log(1 - old_ci[0]) - 400 * log(1 - old_ci[1]) -
-    //                            400 * log(old_ci[0]) + 400 * log(old_ci[1]) + 427999 / 100)) /
+    //                           (400 * tlog(1 - old_ci[0]) - 400 * tlog(1 - old_ci[1]) -
+    //                            400 * tlog(old_ci[0]) + 400 * tlog(old_ci[1]) + 427999 / 100)) /
     //                              (400 * (old_ci[0] - old_ci[0] * _h[_qp] + old_ci[1] * _h[_qp] +
     //                                      old_ci[0] * old_ci[0] * _h[_qp] -
     //                                      old_ci[1] * old_ci[1] * _h[_qp] - old_ci[0] *
@@ -77,38 +96,118 @@ SubConcentration::computeQpProperties()
     //                       old_ci[0] * old_ci[0] * _h[_qp] - old_ci[1] * old_ci[1] * _h[_qp] -
     //                       old_ci[0] * old_ci[0]) -
     //                  (old_ci[0] * old_ci[1] * (old_ci[0] - 1) * (old_ci[1] - 1) * (_h[_qp] - 1) *
-    //                   (400 * log(1 - old_ci[0]) - 400 * log(1 - old_ci[1]) - 400 * log(old_ci[0])
-    //                   +
-    //                    400 * log(old_ci[1]) + 427999 / 100)) /
+    //                   (400 * tlog(1 - old_ci[0]) - 400 * tlog(1 - old_ci[1]) -
+    //                    400 * tlog(old_ci[0]) + 400 * tlog(old_ci[1]) + 427999 / 100)) /
     //                      (400 * (old_ci[0] - old_ci[0] * _h[_qp] + old_ci[1] * _h[_qp] +
     //                              old_ci[0] * old_ci[0] * _h[_qp] - old_ci[1] * old_ci[1] *
     //                              _h[_qp] - old_ci[0] * old_ci[0])));
 
-    new_ci[0] = old_ci[0] - (old_ci[1] * _h[_qp] - _c[_qp] - old_ci[0] * (_h[_qp] - 1) +
-                             (_h[_qp] * (200 * old_ci[0] - 200 * old_ci[1] + 80)) / 200);
+    // new_ci[0] = old_ci[0] -
+    //             ((old_ci[0] * (old_ci[0] - 1) *
+    //               (_c[_qp] - old_ci[1] * _h[_qp] + old_ci[0] * (_h[_qp] - 1))) /
+    //                  (old_ci[0] - old_ci[0] * _h[_qp] + old_ci[1] * _h[_qp] +
+    //                   Utility::pow<2>(old_ci[0]) * _h[_qp] - Utility::pow<2>(old_ci[1]) * _h[_qp]
+    //                   - Utility::pow<2>(old_ci[0])) -
+    //              (old_ci[0] * old_ci[1] * _h[_qp] * (old_ci[0] - 1) * (old_ci[1] - 1) *
+    //               (400 * tlog(1 - old_ci[0]) - 400 * tlog(1 - old_ci[1]) - 400 * tlog(old_ci[0])
+    //               +
+    //                400 * tlog(old_ci[1]) + 427999 / 100)) /
+    //                  (400 * (old_ci[0] - old_ci[0] * _h[_qp] + old_ci[1] * _h[_qp] +
+    //                          Utility::pow<2>(old_ci[0]) * _h[_qp] -
+    //                          Utility::pow<2>(old_ci[1]) * _h[_qp] -
+    //                          Utility::pow<2>(old_ci[0]))));
+    //
+    // new_ci[1] = old_ci[1] -
+    //             ((old_ci[1] * (old_ci[1] - 1) *
+    //               (_c[_qp] - old_ci[1] * _h[_qp] + old_ci[0] * (_h[_qp] - 1))) /
+    //                  (old_ci[0] - old_ci[0] * _h[_qp] + old_ci[1] * _h[_qp] +
+    //                   Utility::pow<2>(old_ci[0]) * _h[_qp] - Utility::pow<2>(old_ci[1]) * _h[_qp]
+    //                   - Utility::pow<2>(old_ci[0])) -
+    //              (old_ci[0] * old_ci[1] * (old_ci[0] - 1) * (old_ci[1] - 1) * (_h[_qp] - 1) *
+    //               (400 * tlog(1 - old_ci[0]) - 400 * tlog(1 - old_ci[1]) - 400 * tlog(old_ci[0])
+    //               +
+    //                400 * tlog(old_ci[1]) + 427999 / 100)) /
+    //                  (400 * (old_ci[0] - old_ci[0] * _h[_qp] + old_ci[1] * _h[_qp] +
+    //                          Utility::pow<2>(old_ci[0]) * _h[_qp] -
+    //                          Utility::pow<2>(old_ci[1]) * _h[_qp] -
+    //                          Utility::pow<2>(old_ci[0]))));
 
-    new_ci[1] = old_ci[1] - (old_ci[1] * _h[_qp] - _c[_qp] +
-                             (_h[_qp] / 200 - 1 / 200) * (200 * old_ci[0] - 200 * old_ci[1] + 80) -
-                             old_ci[0] * (_h[_qp] - 1));
+    new_ci[0] = old_ci[0] -
+                ((old_ci[0] * (old_ci[0] - 1) *
+                  (_c[_qp] - old_ci[1] * _h[_qp] + old_ci[0] * (_h[_qp] - 1))) /
+                     (old_ci[0] - old_ci[0] * _h[_qp] + old_ci[1] * _h[_qp] +
+                      Utility::pow<2>(old_ci[0]) * _h[_qp] - Utility::pow<2>(old_ci[1]) * _h[_qp] -
+                      Utility::pow<2>(old_ci[0])) -
+                 (old_ci[0] * old_ci[1] * _h[_qp] * (old_ci[0] - 1) * (old_ci[1] - 1) *
+                  (400 * tlog(1 - old_ci[0]) - 400 * tlog(1 - old_ci[1]) - 400 * tlog(old_ci[0]) +
+                   400 * tlog(old_ci[1]) + 427999 / 100)) /
+                     (400 * (old_ci[0] - old_ci[0] * _h[_qp] + old_ci[1] * _h[_qp] +
+                             Utility::pow<2>(old_ci[0]) * _h[_qp] -
+                             Utility::pow<2>(old_ci[1]) * _h[_qp] - Utility::pow<2>(old_ci[0]))));
 
-    err = sqrt((new_ci[0] - old_ci[0]) * (new_ci[0] - old_ci[0]) +
-               (new_ci[1] - old_ci[1]) * (new_ci[1] - old_ci[1]));
+    new_ci[1] = old_ci[1] -
+                ((old_ci[1] * (old_ci[1] - 1) *
+                  (_c[_qp] - old_ci[1] * _h[_qp] + old_ci[0] * (_h[_qp] - 1))) /
+                     (old_ci[0] - old_ci[0] * _h[_qp] + old_ci[1] * _h[_qp] +
+                      Utility::pow<2>(old_ci[0]) * _h[_qp] - Utility::pow<2>(old_ci[1]) * _h[_qp] -
+                      Utility::pow<2>(old_ci[0])) -
+                 (old_ci[0] * old_ci[1] * (old_ci[0] - 1) * (old_ci[1] - 1) * (_h[_qp] - 1) *
+                  (400 * tlog(1 - old_ci[0]) - 400 * tlog(1 - old_ci[1]) - 400 * tlog(old_ci[0]) +
+                   400 * tlog(old_ci[1]) + 427999 / 100)) /
+                     (400 * (old_ci[0] - old_ci[0] * _h[_qp] + old_ci[1] * _h[_qp] +
+                             Utility::pow<2>(old_ci[0]) * _h[_qp] -
+                             Utility::pow<2>(old_ci[1]) * _h[_qp] - Utility::pow<2>(old_ci[0]))));
+
+    // new_ci[0] = old_ci[0] - (old_ci[1] * _h[_qp] - _c[_qp] - old_ci[0] * (_h[_qp] - 1) +
+    //                          (_h[_qp] * (200 * old_ci[0] - 200 * old_ci[1] + 80)) / 200);
+    //
+    // new_ci[1] = old_ci[1] - (old_ci[1] * _h[_qp] - _c[_qp] +
+    //                          (_h[_qp] / 200 - 1 / 200) * (200 * old_ci[0] - 200 * old_ci[1] + 80)
+    //                          - old_ci[0] * (_h[_qp] - 1));
+    //
+
+    // err =
+    //     std::sqrt(Utility::pow<2>(new_ci[0] - old_ci[0]) + Utility::pow<2>(new_ci[1] -
+    //     old_ci[1]));
+
+    // err = std::sqrt(Utility::pow<2>(400 * tlog(1 - new_ci[1]) - 400 * tlog(1 - new_ci[0]) +
+    //                                 400 * tlog(new_ci[0]) - 400 * tlog(new_ci[1]) - 427999 / 100)
+    //                                 +
+    //                 Utility::pow<2>(_c[_qp] - ((1 - _h[_qp]) * new_ci[0] + _h[_qp] *
+    //                 new_ci[1])));
+
+    err = std::sqrt((400 * tlog(1 - new_ci[1]) - 400 * tlog(1 - new_ci[0]) + 400 * tlog(new_ci[0]) -
+                     400 * tlog(new_ci[1]) - 427999 / 100) *
+                        (400 * tlog(1 - new_ci[1]) - 400 * tlog(1 - new_ci[0]) +
+                         400 * tlog(new_ci[0]) - 400 * tlog(new_ci[1]) - 427999 / 100) +
+                    (_c[_qp] - ((1 - _h[_qp]) * new_ci[0] + _h[_qp] * new_ci[1])) *
+                        (_c[_qp] - ((1 - _h[_qp]) * new_ci[0] + _h[_qp] * new_ci[1])));
 
     old_ci = new_ci; // update ci
 
-    // std::cout << "Newton iteration loop " << nloop << ", error norm is " << err << std::endl;
+    std::cout << "Newton iteration loop " << nloop << ", error norm is " << err << std::endl;
+    Real ut;
+    Real st;
+    ut = Utility::pow<2>(3);
+    st = 3 * 3;
+    std::cout << "ut is " << ut << ", and st is " << st << std::endl;
 
     if (err < _tol)
       break;
   }
 
-  // std::cout << "c1 is " << new_ci[0] << ", and c2 is " << new_ci[1] << std::endl;
-  //
-  // std::cout << "Next qp point" << std::endl;
+  std::cout << "c1 is " << new_ci[0] << ", and c2 is " << new_ci[1] << std::endl;
+
+  n_qp += 1;
+
+  std::cout << "qp point " << n_qp << std::endl;
 
   for (unsigned int i = 0; i < 2; ++i)
     (*_ci_prop[i])[_qp] = new_ci[i];
 
   // (*_ci_prop[0])[_qp] = 0.668;
   // (*_ci_prop[1])[_qp] = 0.000045399;
+
+  // (*_ci_prop[0])[_qp] = 0.6;
+  // (*_ci_prop[1])[_qp] = 0.1;
 }
