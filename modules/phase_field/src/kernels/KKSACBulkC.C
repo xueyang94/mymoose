@@ -22,15 +22,16 @@ KKSACBulkC::validParams()
 }
 
 KKSACBulkC::KKSACBulkC(const InputParameters & parameters)
-  : KKSACBulkBase(parameters),
-    _prop_A1(getMaterialProperty<Real>("A1_name")),
-    _prop_dA1(getMaterialPropertyDerivative<Real>("A1_name", _eta_name)),
-    _prop_dA1darg(_n_args)
+  : KKSACBulkBase(parameters), _prop_A1(getMaterialProperty<Real>("A1_name"))
+// _prop_dA1(getMaterialPropertyDerivative<Real>("A1_name", _eta_name)),
+// _prop_dA1darg(_n_args)
 {
-  // get second partial derivatives wrt ca and other coupled variable
-  for (unsigned int i = 0; i < _n_args; ++i)
-    _prop_dA1darg[i] = &getMaterialPropertyDerivative<Real>("A1_name", i);
 }
+// {
+//   // get second partial derivatives wrt ca and other coupled variable
+//   for (unsigned int i = 0; i < _n_args; ++i)
+//     _prop_dA1darg[i] = &getMaterialPropertyDerivative<Real>("A1_name", i);
+// }
 
 Real
 KKSACBulkC::computeDFDOP(PFFunctionType type)
@@ -41,7 +42,8 @@ KKSACBulkC::computeDFDOP(PFFunctionType type)
       return _prop_dh[_qp] * _prop_A1[_qp];
 
     case Jacobian:
-      return _phi[_j][_qp] * (_prop_d2h[_qp] * _prop_A1[_qp] + _prop_dh[_qp] * _prop_dA1[_qp]);
+      // return _phi[_j][_qp] * (_prop_d2h[_qp] * _prop_A1[_qp] + _prop_dh[_qp] * _prop_dA1[_qp]);
+      return _phi[_j][_qp] * (_prop_d2h[_qp] * _prop_A1[_qp]);
   }
 
   mooseError("Invalid type passed in");
@@ -50,14 +52,15 @@ KKSACBulkC::computeDFDOP(PFFunctionType type)
 Real
 KKSACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
 {
-  // first get dependence of mobility _L on other variables using parent class
-  // member function
-  Real res = ACBulk<Real>::computeQpOffDiagJacobian(jvar);
-
-  //  for all other vars get the coupled variable jvar is referring to
-  const unsigned int cvar = mapJvarToCvar(jvar);
-
-  res += _L[_qp] * _prop_dh[_qp] * (*_prop_dA1darg[cvar])[_qp] * _phi[_j][_qp] * _test[_i][_qp];
-
-  return res;
+  // // first get dependence of mobility _L on other variables using parent class
+  // // member function
+  // Real res = ACBulk<Real>::computeQpOffDiagJacobian(jvar);
+  //
+  // //  for all other vars get the coupled variable jvar is referring to
+  // const unsigned int cvar = mapJvarToCvar(jvar);
+  //
+  // res += _L[_qp] * _prop_dh[_qp] * (*_prop_dA1darg[cvar])[_qp] * _phi[_j][_qp] * _test[_i][_qp];
+  //
+  // return res;
+  return 0.0;
 }

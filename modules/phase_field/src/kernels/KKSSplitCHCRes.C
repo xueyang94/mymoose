@@ -29,15 +29,17 @@ KKSSplitCHCRes::validParams()
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
   : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
     _A2(getMaterialProperty<Real>("A2_name")),
-    _dA2dc(getMaterialPropertyDerivative<Real>("A2_name", _var.name())), // d(A2)/dc
-    _dA2darg(_n_args),
+    // _dA2dc(getMaterialPropertyDerivative<Real>("A2_name", _var.name())), // d(A2)/dc
+    // _dA2darg(_n_args),
     _w_var(coupled("w")),
     _w(coupledValue("w"))
 {
-  // get the second derivative material property
-  for (unsigned int i = 0; i < _n_args; ++i)
-    _dA2darg[i] = &getMaterialPropertyDerivative<Real>("A2_name", i);
 }
+// {
+//   // get the second derivative material property
+//   for (unsigned int i = 0; i < _n_args; ++i)
+//     _dA2darg[i] = &getMaterialPropertyDerivative<Real>("A2_name", i);
+// }
 
 // void
 // KKSSplitCHCRes::initialSetup()
@@ -76,20 +78,26 @@ KKSSplitCHCRes::computeQpResidual()
   return (_A2[_qp] - _w[_qp]) * _test[_i][_qp];
 }
 
+// Real
+// KKSSplitCHCRes::computeQpJacobian()
+// {
+//   return _phi[_j][_qp] * _dA2dc[_qp] * _test[_i][_qp];
+// }
+
 Real
 KKSSplitCHCRes::computeQpJacobian()
 {
-  return _phi[_j][_qp] * _dA2dc[_qp] * _test[_i][_qp];
+  return 0.0;
 }
 
 Real
 KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
 {
   // treat w variable explicitly
-  if (jvar == _w_var)
-    return -_phi[_j][_qp] * _test[_i][_qp];
+  // if (jvar == _w_var)
+  return -_phi[_j][_qp] * _test[_i][_qp];
 
   // get the coupled variable jvar is referring to
-  const unsigned int cvar = mapJvarToCvar(jvar);
-  return _phi[_j][_qp] * _test[_i][_qp] * (*_dA2darg[cvar])[_qp];
+  // const unsigned int cvar = mapJvarToCvar(jvar);
+  // return _phi[_j][_qp] * _test[_i][_qp] * (*_dA2darg[cvar])[_qp];
 }

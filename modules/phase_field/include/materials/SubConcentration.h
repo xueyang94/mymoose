@@ -30,7 +30,9 @@ protected:
 
   std::vector<MaterialProperty<Real> *> _ci_prop;
 
-  const Real _tol;
+  const Real _abs_tol;
+
+  const Real _rel_tol;
 
   const unsigned int _maxiter;
 };

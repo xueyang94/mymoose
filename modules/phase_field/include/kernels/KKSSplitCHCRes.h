@@ -42,10 +42,10 @@ protected:
 
 private:
   const MaterialProperty<Real> & _A2;
-  const MaterialProperty<Real> & _dA2dc;
+  // const MaterialProperty<Real> & _dA2dc;
 
   /// Second derivatives of fa with respect to all ca and coupled variables
-  std::vector<const MaterialProperty<Real> *> _dA2darg;
+  // std::vector<const MaterialProperty<Real> *> _dA2darg;
 
   /// Chemical potential
   unsigned int _w_var;
