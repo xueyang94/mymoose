@@ -49,13 +49,13 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _ci_prop[i] = &declareProperty<Real>(_ci_name[i]);
 }
 
-unsigned int n_qp{0};
+// unsigned int n_qp{0};
 
 void
 SubConcentration::computeQpProperties()
 {
-  n_qp += 1;
-  std::cout << "qp point " << n_qp << std::endl;
+  // n_qp += 1;
+  // std::cout << "qp point " << n_qp << std::endl;
 
   std::vector<Real> old_ci{0.4, 0.6};
 
