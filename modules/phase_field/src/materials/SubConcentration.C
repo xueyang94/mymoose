@@ -54,13 +54,16 @@ unsigned int n_qp{0};
 void
 SubConcentration::computeQpProperties()
 {
+  n_qp += 1;
+  std::cout << "qp point " << n_qp << std::endl;
+
   std::vector<Real> old_ci{0.4, 0.6};
 
   std::vector<Real> new_ci(2);
 
   std::vector<Real> init_err(2);
   std::vector<Real> abs_err(2);
-  std::vector<Real> rel_err(2);
+  // std::vector<Real> rel_err(2);
   float init_err_norm;
   float abs_err_norm;
   float rel_err_norm;
@@ -71,7 +74,6 @@ SubConcentration::computeQpProperties()
 
   for (unsigned int nloop = 0; nloop < _maxiter; ++nloop)
   {
-
     new_ci[0] = old_ci[0] - (old_ci[0] - _c[_qp] + (2 * _h[_qp]) / 5);
 
     new_ci[1] = old_ci[1] - (old_ci[1] - _c[_qp] + (2 * _h[_qp]) / 5 - 0.4);
@@ -80,10 +82,11 @@ SubConcentration::computeQpProperties()
     abs_err[1] = _c[_qp] - new_ci[1] * _h[_qp] + new_ci[0] * (_h[_qp] - 1);
     abs_err_norm = std::sqrt(Utility::pow<2>(abs_err[0]) + Utility::pow<2>(abs_err[1]));
 
-    rel_err_norm = abs(abs_err_norm / init_err_norm);
+    rel_err_norm = std::abs(abs_err_norm / init_err_norm);
 
-    std::cout << "Newton iteration loop " << nloop << ", the absolute error norm is "
-              << abs_err_norm << ", and the relative error norm is " << rel_err_norm << std::endl;
+    // std::cout << "Newton iteration loop " << nloop << ", the absolute error norm is "
+    //           << abs_err_norm << ", and the relative error norm is " << rel_err_norm <<
+    //           std::endl;
 
     old_ci = new_ci; // update ci
 
@@ -93,12 +96,8 @@ SubConcentration::computeQpProperties()
       break;
   }
 
-  std::cout << "c1 is " << new_ci[0] << ", and c2 is " << new_ci[1] << ", c is " << _c[_qp]
-            << ", and h is " << _h[_qp] << std::endl;
-
-  n_qp += 1;
-
-  std::cout << "qp point " << n_qp << std::endl;
+  // std::cout << "c1 is " << new_ci[0] << ", and c2 is " << new_ci[1] << ", c is " << _c[_qp]
+  //           << ", and h is " << _h[_qp] << std::endl;
 
   for (unsigned int i = 0; i < 2; ++i)
     (*_ci_prop[i])[_qp] = new_ci[i];
