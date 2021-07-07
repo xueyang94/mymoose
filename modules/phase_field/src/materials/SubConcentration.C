@@ -72,12 +72,9 @@ SubConcentration::computeQpProperties()
   for (unsigned int nloop = 0; nloop < _maxiter; ++nloop)
   {
 
-    new_ci[0] = old_ci[0] - (old_ci[1] * _h[_qp] - _c[_qp] - old_ci[0] * (_h[_qp] - 1) +
-                             (_h[_qp] * (200 * old_ci[0] - 200 * old_ci[1] + 80)) / 200);
+    new_ci[0] = old_ci[0] - (old_ci[0] - _c[_qp] + (2 * _h[_qp]) / 5);
 
-    new_ci[1] = old_ci[1] - (old_ci[1] * _h[_qp] - _c[_qp] +
-                             (_h[_qp] / 200 - 1 / 200) * (200 * old_ci[0] - 200 * old_ci[1] + 80) -
-                             old_ci[0] * (_h[_qp] - 1));
+    new_ci[1] = old_ci[1] - (old_ci[1] - _c[_qp] + (2 * _h[_qp]) / 5 - 0.4);
 
     abs_err[0] = 200 * new_ci[0] - 200 * new_ci[1] + 80;
     abs_err[1] = _c[_qp] - new_ci[1] * _h[_qp] + new_ci[0] * (_h[_qp] - 1);
@@ -85,30 +82,24 @@ SubConcentration::computeQpProperties()
 
     rel_err_norm = abs(abs_err_norm / init_err_norm);
 
-    // std::cout << "Newton iteration loop " << nloop << ", the absolute error norm is "
-    //           << abs_err_norm << ", and the relative error norm is " << rel_err_norm <<
-    //           std::endl;
+    std::cout << "Newton iteration loop " << nloop << ", the absolute error norm is "
+              << abs_err_norm << ", and the relative error norm is " << rel_err_norm << std::endl;
+
+    old_ci = new_ci; // update ci
 
     if (abs_err_norm < _abs_tol)
       break;
     else if (rel_err_norm < _rel_tol)
       break;
-    else
-      old_ci = new_ci; // update ci
   }
 
-  // std::cout << "c1 is " << new_ci[0] << ", and c2 is " << new_ci[1] << std::endl;
+  std::cout << "c1 is " << new_ci[0] << ", and c2 is " << new_ci[1] << ", c is " << _c[_qp]
+            << ", and h is " << _h[_qp] << std::endl;
 
   n_qp += 1;
 
-  // std::cout << "qp point " << n_qp << std::endl;
+  std::cout << "qp point " << n_qp << std::endl;
 
   for (unsigned int i = 0; i < 2; ++i)
     (*_ci_prop[i])[_qp] = new_ci[i];
-
-  // (*_ci_prop[0])[_qp] = 0.668;
-  // (*_ci_prop[1])[_qp] = 0.000045399;
-
-  // (*_ci_prop[0])[_qp] = 0.6;
-  // (*_ci_prop[1])[_qp] = 0.1;
 }
