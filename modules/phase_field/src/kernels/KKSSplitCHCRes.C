@@ -29,7 +29,7 @@ KKSSplitCHCRes::validParams()
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
   : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
     _A2(getMaterialProperty<Real>("A2_name")),
-    // _dA2dc(getMaterialPropertyDerivative<Real>("A2_name", _var.name())), // d(A2)/dc
+    _dA2dc(getMaterialPropertyDerivative<Real>("A2_name", _var.name())), // d(A2)/dc
     _dA2darg(_n_args),
     _w_var(coupled("w")),
     _w(coupledValue("w"))
@@ -77,16 +77,10 @@ KKSSplitCHCRes::computeQpResidual()
   return (_A2[_qp] - _w[_qp]) * _test[_i][_qp];
 }
 
-// Real
-// KKSSplitCHCRes::computeQpJacobian()
-// {
-//   return _phi[_j][_qp] * _dA2dc[_qp] * _test[_i][_qp];
-// }
-
 Real
 KKSSplitCHCRes::computeQpJacobian()
 {
-  return 0.0;
+  return _phi[_j][_qp] * _dA2dc[_qp] * _test[_i][_qp];
 }
 
 Real
