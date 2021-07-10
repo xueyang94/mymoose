@@ -28,10 +28,17 @@ public:
   KKSACBulkC(const InputParameters & parameters);
 
 protected:
+  // virtual void initialSetup();
   virtual Real computeDFDOP(PFFunctionType type);
+  // virtual Real computeQpResidual();
+  // virtual Real computeQpJacobian();
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-  const MaterialProperty<Real> & _prop_A1;
-  const MaterialProperty<Real> & _prop_dA1;
-  std::vector<const MaterialProperty<Real> *> _prop_dA1darg;
+private:
+  // const MaterialProperty<Real> & _A1;
+  const VariableValue & _eta;
+  const VariableValue & _c;
+  //   const MaterialProperty<Real> & _prop_A1;
+  //   const MaterialProperty<Real> & _prop_dA1;
+  //   std::vector<const MaterialProperty<Real> *> _prop_dA1darg;
 };

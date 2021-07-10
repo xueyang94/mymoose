@@ -18,9 +18,9 @@ KKSSplitCHCRes::validParams()
   params.addClassDescription(
       "KKS model kernel for the split Bulk Cahn-Hilliard term. This kernel operates on the "
       "physical concentration 'c' as the non-linear variable");
-  params.addRequiredParam<MaterialPropertyName>("A2_name", "dFadca");
-  // params.addCoupledVar("args_a", "Vector of additional arguments to A2_name");
-  params.addCoupledVar("args", "args");
+  // params.addRequiredParam<MaterialPropertyName>("A2_name", "dFadca");
+  params.addRequiredCoupledVar("eta_name", "The name of the order parameter");
+  params.addRequiredCoupledVar("global_c_name", "The name of the global concentration");
   params.addRequiredCoupledVar("w",
                                "Chemical potential non-linear helper variable for the split solve");
   return params;
@@ -28,59 +28,30 @@ KKSSplitCHCRes::validParams()
 
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
   : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
-    _A2(getMaterialProperty<Real>("A2_name")),
-    _dA2dc(getMaterialPropertyDerivative<Real>("A2_name", _var.name())), // d(A2)/dc
-    _dA2darg(_n_args),
+    // _A2(getMaterialProperty<Real>("A2_name")),
+    _eta(coupledValue("eta_name")),
+    _c(coupledValue("global_c_name")),
     _w_var(coupled("w")),
     _w(coupledValue("w"))
 
 {
-  // get the second derivative material property
-  for (unsigned int i = 0; i < _n_args; ++i)
-    _dA2darg[i] = &getMaterialPropertyDerivative<Real>("A2_name", i);
 }
-
-// void
-// KKSSplitCHCRes::initialSetup()
-// {
-//   validateNonlinearCoupling<Real>("A2_name");
-//   validateDerivativeMaterialPropertyBase<Real>("A2_name");
-// }
-
-// Real
-// KKSSplitCHCRes::computeQpResidual()
-// {
-//   Real residual = SplitCHBase::computeQpResidual();
-//   residual += -_w[_qp] * _test[_i][_qp];
-//
-//   return residual;
-// }
-//
-// Real
-// KKSSplitCHCRes::computeDFDC(PFFunctionType type)
-// {
-//   switch (type)
-//   {
-//     case Residual:
-//       return _A2[_qp];
-//
-//     case Jacobian:
-//       return _phi[_j][_qp] * _dA2dc[_qp];
-//   }
-//
-//   mooseError("Invalid type passed in");
-// }
 
 Real
 KKSSplitCHCRes::computeQpResidual()
 {
-  return (_A2[_qp] - _w[_qp]) * _test[_i][_qp];
+  return (200 * (_c[_qp] -
+                 0.4 * _eta[_qp] * _eta[_qp] * _eta[_qp] *
+                     (6.0 * _eta[_qp] * _eta[_qp] - 15.0 * _eta[_qp] + 10.0) -
+                 0.3) -
+          _w[_qp]) *
+         _test[_i][_qp];
 }
 
 Real
 KKSSplitCHCRes::computeQpJacobian()
 {
-  return _phi[_j][_qp] * _dA2dc[_qp] * _test[_i][_qp];
+  return 200 * _phi[_j][_qp] * _test[_i][_qp];
 }
 
 Real
@@ -90,7 +61,7 @@ KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
   if (jvar == _w_var)
     return -_phi[_j][_qp] * _test[_i][_qp];
 
-  // get the coupled variable jvar is referring to
-  const unsigned int cvar = mapJvarToCvar(jvar);
-  return _phi[_j][_qp] * _test[_i][_qp] * (*_dA2darg[cvar])[_qp];
+  // eta is the couple variable
+  return -80 * (30.0 * _eta[_qp] * _eta[_qp] * (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0)) *
+         _phi[_j][_qp] * _test[_i][_qp];
 }

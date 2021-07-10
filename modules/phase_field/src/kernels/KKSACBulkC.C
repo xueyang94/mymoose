@@ -17,19 +17,21 @@ KKSACBulkC::validParams()
   InputParameters params = KKSACBulkBase::validParams();
   params.addClassDescription("KKS model kernel (part 2 of 2) for the Bulk Allen-Cahn. This "
                              "includes all terms dependent on chemical potential.");
-  params.addRequiredParam<MaterialPropertyName>("A1_name", "The product of dFadca and ca-cb");
+  // params.addRequiredParam<MaterialPropertyName>("A1_name", "The product of dFadca and ca-cb");
+  params.addRequiredCoupledVar("eta_name", "The name of the order parameter");
+  params.addRequiredCoupledVar("global_c_name", "The name of the global concentration");
   return params;
 }
 
 KKSACBulkC::KKSACBulkC(const InputParameters & parameters)
   : KKSACBulkBase(parameters),
-    _prop_A1(getMaterialProperty<Real>("A1_name")),
-    _prop_dA1(getMaterialPropertyDerivative<Real>("A1_name", _eta_name)),
-    _prop_dA1darg(_n_args)
+    // _A1(getMaterialProperty<Real>("A1_name")),
+    _eta(coupledValue("eta_name")),
+    _c(coupledValue("global_c_name"))
 {
-  // get second partial derivatives wrt ca and other coupled variable
-  for (unsigned int i = 0; i < _n_args; ++i)
-    _prop_dA1darg[i] = &getMaterialPropertyDerivative<Real>("A1_name", i);
+  // // get second partial derivatives wrt ca and other coupled variable
+  // for (unsigned int i = 0; i < _n_args; ++i)
+  //   _prop_dA1darg[i] = &getMaterialPropertyDerivative<Real>("A1_name", i);
 }
 
 Real
@@ -38,27 +40,53 @@ KKSACBulkC::computeDFDOP(PFFunctionType type)
   switch (type)
   {
     case Residual:
-      return _prop_dh[_qp] * _prop_A1[_qp];
+      return 30.0 * _eta[_qp] * _eta[_qp] * (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0) * 80 *
+             (0.3 +
+              0.4 * (_eta[_qp] * _eta[_qp] * _eta[_qp] *
+                     (6.0 * _eta[_qp] * _eta[_qp] - 15.0 * _eta[_qp] + 10.0)) -
+              _c[_qp]);
 
     case Jacobian:
-      return _phi[_j][_qp] * (_prop_d2h[_qp] * _prop_A1[_qp] + _prop_dh[_qp] * _prop_dA1[_qp]);
-      // return _phi[_j][_qp] * (_prop_d2h[_qp] * _prop_A1[_qp]);
+      return _phi[_j][_qp] * 80 *
+             (0.3 * _eta[_qp] * (120.0 * _eta[_qp] * _eta[_qp] - 180.0 * _eta[_qp] + 60.0) +
+              0.4 * _eta[_qp] * (120.0 * _eta[_qp] * _eta[_qp] - 180.0 * _eta[_qp] + 60.0) *
+                  _eta[_qp] * _eta[_qp] * _eta[_qp] *
+                  (6.0 * _eta[_qp] * _eta[_qp] - 15.0 * _eta[_qp] + 10.0) -
+              _c[_qp] * _eta[_qp] * (120.0 * _eta[_qp] * _eta[_qp] - 180.0 * _eta[_qp] + 60.0) +
+              0.4 * 30.0 * _eta[_qp] * _eta[_qp] * (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0) *
+                  30.0 * _eta[_qp] * _eta[_qp] * (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0));
   }
 
   mooseError("Invalid type passed in");
 }
+
+// Real
+// KKSACBulkC::computeQpResidual()
+// {
+//   return _prop_dh[_qp] * _prop_A1[_qp] * _test[_i][_qp];
+// }
+//
+// Real
+// KKSACBulkC::computeQpJacobian()
+// {
+//   return _phi[_j][_qp] * (_prop_d2h[_qp] * _prop_A1[_qp] + _prop_dh[_qp] * _prop_dA1[_qp]) *
+//          _test[_i][_qp];
+// }
 
 Real
 KKSACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
 {
   // first get dependence of mobility _L on other variables using parent class
   // member function
-  Real res = ACBulk<Real>::computeQpOffDiagJacobian(jvar);
+  // Real res = ACBulk<Real>::computeQpOffDiagJacobian(jvar);
 
   //  for all other vars get the coupled variable jvar is referring to
-  const unsigned int cvar = mapJvarToCvar(jvar);
+  // const unsigned int cvar = mapJvarToCvar(jvar);
 
-  res += _L[_qp] * _prop_dh[_qp] * (*_prop_dA1darg[cvar])[_qp] * _phi[_j][_qp] * _test[_i][_qp];
+  // res += _L[_qp] * _prop_dh[_qp] * (*_prop_dA1darg[cvar])[_qp] * _phi[_j][_qp] * _test[_i][_qp];
 
-  return res;
+  // return res;
+
+  return -80 * 30.0 * _eta[_qp] * _eta[_qp] * (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0) *
+         _phi[_j][_qp] * _test[_i][_qp];
 }

@@ -19,20 +19,23 @@ public:
   SubConcentration(const InputParameters & parameters);
 
 protected:
+  virtual void initQpStatefulProperties() override;
   virtual void computeQpProperties() override;
 
-  // const std::vector<const VariableValue *> _c;
   const VariableValue & _c;
 
   const MaterialProperty<Real> & _h;
 
-  std::vector<MaterialPropertyName> _ci_name;
-
-  std::vector<MaterialProperty<Real> *> _ci_prop;
+  MaterialProperty<Real> & _c1;
+  MaterialProperty<Real> & _c2;
+  const MaterialProperty<Real> & _c1_old;
+  const MaterialProperty<Real> & _c2_old;
 
   const Real _abs_tol;
 
   const Real _rel_tol;
 
   const unsigned int _maxiter;
+
+  unsigned int n_qp;
 };
