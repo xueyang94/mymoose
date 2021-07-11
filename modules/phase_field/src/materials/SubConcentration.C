@@ -38,8 +38,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _h(getMaterialProperty<Real>("h_name")),
     _c1(declareProperty<Real>("c1_name")),
     _c2(declareProperty<Real>("c2_name")),
-    _c1_old(getMaterialPropertyOld<Real>("c1_name")),
-    _c2_old(getMaterialPropertyOld<Real>("c2_name")),
+    // _c1_old(getMaterialPropertyOld<Real>("c1_name")),
+    // _c2_old(getMaterialPropertyOld<Real>("c2_name")),
     _abs_tol(getParam<Real>("absolute_tol_value")),
     _rel_tol(getParam<Real>("relative_tol_value")),
     _maxiter(getParam<Real>("max_iteration"))
@@ -47,20 +47,23 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 {
 }
 
-void
-SubConcentration::initQpStatefulProperties()
-{
-  _c1[_qp] = 0.4;
-  _c2[_qp] = 0.6;
-}
+// void
+// SubConcentration::initQpStatefulProperties()
+// {
+//   _c1[_qp] = 0.4;
+//   _c2[_qp] = 0.6;
+// }
 
 void
 SubConcentration::computeQpProperties()
 {
   std::vector<Real> old_ci_Newton(2);
 
-  old_ci_Newton[0] = _c1_old[_qp];
-  old_ci_Newton[1] = _c2_old[_qp];
+  // old_ci_Newton[0] = _c1_old[_qp];
+  // old_ci_Newton[1] = _c2_old[_qp];
+
+  old_ci_Newton[0] = 0.4;
+  old_ci_Newton[1] = 0.6;
 
   std::vector<Real> init_err(2);
   std::vector<Real> abs_err(2);

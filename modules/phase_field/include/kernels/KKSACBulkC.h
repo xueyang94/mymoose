@@ -9,7 +9,8 @@
 
 #pragma once
 
-#include "KKSACBulkBase.h"
+// #include "KKSACBulkBase.h"
+#include "Kernel.h"
 
 // Forward Declarations
 
@@ -20,7 +21,8 @@
  *
  * The non-linear variable for this Kernel is the order parameter 'eta'.
  */
-class KKSACBulkC : public KKSACBulkBase
+// class KKSACBulkC : public KKSACBulkBase
+class KKSACBulkC : public Kernel
 {
 public:
   static InputParameters validParams();
@@ -29,16 +31,21 @@ public:
 
 protected:
   // virtual void initialSetup();
-  virtual Real computeDFDOP(PFFunctionType type);
-  // virtual Real computeQpResidual();
-  // virtual Real computeQpJacobian();
+  // virtual Real computeDFDOP(PFFunctionType type);
+  virtual Real computeQpResidual();
+  virtual Real computeQpJacobian();
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-private:
+  // private:
   // const MaterialProperty<Real> & _A1;
+  // std::string _eta_name;
   const VariableValue & _eta;
   const VariableValue & _c;
-  //   const MaterialProperty<Real> & _prop_A1;
-  //   const MaterialProperty<Real> & _prop_dA1;
-  //   std::vector<const MaterialProperty<Real> *> _prop_dA1darg;
+  // Chemical potential
+  unsigned int _w_var;
+  const VariableValue & _w;
+  // const MaterialProperty<Real> & _dh;
+  // const MaterialProperty<Real> & _prop_A1;
+  // const MaterialProperty<Real> & _prop_dA1;
+  // std::vector<const MaterialProperty<Real> *> _prop_dA1darg;
 };
