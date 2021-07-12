@@ -36,16 +36,15 @@ protected:
   virtual Real computeQpJacobian();
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-  // private:
-  // const MaterialProperty<Real> & _A1;
-  // std::string _eta_name;
   const VariableValue & _eta;
-  const VariableValue & _c;
+  const MaterialProperty<Real> & _c1;
+  const MaterialProperty<Real> & _c2;
+  const MaterialProperty<Real> & _dc1dc;
+  const MaterialProperty<Real> & _dc1deta;
+  const MaterialProperty<Real> & _dc2dc;
+  const MaterialProperty<Real> & _dc2deta;
+
   // Chemical potential
   unsigned int _w_var;
   const VariableValue & _w;
-  // const MaterialProperty<Real> & _dh;
-  // const MaterialProperty<Real> & _prop_A1;
-  // const MaterialProperty<Real> & _prop_dA1;
-  // std::vector<const MaterialProperty<Real> *> _prop_dA1darg;
 };

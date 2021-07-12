@@ -42,19 +42,11 @@ protected:
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
 private:
-  // const MaterialProperty<Real> & _A2;
-  // const MaterialProperty<Real> & _dA2dc;
-
-  /// Second derivatives of fa with respect to all ca and coupled variables
-  // std::vector<const MaterialProperty<Real> *> _dA2darg;
-
-  // unsigned int _eta_var;
-  const VariableValue & _eta;
-  const VariableValue & _c;
+  const MaterialProperty<Real> & _c1;
+  const MaterialProperty<Real> & _dc1dc;
+  const MaterialProperty<Real> & _dc1deta;
 
   /// Chemical potential
   unsigned int _w_var;
   const VariableValue & _w;
-
-  // const MaterialProperty<Real> & _prop_dg;
 };
