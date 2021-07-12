@@ -46,7 +46,7 @@ KKSSplitCHCRes::computeQpResidual()
 Real
 KKSSplitCHCRes::computeQpJacobian()
 {
-  return _dc1dc * (400 / _c1[_qp] + 400 / (1 - _c1[_qp])) * _phi[_j][_qp] * _test[_i][_qp];
+  return _dc1dc[_qp] * (400 / _c1[_qp] + 400 / (1 - _c1[_qp])) * _phi[_j][_qp] * _test[_i][_qp];
 }
 
 Real
@@ -56,6 +56,6 @@ KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
   if (jvar == _w_var)
     return -_phi[_j][_qp] * _test[_i][_qp];
 
-  // eta is the couple variable
+  // eta is the coupled variable
   return _dc1deta[_qp] * (400 / _c1[_qp] + 400 / (1 - _c1[_qp])) * _phi[_j][_qp] * _test[_i][_qp];
 }

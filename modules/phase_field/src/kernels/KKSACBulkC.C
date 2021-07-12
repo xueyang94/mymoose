@@ -24,6 +24,8 @@ KKSACBulkC::validParams()
   params.addRequiredParam<MaterialPropertyName>("dc1deta_name", "The name of dc1/deta");
   params.addRequiredParam<MaterialPropertyName>("dc2dc_name", "The name of dc2/dc");
   params.addRequiredParam<MaterialPropertyName>("dc2deta_name", "The name of dc2/deta");
+  params.addRequiredCoupledVar("w",
+                               "Chemical potential non-linear helper variable for the split solve");
   return params;
 }
 
@@ -63,13 +65,13 @@ KKSACBulkC::computeQpJacobian()
 Real
 KKSACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
 {
-
+  // treat w variable explicitly
   if (jvar == _w_var)
     return 0.0;
 
   // c is the coupled variable
   return 30.0 * _eta[_qp] * _eta[_qp] * (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0) *
          ((_c1[_qp] - _c2[_qp]) * _dc1dc[_qp] * (400 / _c1[_qp] + 400 / (1 - _c1[_qp])) +
-          (400 * log(_c1[_qp]) - 400 * log(1 - _c1[_qp]) - 28) * (_dc1dc[_qp] - dc2dc[_qp])) *
+          (400 * log(_c1[_qp]) - 400 * log(1 - _c1[_qp]) - 28) * (_dc1dc[_qp] - _dc2dc[_qp])) *
          _phi[_j][_qp] * _test[_i][_qp];
 }

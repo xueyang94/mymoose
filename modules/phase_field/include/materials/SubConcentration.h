@@ -23,16 +23,17 @@ protected:
   virtual void computeQpProperties() override;
 
   const VariableValue & _c;
-  const MaterialProperty<Real> & _c_mat;
-  const MaterialProperty<Real> & _c_mat_old;
-  const MaterialProperty<Real> & _eta_mat;
-  const MaterialProperty<Real> & _eta_mat_old;
+  // MaterialProperty<Real> & _c_mat;
+  // const MaterialProperty<Real> & _c_mat_old;
+  const VariableValue & _eta;
+  // MaterialProperty<Real> & _eta_mat;
+  // const MaterialProperty<Real> & _eta_mat_old;
   const MaterialProperty<Real> & _h;
 
   MaterialProperty<Real> & _c1;
   MaterialProperty<Real> & _c2;
-  const MaterialProperty<Real> & _c1_old;
-  const MaterialProperty<Real> & _c2_old;
+  // const MaterialProperty<Real> & _c1_old;
+  // const MaterialProperty<Real> & _c2_old;
 
   const Real _abs_tol;
 
@@ -42,6 +43,6 @@ protected:
 
   MaterialProperty<Real> & _dc1dc;
   MaterialProperty<Real> & _dc1deta;
-  MaterialProperty<Real> & _dc1dc;
-  MaterialProperty<Real> & _dc1deta;
+  MaterialProperty<Real> & _dc2dc;
+  MaterialProperty<Real> & _dc2deta;
 };
