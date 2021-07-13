@@ -47,7 +47,7 @@ Real
 KKSACBulkC::computeQpResidual()
 {
   return (30.0 * _eta[_qp] * _eta[_qp] * (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0)) *
-         (400 * log(_c1[_qp]) - 400 * log(1 - _c1[_qp]) - 28 - _w[_qp]) * (_c1[_qp] - _c2[_qp]) *
+         (400 * log(_c1[_qp]) - 400 * log(1 - _c1[_qp]) - 28) * (_c1[_qp] - _c2[_qp]) *
          _test[_i][_qp];
 }
 
@@ -57,8 +57,9 @@ KKSACBulkC::computeQpJacobian()
   return (_eta[_qp] * (120.0 * _eta[_qp] * _eta[_qp] - 180.0 * _eta[_qp] + 60.0) *
               (400 * log(_c1[_qp]) - 400 * log(1 - _c1[_qp]) - 28) * (_c1[_qp] - _c2[_qp]) +
           30.0 * _eta[_qp] * _eta[_qp] * (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0) *
-              (_c1[_qp] - _c2[_qp]) * _dc1deta[_qp] * (400 / _c1[_qp] + 400 / (1 - _c1[_qp])) +
-          (400 * log(_c1[_qp]) - 400 * log(1 - _c1[_qp]) - 28) * (_dc1deta[_qp] - _dc2deta[_qp])) *
+              ((_c1[_qp] - _c2[_qp]) * _dc1deta[_qp] * (400 / _c1[_qp] + 400 / (1 - _c1[_qp])) +
+               (400 * log(_c1[_qp]) - 400 * log(1 - _c1[_qp]) - 28) *
+                   (_dc1deta[_qp] - _dc2deta[_qp]))) *
          _phi[_j][_qp] * _test[_i][_qp];
 }
 
