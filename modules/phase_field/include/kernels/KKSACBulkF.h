@@ -9,7 +9,8 @@
 
 #pragma once
 
-#include "KKSACBulkBase.h"
+// #include "KKSACBulkBase.h"
+#include "Kernel.h"
 
 // Forward Declarations
 
@@ -20,7 +21,7 @@
  *
  * The non-linear variable for this Kernel is the order parameter 'eta'.
  */
-class KKSACBulkF : public KKSACBulkBase
+class KKSACBulkF : public Kernel
 {
 public:
   static InputParameters validParams();
@@ -28,21 +29,27 @@ public:
   KKSACBulkF(const InputParameters & parameters);
 
 protected:
-  virtual Real computeDFDOP(PFFunctionType type);
+  virtual Real computeQpResidual();
+  virtual Real computeQpJacobian();
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
   /// double well height parameter
-  Real _w;
+  Real _m;
 
-  /// Derivative of the double well function \f$ \frac d{d\eta} g(\eta) \f$
-  const MaterialProperty<Real> & _prop_dg;
+  const VariableValue & _eta;
+  const MaterialProperty<Real> & _c1;
+  const MaterialProperty<Real> & _c2;
 
-  /// Second derivative of the double well function \f$ \frac {d^2}{d\eta^2} g(\eta) \f$
-  const MaterialProperty<Real> & _prop_d2g;
+  const MaterialProperty<Real> & _dc1dc;
+  const MaterialProperty<Real> & _dc1deta;
+  const MaterialProperty<Real> & _dc2dc;
+  const MaterialProperty<Real> & _dc2deta;
 
-  /// Value of the free energy function \f$ F_b \f$
-  const MaterialProperty<Real> & _prop_Fb;
+  const MaterialProperty<Real> & _L;
+  const MaterialProperty<Real> & _f1;
+  const MaterialProperty<Real> & _f2;
 
-  /// Derivative of the free energy function \f$ \frac d{d\eta} F_b \f$
-  const MaterialProperty<Real> & _prop_dFb;
+  // Chemical potential
+  unsigned int _w_var;
+  // const VariableValue & _w;
 };

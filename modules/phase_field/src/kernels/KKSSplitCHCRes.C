@@ -14,7 +14,8 @@ registerMooseObject("PhaseFieldApp", KKSSplitCHCRes);
 InputParameters
 KKSSplitCHCRes::validParams()
 {
-  InputParameters params = SplitCHBase::validParams();
+  // InputParameters params = SplitCHBase::validParams();
+  InputParameters params = Kernel::validParams();
   params.addClassDescription(
       "KKS model kernel for the split Bulk Cahn-Hilliard term. This kernel operates on the "
       "physical concentration 'c' as the non-linear variable");
@@ -27,7 +28,8 @@ KKSSplitCHCRes::validParams()
 }
 
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
-  : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
+  // : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
+  : Kernel(parameters),
     _c1(getMaterialProperty<Real>("c1_name")),
     _dc1dc(getMaterialProperty<Real>("dc1dc_name")),
     _dc1deta(getMaterialProperty<Real>("dc1deta_name")),
@@ -47,14 +49,20 @@ Real
 KKSSplitCHCRes::computeQpJacobian()
 {
   return _dc1dc[_qp] * (400 / _c1[_qp] + 400 / (1 - _c1[_qp])) * _phi[_j][_qp] * _test[_i][_qp];
+  // return 1 * (400 / _c1[_qp] + 400 / (1 - _c1[_qp])) * _phi[_j][_qp] * _test[_i][_qp];
 }
 
 Real
 KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
 {
+
   // treat w variable explicitly
   if (jvar == _w_var)
     return -_phi[_j][_qp] * _test[_i][_qp];
+
+  // Real divi;
+  // divi = 400 / (1 - _c1[_qp]);
+  // std::cout << "The divi is " << divi << std::endl;
 
   // eta is the coupled variable
   return _dc1deta[_qp] * (400 / _c1[_qp] + 400 / (1 - _c1[_qp])) * _phi[_j][_qp] * _test[_i][_qp];

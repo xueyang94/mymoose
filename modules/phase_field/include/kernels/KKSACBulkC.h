@@ -44,6 +44,9 @@ protected:
   const MaterialProperty<Real> & _dc2dc;
   const MaterialProperty<Real> & _dc2deta;
 
+  const MaterialProperty<Real> & _L;
+  // unsigned int _c_var;
+
   // Chemical potential
   unsigned int _w_var;
   const VariableValue & _w;

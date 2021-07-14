@@ -9,9 +9,10 @@
 
 #pragma once
 
-#include "SplitCHBase.h"
-#include "JvarMapInterface.h"
-#include "DerivativeMaterialInterface.h"
+// #include "SplitCHBase.h"
+// #include "JvarMapInterface.h"
+// #include "DerivativeMaterialInterface.h"
+#include "Kernel.h"
 
 // Forward Declarations
 
@@ -27,7 +28,8 @@
  * The user picks one phase free energy \f$ F_a \f$ (f_base) and its corresponding
  * phase concentration \f$ c_a \f$
  */
-class KKSSplitCHCRes : public DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>
+// class KKSSplitCHCRes : public DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>
+class KKSSplitCHCRes : public Kernel
 {
 public:
   static InputParameters validParams();
@@ -41,7 +43,7 @@ protected:
   virtual Real computeQpJacobian();
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-private:
+  // private:
   const MaterialProperty<Real> & _c1;
   const MaterialProperty<Real> & _dc1dc;
   const MaterialProperty<Real> & _dc1deta;

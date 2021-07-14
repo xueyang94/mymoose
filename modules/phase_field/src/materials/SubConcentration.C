@@ -131,6 +131,9 @@ SubConcentration::computeQpProperties()
   init_err[1] = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
   init_err_norm = std::sqrt(Utility::pow<2>(init_err[0]) + Utility::pow<2>(init_err[1]));
 
+  Real count;
+  count = 0;
+
   for (unsigned int nloop = 0; nloop < _maxiter; ++nloop)
   {
     _c1[_qp] =
@@ -172,12 +175,8 @@ SubConcentration::computeQpProperties()
          Utility::pow<2>(_c2[_qp]) * _h[_qp] - Utility::pow<2>(_c1[_qp]));
 
     _dc1deta[_qp] =
-        -(_c1[_qp] *
-          (_c1[_qp] *
-               (30.0 * _eta[_qp] * _eta[_qp] * (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0)) -
-           _c2[_qp] *
-               (30.0 * _eta[_qp] * _eta[_qp] * (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0))) *
-          (_c1[_qp] - 1)) /
+        -(_c1[_qp] * (_c1[_qp] - _c2[_qp]) * 30.0 * _eta[_qp] * _eta[_qp] *
+          (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0) * (_c1[_qp] - 1)) /
         (_c1[_qp] - _c1[_qp] * _h[_qp] + _c2[_qp] * _h[_qp] + Utility::pow<2>(_c1[_qp]) * _h[_qp] -
          Utility::pow<2>(_c2[_qp]) * _h[_qp] - Utility::pow<2>(_c1[_qp]));
 
@@ -187,22 +186,40 @@ SubConcentration::computeQpProperties()
          Utility::pow<2>(_c2[_qp]) * _h[_qp] - Utility::pow<2>(_c1[_qp]));
 
     _dc2deta[_qp] =
-        -(_c2[_qp] *
-          (_c1[_qp] *
-               (30.0 * _eta[_qp] * _eta[_qp] * (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0)) -
-           _c2[_qp] *
-               (30.0 * _eta[_qp] * _eta[_qp] * (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0))) *
-          (_c2[_qp] - 1)) /
+        -(_c2[_qp] * (_c1[_qp] - _c2[_qp]) * 30.0 * _eta[_qp] * _eta[_qp] *
+          (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0) * (_c2[_qp] - 1)) /
         (_c1[_qp] - _c1[_qp] * _h[_qp] + _c2[_qp] * _h[_qp] + Utility::pow<2>(_c1[_qp]) * _h[_qp] -
          Utility::pow<2>(_c2[_qp]) * _h[_qp] - Utility::pow<2>(_c1[_qp]));
 
+    // std::cout << "eta is " << _eta[_qp] << std::endl;
+    // std::cout << "c1 is " << _c1[_qp] << std::endl;
+    // std::cout << "c2 is " << _c2[_qp] << std::endl;
+    // std::cout << "dc1dc is " << _dc1dc[_qp] << std::endl;
+    // std::cout << "dc2dc is " << _dc2dc[_qp] << std::endl;
+    // std::cout << "dc1deta is " << _dc1deta[_qp] << std::endl;
+    // std::cout << "dc2deta is " << _dc2deta[_qp] << std::endl;
+
+    // compute the absolute Newton error
     abs_err[0] = 400 * log(1 - _c2[_qp]) - 400 * log(1 - _c1[_qp]) + 400 * log(_c1[_qp]) -
                  400 * log(_c2[_qp]) - 67;
     abs_err[1] = _c[_qp] - _c2[_qp] * _h[_qp] + _c1[_qp] * (_h[_qp] - 1);
     abs_err_norm = std::sqrt(Utility::pow<2>(abs_err[0]) + Utility::pow<2>(abs_err[1]));
 
+    // compute the relative Newton error
     rel_err_norm = std::abs(abs_err_norm / init_err_norm);
 
+    // std::cout << "current count is " << count << std::endl;
+    // count += 1;
+
+    // std::cout << "The initial error is " << init_err_norm << std::endl;
+    // std::cout << "The absolute error is " << abs_err_norm << std::endl;
+    // std::cout << "The relative error is " << rel_err_norm << std::endl;
+
+    // update ci
+    old_ci_Newton[0] = _c1[_qp];
+    old_ci_Newton[1] = _c2[_qp];
+
+    // Newton iteration convergence criterion
     if (abs_err_norm < _abs_tol)
       break;
     else if (rel_err_norm < _rel_tol)
