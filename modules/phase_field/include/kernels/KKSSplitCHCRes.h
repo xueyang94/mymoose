@@ -35,26 +35,14 @@ public:
   KKSSplitCHCRes(const InputParameters & parameters);
 
 protected:
-  // virtual Real computeDFDC(PFFunctionType type);
-  // virtual void initialSetup();
   virtual Real computeQpResidual();
   virtual Real computeQpJacobian();
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
 private:
-  // const MaterialProperty<Real> & _A2;
-  // const MaterialProperty<Real> & _dA2dc;
-
-  /// Second derivatives of fa with respect to all ca and coupled variables
-  // std::vector<const MaterialProperty<Real> *> _dA2darg;
-
-  // unsigned int _eta_var;
   const VariableValue & _eta;
-  const VariableValue & _c;
 
   /// Chemical potential
   unsigned int _w_var;
   const VariableValue & _w;
-
-  // const MaterialProperty<Real> & _prop_dg;
 };

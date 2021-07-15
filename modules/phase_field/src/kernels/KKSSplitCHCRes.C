@@ -18,9 +18,7 @@ KKSSplitCHCRes::validParams()
   params.addClassDescription(
       "KKS model kernel for the split Bulk Cahn-Hilliard term. This kernel operates on the "
       "physical concentration 'c' as the non-linear variable");
-  // params.addRequiredParam<MaterialPropertyName>("A2_name", "dFadca");
   params.addRequiredCoupledVar("eta_name", "The name of the order parameter");
-  params.addRequiredCoupledVar("global_c_name", "The name of the global concentration");
   params.addRequiredCoupledVar("w",
                                "Chemical potential non-linear helper variable for the split solve");
   return params;
@@ -28,9 +26,7 @@ KKSSplitCHCRes::validParams()
 
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
   : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
-    // _A2(getMaterialProperty<Real>("A2_name")),
     _eta(coupledValue("eta_name")),
-    _c(coupledValue("global_c_name")),
     _w_var(coupled("w")),
     _w(coupledValue("w"))
 
@@ -40,11 +36,9 @@ KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
 Real
 KKSSplitCHCRes::computeQpResidual()
 {
-  return (200 * (_c[_qp] -
-                 0.4 * _eta[_qp] * _eta[_qp] * _eta[_qp] *
-                     (6.0 * _eta[_qp] * _eta[_qp] - 15.0 * _eta[_qp] + 10.0) -
-                 0.3) -
-          _w[_qp]) *
+  Real n = _eta[_qp];
+
+  return (200 * (_u[_qp] - 0.4 * n * n * n * (6.0 * n * n - 15.0 * n + 10.0) - 0.3) - _w[_qp]) *
          _test[_i][_qp];
 }
 

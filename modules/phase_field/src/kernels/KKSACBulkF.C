@@ -20,13 +20,7 @@ KKSACBulkF::validParams()
   params.addRequiredParam<MaterialPropertyName>("L_name", "The name of the Allen-Cahn mobility");
   params.addRequiredParam<MaterialPropertyName>("f1_name", "The name of the first bulk energy");
   params.addRequiredParam<MaterialPropertyName>("f2_name", "The name of the second bulk energy");
-  params.addRequiredParam<MaterialPropertyName>("c1_name",
-                                                "The name of the first sub-concentration");
-  params.addRequiredParam<MaterialPropertyName>("c2_name",
-                                                "The name of the second sub-concentration");
   params.addRequiredParam<Real>("barrier_height", "Double well height parameter");
-  params.addRequiredCoupledVar("eta_name", "The name of the order parameter");
-  params.addRequiredCoupledVar("global_c_name", "The name of the global concentration");
   params.addRequiredCoupledVar("w", "Chemical potential");
   return params;
 }
@@ -36,11 +30,7 @@ KKSACBulkF::KKSACBulkF(const InputParameters & parameters)
     _L(getMaterialProperty<Real>("L_name")),
     _f1(getMaterialProperty<Real>("f1_name")),
     _f2(getMaterialProperty<Real>("f2_name")),
-    _c1(getMaterialProperty<Real>("c1_name")),
-    _c2(getMaterialProperty<Real>("c2_name")),
     _m(getParam<Real>("barrier_height")),
-    _eta(coupledValue("eta_name")),
-    _c(coupledValue("global_c_name")),
     _w_var(coupled("w")),
     _w(coupledValue("w"))
 {
@@ -49,8 +39,7 @@ KKSACBulkF::KKSACBulkF(const InputParameters & parameters)
 Real
 KKSACBulkF::computeQpResidual()
 {
-  Real n = _eta[_qp];
-  // n = n > 1 ? 1 : (n < 0 ? 0 : n);
+  Real n = _u[_qp];
 
   return _L[_qp] *
          (-30.0 * n * n * (n * n - 2.0 * n + 1.0) * (_f1[_qp] - _f2[_qp]) +
@@ -61,8 +50,7 @@ KKSACBulkF::computeQpResidual()
 Real
 KKSACBulkF::computeQpJacobian()
 {
-  Real n = _eta[_qp];
-  // n = n > 1 ? 1 : (n < 0 ? 0 : n);
+  Real n = _u[_qp];
 
   return _L[_qp] *
          (-n * (120.0 * n * n - 180.0 * n + 60.0) * (_f1[_qp] - _f2[_qp]) +
