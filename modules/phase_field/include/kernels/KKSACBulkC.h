@@ -35,6 +35,9 @@ protected:
 
   const MaterialProperty<Real> & _L;
 
+  const MaterialProperty<Real> & _c1;
+  const MaterialProperty<Real> & _c2;
+
   const VariableValue & _eta;
   const VariableValue & _c;
 

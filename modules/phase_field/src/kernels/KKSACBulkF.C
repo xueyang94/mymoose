@@ -18,6 +18,12 @@ KKSACBulkF::validParams()
   params.addClassDescription("KKS model kernel (part 1 of 2) for the Bulk Allen-Cahn. This "
                              "includes all terms NOT dependent on chemical potential.");
   params.addRequiredParam<MaterialPropertyName>("L_name", "The name of the Allen-Cahn mobility");
+  params.addRequiredParam<MaterialPropertyName>("f1_name", "The name of the first bulk energy");
+  params.addRequiredParam<MaterialPropertyName>("f2_name", "The name of the second bulk energy");
+  params.addRequiredParam<MaterialPropertyName>("c1_name",
+                                                "The name of the first sub-concentration");
+  params.addRequiredParam<MaterialPropertyName>("c2_name",
+                                                "The name of the second sub-concentration");
   params.addRequiredParam<Real>("barrier_height", "Double well height parameter");
   params.addRequiredCoupledVar("eta_name", "The name of the order parameter");
   params.addRequiredCoupledVar("global_c_name", "The name of the global concentration");
@@ -28,6 +34,10 @@ KKSACBulkF::validParams()
 KKSACBulkF::KKSACBulkF(const InputParameters & parameters)
   : Kernel(parameters),
     _L(getMaterialProperty<Real>("L_name")),
+    _f1(getMaterialProperty<Real>("f1_name")),
+    _f2(getMaterialProperty<Real>("f2_name")),
+    _c1(getMaterialProperty<Real>("c1_name")),
+    _c2(getMaterialProperty<Real>("c2_name")),
     _m(getParam<Real>("barrier_height")),
     _eta(coupledValue("eta_name")),
     _c(coupledValue("global_c_name")),
@@ -39,20 +49,12 @@ KKSACBulkF::KKSACBulkF(const InputParameters & parameters)
 Real
 KKSACBulkF::computeQpResidual()
 {
+  Real n = _eta[_qp];
+  // n = n > 1 ? 1 : (n < 0 ? 0 : n);
+
   return _L[_qp] *
-         (_m * 2.0 * _eta[_qp] * (_eta[_qp] - 1.0) * (2.0 * _eta[_qp] - 1.0) -
-          30.0 * _eta[_qp] * _eta[_qp] * (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0) *
-              (80 * _c[_qp] -
-               32 * _eta[_qp] * _eta[_qp] * _eta[_qp] *
-                   (6.0 * _eta[_qp] * _eta[_qp] - 15.0 * _eta[_qp] + 10.0) +
-               100 * Utility::pow<2>(_c[_qp] -
-                                     0.4 * _eta[_qp] * _eta[_qp] * _eta[_qp] *
-                                         (6.0 * _eta[_qp] * _eta[_qp] - 15.0 * _eta[_qp] + 10.0)) -
-               100 * Utility::pow<2>(_c[_qp] -
-                                     0.4 * _eta[_qp] * _eta[_qp] * _eta[_qp] *
-                                         (6.0 * _eta[_qp] * _eta[_qp] - 15.0 * _eta[_qp] + 10.0) +
-                                     0.4) +
-               6)) *
+         (-30.0 * n * n * (n * n - 2.0 * n + 1.0) * (_f1[_qp] - _f2[_qp]) +
+          _m * 2.0 * n * (n - 1.0) * (2.0 * n - 1.0)) *
          _test[_i][_qp];
 }
 
@@ -60,42 +62,11 @@ Real
 KKSACBulkF::computeQpJacobian()
 {
   Real n = _eta[_qp];
-  n = n > 1 ? 1 : (n < 0 ? 0 : n);
+  // n = n > 1 ? 1 : (n < 0 ? 0 : n);
 
   return _L[_qp] *
-         (30.0 * Utility::pow<2>(n) * (Utility::pow<2>(n) - 2.0 * n + 1.0) *
-              (200.0 *
-                   (_c[_qp] -
-                    0.4 * Utility::pow<3>(n) * (6.0 * Utility::pow<2>(n) - 15.0 * n + 10.0)) *
-                   (0.4 * Utility::pow<3>(n) * (12.0 * n - 15.0) +
-                    1.2 * Utility::pow<2>(n) * (6.0 * Utility::pow<2>(n) - 15.0 * n + 10.0)) +
-               32.0 * Utility::pow<3>(n) * (12.0 * n - 15.0) -
-               200.0 *
-                   (0.4 * Utility::pow<3>(n) * (12.0 * n - 15.0) +
-                    1.2 * Utility::pow<2>(n) * (6.0 * Utility::pow<2>(n) - 15.0 * n + 10.0)) *
-                   (_c[_qp] -
-                    0.4 * Utility::pow<3>(n) * (6.0 * Utility::pow<2>(n) - 15.0 * n + 10.0) + 0.4) +
-               96.0 * Utility::pow<2>(n) * (6.0 * Utility::pow<2>(n) - 15.0 * n + 10.0)) +
-          4.0 * _m * n * (n - 1.0) -
-          60.0 * n * (Utility::pow<2>(n) - 2.0 * n + 1.0) *
-              (80.0 * _c[_qp] +
-               100.0 * Utility::pow<2>(_c[_qp] - 0.4 * Utility::pow<3>(n) *
-                                                     (6.0 * Utility::pow<2>(n) - 15.0 * n + 10.0)) -
-               100.0 * Utility::pow<2>(_c[_qp] -
-                                       0.4 * Utility::pow<3>(n) *
-                                           (6.0 * Utility::pow<2>(n) - 15.0 * n + 10.0) +
-                                       0.4) -
-               32.0 * Utility::pow<3>(n) * (6.0 * Utility::pow<2>(n) - 15.0 * n + 10.0) + 6.0) +
-          2.0 * _m * (n - 1.0) * (2.0 * n - 1.0) + 2.0 * _m * n * (2.0 * n - 1.0) -
-          30.0 * Utility::pow<2>(n) * (2.0 * n - 2.0) *
-              (80.0 * _c[_qp] +
-               100.0 * Utility::pow<2>(_c[_qp] - 0.4 * Utility::pow<3>(n) *
-                                                     (6.0 * Utility::pow<2>(n) - 15.0 * n + 10.0)) -
-               100.0 * Utility::pow<2>(_c[_qp] -
-                                       0.4 * Utility::pow<3>(n) *
-                                           (6.0 * Utility::pow<2>(n) - 15.0 * n + 10.0) +
-                                       0.4) -
-               32.0 * Utility::pow<3>(n) * (6.0 * Utility::pow<2>(n) - 15.0 * n + 10.0) + 6.0)) *
+         (-n * (120.0 * n * n - 180.0 * n + 60.0) * (_f1[_qp] - _f2[_qp]) +
+          _m * (12.0 * (n * n - n) + 2.0)) *
          _phi[_j][_qp] * _test[_i][_qp];
 }
 

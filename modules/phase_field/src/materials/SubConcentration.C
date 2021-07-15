@@ -95,9 +95,9 @@ SubConcentration::computeQpProperties()
     old_ci_Newton[0] = _c1[_qp];
     old_ci_Newton[1] = _c2[_qp];
 
-    // std::cout << "Newton iteration loop " << nloop << ", the absolute error norm is "
-    //           << abs_err_norm << ", and the relative error norm is " << rel_err_norm <<
-    //           std::endl;
+    // std::cout << "Newton iteration loop " << nloop << ", the initial error norm is "
+    //           << init_err_norm << ", the absolute error norm is " << abs_err_norm
+    //           << ", and the relative error norm is " << rel_err_norm << std::endl;
     //
     // std::cout << "c1 is " << _c1[_qp] << ", and c2 is " << _c2[_qp] << std::endl;
 

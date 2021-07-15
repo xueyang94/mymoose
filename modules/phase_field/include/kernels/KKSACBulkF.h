@@ -35,7 +35,13 @@ protected:
 
   /// double well height parameter
   const MaterialProperty<Real> & _L;
-  Real _m;
+
+  const MaterialProperty<Real> & _f1;
+  const MaterialProperty<Real> & _f2;
+  const MaterialProperty<Real> & _c1;
+  const MaterialProperty<Real> & _c2;
+
+  const Real _m;
 
   const VariableValue & _eta;
   const VariableValue & _c;
