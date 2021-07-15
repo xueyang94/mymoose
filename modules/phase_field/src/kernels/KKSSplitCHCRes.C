@@ -14,25 +14,23 @@ registerMooseObject("PhaseFieldApp", KKSSplitCHCRes);
 InputParameters
 KKSSplitCHCRes::validParams()
 {
-  // InputParameters params = SplitCHBase::validParams();
-  InputParameters params = Kernel::validParams();
+  InputParameters params = SplitCHBase::validParams();
   params.addClassDescription(
       "KKS model kernel for the split Bulk Cahn-Hilliard term. This kernel operates on the "
       "physical concentration 'c' as the non-linear variable");
-  params.addRequiredParam<MaterialPropertyName>("c1_name", "The name of c1");
-  params.addRequiredParam<MaterialPropertyName>("dc1dc_name", "The name of dc1/dc");
-  params.addRequiredParam<MaterialPropertyName>("dc1deta_name", "The name of dc1/deta");
+  // params.addRequiredParam<MaterialPropertyName>("A2_name", "dFadca");
+  params.addRequiredCoupledVar("eta_name", "The name of the order parameter");
+  params.addRequiredCoupledVar("global_c_name", "The name of the global concentration");
   params.addRequiredCoupledVar("w",
                                "Chemical potential non-linear helper variable for the split solve");
   return params;
 }
 
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
-  // : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
-  : Kernel(parameters),
-    _c1(getMaterialProperty<Real>("c1_name")),
-    _dc1dc(getMaterialProperty<Real>("dc1dc_name")),
-    _dc1deta(getMaterialProperty<Real>("dc1deta_name")),
+  : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
+    // _A2(getMaterialProperty<Real>("A2_name")),
+    _eta(coupledValue("eta_name")),
+    _c(coupledValue("global_c_name")),
     _w_var(coupled("w")),
     _w(coupledValue("w"))
 
@@ -42,28 +40,28 @@ KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
 Real
 KKSSplitCHCRes::computeQpResidual()
 {
-  return (400 * log(_c1[_qp]) - 400 * log(1 - _c1[_qp]) - 28 - _w[_qp]) * _test[_i][_qp];
+  return (200 * (_c[_qp] -
+                 0.4 * _eta[_qp] * _eta[_qp] * _eta[_qp] *
+                     (6.0 * _eta[_qp] * _eta[_qp] - 15.0 * _eta[_qp] + 10.0) -
+                 0.3) -
+          _w[_qp]) *
+         _test[_i][_qp];
 }
 
 Real
 KKSSplitCHCRes::computeQpJacobian()
 {
-  return _dc1dc[_qp] * (400 / _c1[_qp] + 400 / (1 - _c1[_qp])) * _phi[_j][_qp] * _test[_i][_qp];
-  // return 1 * (400 / _c1[_qp] + 400 / (1 - _c1[_qp])) * _phi[_j][_qp] * _test[_i][_qp];
+  return 200 * _phi[_j][_qp] * _test[_i][_qp];
 }
 
 Real
 KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
 {
-
   // treat w variable explicitly
   if (jvar == _w_var)
     return -_phi[_j][_qp] * _test[_i][_qp];
 
-  // Real divi;
-  // divi = 400 / (1 - _c1[_qp]);
-  // std::cout << "The divi is " << divi << std::endl;
-
-  // eta is the coupled variable
-  return _dc1deta[_qp] * (400 / _c1[_qp] + 400 / (1 - _c1[_qp])) * _phi[_j][_qp] * _test[_i][_qp];
+  // eta is the couple variable
+  return -80 * (30.0 * _eta[_qp] * _eta[_qp] * (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0)) *
+         _phi[_j][_qp] * _test[_i][_qp];
 }

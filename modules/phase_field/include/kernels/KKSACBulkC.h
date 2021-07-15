@@ -21,7 +21,6 @@
  *
  * The non-linear variable for this Kernel is the order parameter 'eta'.
  */
-// class KKSACBulkC : public KKSACBulkBase
 class KKSACBulkC : public Kernel
 {
 public:
@@ -30,22 +29,14 @@ public:
   KKSACBulkC(const InputParameters & parameters);
 
 protected:
-  // virtual void initialSetup();
-  // virtual Real computeDFDOP(PFFunctionType type);
   virtual Real computeQpResidual();
   virtual Real computeQpJacobian();
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-  const VariableValue & _eta;
-  const MaterialProperty<Real> & _c1;
-  const MaterialProperty<Real> & _c2;
-  const MaterialProperty<Real> & _dc1dc;
-  const MaterialProperty<Real> & _dc1deta;
-  const MaterialProperty<Real> & _dc2dc;
-  const MaterialProperty<Real> & _dc2deta;
-
   const MaterialProperty<Real> & _L;
-  // unsigned int _c_var;
+
+  const VariableValue & _eta;
+  const VariableValue & _c;
 
   // Chemical potential
   unsigned int _w_var;
