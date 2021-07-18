@@ -14,82 +14,59 @@ registerMooseObject("PhaseFieldApp", KKSSplitCHCRes);
 InputParameters
 KKSSplitCHCRes::validParams()
 {
-  InputParameters params = SplitCHBase::validParams();
+  InputParameters params = Kernel::validParams();
   params.addClassDescription(
       "KKS model kernel for the split Bulk Cahn-Hilliard term. This kernel operates on the "
       "physical concentration 'c' as the non-linear variable");
-  params.addRequiredParam<MaterialPropertyName>(
-      "fa_name",
-      "Base name of an arbitrary phase free energy function F (f_base in the corresponding "
-      "KKSBaseMaterial)");
-  params.addRequiredCoupledVar(
-      "ca", "phase concentration corresponding to the non-linear variable of this kernel");
-  params.addCoupledVar("args_a", "Vector of additional arguments to Fa");
+  params.addRequiredParam<MaterialPropertyName>("c1_name", "The name of c1");
+  params.addRequiredParam<MaterialPropertyName>("dc1dc_name", "The name of dc1/dc");
+  params.addRequiredParam<MaterialPropertyName>("dc1deta_name", "The name of dc1/deta");
   params.addRequiredCoupledVar("w",
                                "Chemical potential non-linear helper variable for the split solve");
   return params;
 }
 
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
-  : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
-    _ca_var(coupled("ca")),
-    _ca_name(getVar("ca", 0)->name()),
-    _dFadca(getMaterialPropertyDerivative<Real>("fa_name", _ca_name)),
-    _d2Fadcadarg(_n_args),
+  : Kernel(parameters),
+    _c1(getMaterialProperty<Real>("c1_name")),
+    _dc1dc(getMaterialProperty<Real>("dc1dc_name")),
+    _dc1deta(getMaterialProperty<Real>("dc1deta_name")),
     _w_var(coupled("w")),
     _w(coupledValue("w"))
-{
-  // get the second derivative material property
-  for (unsigned int i = 0; i < _n_args; ++i)
-    _d2Fadcadarg[i] = &getMaterialPropertyDerivative<Real>("fa_name", _ca_name, i);
-}
 
-void
-KKSSplitCHCRes::initialSetup()
 {
-  validateNonlinearCoupling<Real>("fa_name");
-  validateDerivativeMaterialPropertyBase<Real>("fa_name");
 }
 
 Real
 KKSSplitCHCRes::computeQpResidual()
 {
-  Real residual = SplitCHBase::computeQpResidual();
-  residual += -_w[_qp] * _test[_i][_qp];
-
-  return residual;
+  return (800 * _c1[_qp] + 400 * _c1[_qp] * (Utility::pow<2>(_c1[_qp] - 1) - _c1[_qp] + 2) -
+          200 * Utility::pow<2>(_c1[_qp] - 1) + (400 * Utility::pow<3>(_c1[_qp] - 1)) / 3 +
+          400 * (_c1[_qp] - 1) * (Utility::pow<2>(_c1[_qp]) + _c1[_qp] + 1) +
+          200 * Utility::pow<2>(_c1[_qp]) + (400 * Utility::pow<3>(_c1[_qp])) / 3 - 680 - _w[_qp]) *
+         _test[_i][_qp];
 }
 
-/**
- * Note that per product and chain rules:
- * \f$ \frac{d}{du_j}\left(F(u)\nabla u\right) = \nabla u \frac {dF(u)}{du}\frac{du}{du_j} +
- * F(u)\frac{d\nabla u}{du_j} \f$
- * which is:
- * \f$ \nabla u \frac {dF(u)}{du} \phi_j + F(u) \nabla \phi_j \f$
- */
 Real
-KKSSplitCHCRes::computeDFDC(PFFunctionType type)
+KKSSplitCHCRes::computeQpJacobian()
 {
-  switch (type)
-  {
-    case Residual:
-      return _dFadca[_qp]; // dFa/dca ( = dFb/dcb = dF/dc)
-
-    case Jacobian:
-      return 0.0;
-  }
-
-  mooseError("Invalid type passed in");
+  return _dc1dc[_qp] *
+         (800 * Utility::pow<2>(_c1[_qp] - 1) + 400 * (2 * _c1[_qp] + 1) * (_c1[_qp] - 1) +
+          800 * Utility::pow<2>(_c1[_qp]) + 400 * _c1[_qp] * (2 * _c1[_qp] - 3) + 2400) *
+         _phi[_j][_qp] * _test[_i][_qp];
 }
 
 Real
 KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
 {
+
   // treat w variable explicitly
   if (jvar == _w_var)
     return -_phi[_j][_qp] * _test[_i][_qp];
 
-  // get the coupled variable jvar is referring to
-  const unsigned int cvar = mapJvarToCvar(jvar);
-  return _phi[_j][_qp] * _test[_i][_qp] * (*_d2Fadcadarg[cvar])[_qp];
+  // eta is the coupled variable
+  return _dc1deta[_qp] *
+         (800 * Utility::pow<2>(_c1[_qp] - 1) + 400 * (2 * _c1[_qp] + 1) * (_c1[_qp] - 1) +
+          800 * Utility::pow<2>(_c1[_qp]) + 400 * _c1[_qp] * (2 * _c1[_qp] - 3) + 2400) *
+         _phi[_j][_qp] * _test[_i][_qp];
 }

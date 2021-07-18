@@ -14,69 +14,95 @@ registerMooseObject("PhaseFieldApp", KKSACBulkC);
 InputParameters
 KKSACBulkC::validParams()
 {
-  InputParameters params = KKSACBulkBase::validParams();
+  InputParameters params = Kernel::validParams();
   params.addClassDescription("KKS model kernel (part 2 of 2) for the Bulk Allen-Cahn. This "
                              "includes all terms dependent on chemical potential.");
-  params.addRequiredCoupledVar("ca", "a-phase concentration");
-  params.addRequiredCoupledVar("cb", "b-phase concentration");
+  params.addRequiredCoupledVar("eta_name", "The name of the order parameter");
+  params.addRequiredParam<MaterialPropertyName>("c1_name", "The name of c1");
+  params.addRequiredParam<MaterialPropertyName>("c2_name", "The name of c2");
+  params.addRequiredParam<MaterialPropertyName>("dc1dc_name", "The name of dc1/dc");
+  params.addRequiredParam<MaterialPropertyName>("dc1deta_name", "The name of dc1/deta");
+  params.addRequiredParam<MaterialPropertyName>("dc2dc_name", "The name of dc2/dc");
+  params.addRequiredParam<MaterialPropertyName>("dc2deta_name", "The name of dc2/deta");
+  params.addRequiredParam<MaterialPropertyName>("L_name", "The name of the Allen-Cahn mobility");
+  params.addRequiredCoupledVar("w",
+                               "Chemical potential non-linear helper variable for the split solve");
   return params;
 }
 
 KKSACBulkC::KKSACBulkC(const InputParameters & parameters)
-  : KKSACBulkBase(parameters),
-    _ca_name(getVar("ca", 0)->name()),
-    _ca_var(coupled("ca")),
-    _ca(coupledValue("ca")),
-    _cb_name(getVar("cb", 0)->name()),
-    _cb_var(coupled("cb")),
-    _cb(coupledValue("cb")),
-    _prop_dFadca(getMaterialPropertyDerivative<Real>("fa_name", _ca_name)),
-    _prop_d2Fadca2(getMaterialPropertyDerivative<Real>("fa_name", _ca_name, _ca_name)),
-    _prop_d2Fadcadarg(_n_args)
+  : Kernel(parameters),
+    _eta(coupledValue("eta_name")),
+    _c1(getMaterialProperty<Real>("c1_name")),
+    _c2(getMaterialProperty<Real>("c2_name")),
+    _dc1dc(getMaterialProperty<Real>("dc1dc_name")),
+    _dc1deta(getMaterialProperty<Real>("dc1deta_name")),
+    _dc2dc(getMaterialProperty<Real>("dc2dc_name")),
+    _dc2deta(getMaterialProperty<Real>("dc2deta_name")),
+    _L(getMaterialProperty<Real>("L_name")),
+    _w_var(coupled("w")),
+    _w(coupledValue("w"))
 {
-  // get second partial derivatives wrt ca and other coupled variable
-  for (unsigned int i = 0; i < _n_args; ++i)
-    _prop_d2Fadcadarg[i] = &getMaterialPropertyDerivative<Real>("fa_name", _ca_name, i);
 }
 
 Real
-KKSACBulkC::computeDFDOP(PFFunctionType type)
+KKSACBulkC::computeQpResidual()
 {
-  const Real A1 = _prop_dFadca[_qp] * (_ca[_qp] - _cb[_qp]);
-  switch (type)
-  {
-    case Residual:
-      return _prop_dh[_qp] * A1;
+  Real n = _eta[_qp];
 
-    case Jacobian:
-      return _phi[_j][_qp] * _prop_d2h[_qp] * A1;
-  }
-
-  mooseError("Invalid type passed in");
+  return _L[_qp] * (30.0 * n * n * (n * n - 2.0 * n + 1.0)) *
+         (800 * _c1[_qp] + 400 * _c1[_qp] * (Utility::pow<2>(_c1[_qp] - 1) - _c1[_qp] + 2) -
+          200 * Utility::pow<2>(_c1[_qp] - 1) + (400 * Utility::pow<3>(_c1[_qp] - 1)) / 3 +
+          400 * (_c1[_qp] - 1) * (Utility::pow<2>(_c1[_qp]) + _c1[_qp] + 1) +
+          200 * Utility::pow<2>(_c1[_qp]) + (400 * Utility::pow<3>(_c1[_qp])) / 3 - 680) *
+         (_c1[_qp] - _c2[_qp]) * _test[_i][_qp];
 }
 
 Real
-KKSACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
+KKSACBulkC::computeQpJacobian()
 {
-  // first get dependence of mobility _L on other variables using parent class
-  // member function
-  Real res = ACBulk<Real>::computeQpOffDiagJacobian(jvar);
+  Real n = _eta[_qp];
 
-  // Then add dependence of KKSACBulkF on other variables
-  // Treat ca and cb specially, as they appear in the residual
-  if (jvar == _ca_var)
-    return res + _L[_qp] * _prop_dh[_qp] *
-                     ((_ca[_qp] - _cb[_qp]) * _prop_d2Fadca2[_qp] + _prop_dFadca[_qp]) *
-                     _phi[_j][_qp] * _test[_i][_qp];
-
-  if (jvar == _cb_var)
-    return res - _L[_qp] * _prop_dh[_qp] * _prop_dFadca[_qp] * _phi[_j][_qp] * _test[_i][_qp];
-
-  //  for all other vars get the coupled variable jvar is referring to
-  const unsigned int cvar = mapJvarToCvar(jvar);
-
-  res += _L[_qp] * _prop_dh[_qp] * (*_prop_d2Fadcadarg[cvar])[_qp] * (_ca[_qp] - _cb[_qp]) *
+  return _L[_qp] *
+         (n * (120.0 * n * n - 180.0 * n + 60.0) *
+              (800 * _c1[_qp] + 400 * _c1[_qp] * (Utility::pow<2>(_c1[_qp] - 1) - _c1[_qp] + 2) -
+               200 * Utility::pow<2>(_c1[_qp] - 1) + (400 * Utility::pow<3>(_c1[_qp] - 1)) / 3 +
+               400 * (_c1[_qp] - 1) * (Utility::pow<2>(_c1[_qp]) + _c1[_qp] + 1) +
+               200 * Utility::pow<2>(_c1[_qp]) + (400 * Utility::pow<3>(_c1[_qp])) / 3 - 680) *
+              (_c1[_qp] - _c2[_qp]) +
+          30.0 * n * n * (n * n - 2.0 * n + 1.0) *
+              (_dc1deta[_qp] * (_c1[_qp] - _c2[_qp]) *
+                   (800 * Utility::pow<2>(_c1[_qp] - 1) +
+                    400 * (2 * _c1[_qp] + 1) * (_c1[_qp] - 1) + 800 * Utility::pow<2>(_c1[_qp]) +
+                    400 * _c1[_qp] * (2 * _c1[_qp] - 3) + 2400) +
+               (_dc1deta[_qp] - _dc2deta[_qp]) *
+                   (800 * _c1[_qp] +
+                    400 * _c1[_qp] * (Utility::pow<2>(_c1[_qp] - 1) - _c1[_qp] + 2) -
+                    200 * Utility::pow<2>(_c1[_qp] - 1) +
+                    (400 * Utility::pow<3>(_c1[_qp] - 1)) / 3 +
+                    400 * (_c1[_qp] - 1) * (Utility::pow<2>(_c1[_qp]) + _c1[_qp] + 1) +
+                    200 * Utility::pow<2>(_c1[_qp]) + (400 * Utility::pow<3>(_c1[_qp])) / 3 -
+                    680))) *
          _phi[_j][_qp] * _test[_i][_qp];
+}
 
-  return res;
+Real KKSACBulkC::computeQpOffDiagJacobian(unsigned int jvar) // needs to multiply the mobility L
+{
+  Real n = _eta[_qp];
+
+  // treat w variable explicitly
+  if (jvar == _w_var)
+    return 0.0;
+
+  // c is the coupled variable
+  return _L[_qp] * 30.0 * n * n * (n * n - 2.0 * n + 1.0) *
+         ((_c1[_qp] - _c2[_qp]) * _dc1dc[_qp] *
+              (800 * Utility::pow<2>(_c1[_qp] - 1) + 400 * (2 * _c1[_qp] + 1) * (_c1[_qp] - 1) +
+               800 * Utility::pow<2>(_c1[_qp]) + 400 * _c1[_qp] * (2 * _c1[_qp] - 3) + 2400) +
+          (800 * _c1[_qp] + 400 * _c1[_qp] * (Utility::pow<2>(_c1[_qp] - 1) - _c1[_qp] + 2) -
+           200 * Utility::pow<2>(_c1[_qp] - 1) + (400 * Utility::pow<3>(_c1[_qp] - 1)) / 3 +
+           400 * (_c1[_qp] - 1) * (Utility::pow<2>(_c1[_qp]) + _c1[_qp] + 1) +
+           200 * Utility::pow<2>(_c1[_qp]) + (400 * Utility::pow<3>(_c1[_qp])) / 3 - 680) *
+              (_dc1dc[_qp] - _dc2dc[_qp])) *
+         _phi[_j][_qp] * _test[_i][_qp];
 }
