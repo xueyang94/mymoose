@@ -44,7 +44,7 @@ SubConcentration::validParams()
   params.addRequiredParam<MaterialPropertyName>(
       "dc2deta_name", "The approximated first derivative of c2 w.r.t. eta");
   params.addRequiredParam<Real>(
-      "log_tol_value", "The maximum value to start using Taylor expansion of log functions");
+      "plog_tol_value", "The maximum value to start using the Taylor expansion of log functions");
   return params;
 }
 
@@ -68,7 +68,7 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _dc1deta(declareProperty<Real>("dc1deta_name")),
     _dc2dc(declareProperty<Real>("dc2dc_name")),
     _dc2deta(declareProperty<Real>("dc2deta_name")),
-    _tol(getParam<Real>("log_tol_value"))
+    _tol(getParam<Real>("plog_tol_value"))
 
 {
 }
@@ -76,13 +76,13 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 void
 SubConcentration::initQpStatefulProperties()
 {
+  // init the ci property (this will become _c1_old and _c2_old in the first call of
+  // computeProperties)
   _c1[_qp] = 0.6;
   _c2[_qp] = 0.1;
-
-  // _c_mat[_qp] = _c[_qp];
-  // _eta_mat[_qp] = _eta[_qp];
 }
 
+// Taylor expansion defination of plog()
 Real
 tlog(Real x, Real eps)
 {
@@ -93,10 +93,10 @@ tlog(Real x, Real eps)
 void
 SubConcentration::computeQpProperties()
 {
-  // FunctionParserADBase<Real> fparser;
+  FunctionParserADBase<Real> fparser;
 
-  // std::string f1 = "sin(a*x)+x^2*(3+sin(3*x))+a + log(x)";
-  // std::string f2 = "x + a";
+  // std::string f1 = "x^2 + 3*a^3";
+  // std::string f2 = "5*x + 7*a^2";
   //
   // // Parse the input expression into bytecode
   // fparser.Parse(f1, "x,a");
@@ -128,27 +128,30 @@ SubConcentration::computeQpProperties()
   std::string f1;
   std::string f2;
 
+  // f1 and f2 equations due to the tol in plog()
   if (old_ci_Newton[0] < _tol && old_ci_Newton[1] < _tol)
   {
     f1 = "20*c1 + 300*(1 - c1) + 400*(c1*tlog(c1) + (1 - c1)*log(1 - c1))";
     f2 = "4000*c2 + 0.01*(1 - c2) + 400*(c2*tlog(c2) + (1 - c2)*log(1 - c2))";
   }
 
-  // compute df1dc1
+  Real params; // declare the params used in substitution of symbolic functions
+
+  // compute df1dc1_init
   fparser.Parse(f1, "c1");
   fparser.AutoDiff("c1");
   fparser.Optimize();
-  Real params = old_ci_Newton[0];
-  Real df1dc1 = fparser.Eval(params);
+  params = old_ci_Newton[0];
+  Real df1dc1_init = fparser.Eval(params);
 
-  // compute df2dc2
+  // compute df2dc2_init
   fparser.Parse(f2, "c2");
   fparser.AutoDiff("c2");
   fparser.Optimize();
   params = old_ci_Newton[1];
-  Real df2dc2 = fparser.Eval(params);
+  Real df2dc2_init = fparser.Eval(params);
 
-  // error of Newton iteration
+  // declarations of the error vectors and norms of Newton iteration
   std::vector<Real> init_err(2);
   std::vector<Real> abs_err(2);
 
@@ -156,7 +159,8 @@ SubConcentration::computeQpProperties()
   Real abs_err_norm;
   Real rel_err_norm;
 
-  init_err[0] = 3;
+  // compute the initial error norm
+  init_err[0] = df1dc1_init - df2dc2_init;
   init_err[1] = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
   init_err_norm = std::sqrt(Utility::pow<2>(init_err[0]) + Utility::pow<2>(init_err[1]));
 
@@ -166,114 +170,71 @@ SubConcentration::computeQpProperties()
   for (unsigned int nloop = 0; nloop < _maxiter; ++nloop)
   {
 
-    Real n = _eta[_qp];
+    // Real n = _eta[_qp];
 
-    _c1[_qp] =
-        old_ci_Newton[0] -
-        (-(840000 * _c[_qp] - 840000 * old_ci_Newton[0] + 1283997 * _h[_qp] -
-           960000 * _c[_qp] * old_ci_Newton[1] + 960000 * old_ci_Newton[0] * old_ci_Newton[1] +
-           960000 * _c[_qp] * Utility::pow<2>(old_ci_Newton[1]) -
-           960000 * old_ci_Newton[0] * Utility::pow<2>(old_ci_Newton[1]) +
-           480000 * Utility::pow<2>(old_ci_Newton[0]) * _h[_qp] -
-           320000 * Utility::pow<3>(old_ci_Newton[0]) * _h[_qp] +
-           480000 * Utility::pow<2>(old_ci_Newton[1]) * _h[_qp] -
-           640000 * Utility::pow<3>(old_ci_Newton[1]) * _h[_qp] -
-           960000 * old_ci_Newton[0] * old_ci_Newton[1] * _h[_qp] +
-           960000 * old_ci_Newton[0] * Utility::pow<2>(old_ci_Newton[1]) * _h[_qp]) /
-         (120000 * (8 * old_ci_Newton[1] * _h[_qp] - 8 * old_ci_Newton[0] * _h[_qp] -
-                    8 * old_ci_Newton[1] + 8 * Utility::pow<2>(old_ci_Newton[0]) * _h[_qp] -
-                    8 * Utility::pow<2>(old_ci_Newton[1]) * _h[_qp] +
-                    8 * Utility::pow<2>(old_ci_Newton[1]) + 7)));
+    // compute df1dc1_Jacob
+    fparser.Parse(f1, "c1");
+    fparser.AutoDiff("c1");
+    fparser.Optimize();
+    params = old_ci_Newton[0];
+    Real df1dc1_Jacob = fparser.Eval(params);
 
-    _c2[_qp] =
-        old_ci_Newton[1] -
-        (-(840000 * _c[_qp] - 840000 * old_ci_Newton[1] + 1283997 * _h[_qp] -
-           960000 * _c[_qp] * old_ci_Newton[0] +
-           960000 * _c[_qp] * Utility::pow<2>(old_ci_Newton[0]) -
-           480000 * Utility::pow<2>(old_ci_Newton[0]) * _h[_qp] +
-           640000 * Utility::pow<3>(old_ci_Newton[0]) * _h[_qp] -
-           480000 * Utility::pow<2>(old_ci_Newton[1]) * _h[_qp] +
-           320000 * Utility::pow<3>(old_ci_Newton[1]) * _h[_qp] +
-           480000 * Utility::pow<2>(old_ci_Newton[0]) - 640000 * Utility::pow<3>(old_ci_Newton[0]) +
-           480000 * Utility::pow<2>(old_ci_Newton[1]) - 320000 * Utility::pow<3>(old_ci_Newton[1]) +
-           960000 * old_ci_Newton[0] * old_ci_Newton[1] * _h[_qp] -
-           960000 * Utility::pow<2>(old_ci_Newton[0]) * old_ci_Newton[1] * _h[_qp] - 1283997) /
-         (120000 * (8 * old_ci_Newton[1] * _h[_qp] - 8 * old_ci_Newton[0] * _h[_qp] -
-                    8 * old_ci_Newton[1] + 8 * Utility::pow<2>(old_ci_Newton[0]) * _h[_qp] -
-                    8 * Utility::pow<2>(old_ci_Newton[1]) * _h[_qp] +
-                    8 * Utility::pow<2>(old_ci_Newton[1]) + 7)));
+    // compute second derivative d2c1
+    fparser.Parse(f1, "c1");
+    fparser.AutoDiff("c1");
+    fparser.AutoDiff("c1");
+    fparser.Optimize();
+    params = old_ci_Newton[0];
+    Real d2c1_Jacob = fparser.Eval(params);
 
-    // // compute dc1/dc, dc1/deta, dc2/dc, and dc2/deta
-    // _dc1dc[_qp] =
-    //     -(_c1[_qp] * (_c1[_qp] - 1)) /
-    //     (_c1[_qp] - _c1[_qp] * _h[_qp] + _c2[_qp] * _h[_qp] + Utility::pow<2>(_c1[_qp]) * _h[_qp]
-    //     -
-    //      Utility::pow<2>(_c2[_qp]) * _h[_qp] - Utility::pow<2>(_c1[_qp]));
-    //
-    // _dc1deta[_qp] =
-    //     -(_c1[_qp] * (_c1[_qp] - _c2[_qp]) * 30.0 * _eta[_qp] * _eta[_qp] *
-    //       (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0) * (_c1[_qp] - 1)) /
-    //     (_c1[_qp] - _c1[_qp] * _h[_qp] + _c2[_qp] * _h[_qp] + Utility::pow<2>(_c1[_qp]) * _h[_qp]
-    //     -
-    //      Utility::pow<2>(_c2[_qp]) * _h[_qp] - Utility::pow<2>(_c1[_qp]));
-    //
-    // _dc2dc[_qp] =
-    //     -(_c2[_qp] * (_c2[_qp] - 1)) /
-    //     (_c1[_qp] - _c1[_qp] * _h[_qp] + _c2[_qp] * _h[_qp] + Utility::pow<2>(_c1[_qp]) * _h[_qp]
-    //     -
-    //      Utility::pow<2>(_c2[_qp]) * _h[_qp] - Utility::pow<2>(_c1[_qp]));
-    //
-    // _dc2deta[_qp] =
-    //     -(_c2[_qp] * (_c1[_qp] - _c2[_qp]) * 30.0 * _eta[_qp] * _eta[_qp] *
-    //       (_eta[_qp] * _eta[_qp] - 2.0 * _eta[_qp] + 1.0) * (_c2[_qp] - 1)) /
-    //     (_c1[_qp] - _c1[_qp] * _h[_qp] + _c2[_qp] * _h[_qp] + Utility::pow<2>(_c1[_qp]) * _h[_qp]
-    //     -
-    //      Utility::pow<2>(_c2[_qp]) * _h[_qp] - Utility::pow<2>(_c1[_qp]));
+    // compute df2dc2_Jacob
+    fparser.Parse(f2, "c2");
+    fparser.AutoDiff("c2");
+    fparser.Optimize();
+    params = old_ci_Newton[1];
+    Real df2dc2_Jacob = fparser.Eval(params);
 
-    // compute dc1/dc, dc1/deta, dc2/dc, and dc2/deta
-    _dc1dc[_qp] =
-        (8.0 * Utility::pow<2>(_c2[_qp]) - 8.0 * _c2[_qp] + 7.0) /
-        (8.0 * _c2[_qp] * _h[_qp] - 8.0 * _c1[_qp] * _h[_qp] - 8.0 * _c2[_qp] +
-         8.0 * Utility::pow<2>(_c1[_qp]) * _h[_qp] - 8.0 * Utility::pow<2>(_c2[_qp]) * _h[_qp] +
-         8.0 * Utility::pow<2>(_c2[_qp]) + 7.0);
+    // compute second derivative d2c2
+    fparser.Parse(f2, "c2");
+    fparser.AutoDiff("c2");
+    fparser.AutoDiff("c2");
+    fparser.Optimize();
+    params = old_ci_Newton[1];
+    Real d2c2_Jacob = fparser.Eval(params);
 
-    _dc1deta[_qp] =
-        (30.0 * (8.0 * Utility::pow<2>(_c2[_qp]) - 8.0 * _c2[_qp] + 7.0) *
-         (_c1[_qp] * Utility::pow<2>(n) - 2.0 * _c1[_qp] * Utility::pow<3>(n) -
-          1.0 * _c2[_qp] * Utility::pow<2>(n) + _c1[_qp] * Utility::pow<4>(n) +
-          2.0 * _c2[_qp] * Utility::pow<3>(n) - 1.0 * _c2[_qp] * Utility::pow<4>(n))) /
-        (48.0 * Utility::pow<2>(_c1[_qp]) * Utility::pow<5>(n) -
-         120.0 * Utility::pow<2>(_c1[_qp]) * Utility::pow<4>(n) +
-         80.0 * Utility::pow<2>(_c1[_qp]) * Utility::pow<3>(n) -
-         48.0 * _c1[_qp] * Utility::pow<5>(n) + 120.0 * _c1[_qp] * Utility::pow<4>(n) -
-         80.0 * _c1[_qp] * Utility::pow<3>(n) -
-         48.0 * Utility::pow<2>(_c2[_qp]) * Utility::pow<5>(n) +
-         120.0 * Utility::pow<2>(_c2[_qp]) * Utility::pow<4>(n) -
-         80.0 * Utility::pow<2>(_c2[_qp]) * Utility::pow<3>(n) + 8.0 * Utility::pow<2>(_c2[_qp]) +
-         48.0 * _c2[_qp] * Utility::pow<5>(n) - 120.0 * _c2[_qp] * Utility::pow<4>(n) +
-         80.0 * _c2[_qp] * Utility::pow<3>(n) - 8.0 * _c2[_qp] + 7.0);
+    // compute eqn1 and eqn2
+    Real eqn1;
+    Real eqn2;
 
-    _dc2dc[_qp] =
-        (8.0 * Utility::pow<2>(_c1[_qp]) - 8.0 * _c1[_qp] + 7.0) /
-        (8.0 * _c2[_qp] * _h[_qp] - 8.0 * _c1[_qp] * _h[_qp] - 8.0 * _c2[_qp] +
-         8.0 * Utility::pow<2>(_c1[_qp]) * _h[_qp] - 8.0 * Utility::pow<2>(_c2[_qp]) * _h[_qp] +
-         8.0 * Utility::pow<2>(_c2[_qp]) + 7.0);
+    eqn1 = df1dc1_Jacob - df2dc2_Jacob;
+    eqn2 = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
 
-    _dc2deta[_qp] =
-        (30.0 * (8.0 * Utility::pow<2>(_c1[_qp]) - 8.0 * _c1[_qp] + 7.0) *
-         (_c1[_qp] * Utility::pow<2>(n) - 2.0 * _c1[_qp] * Utility::pow<3>(n) -
-          1.0 * _c2[_qp] * Utility::pow<2>(n) + _c1[_qp] * Utility::pow<4>(n) +
-          2.0 * _c2[_qp] * Utility::pow<3>(n) - 1.0 * _c2[_qp] * Utility::pow<4>(n))) /
-        (48.0 * Utility::pow<2>(_c1[_qp]) * Utility::pow<5>(n) -
-         120.0 * Utility::pow<2>(_c1[_qp]) * Utility::pow<4>(n) +
-         80.0 * Utility::pow<2>(_c1[_qp]) * Utility::pow<3>(n) -
-         48.0 * _c1[_qp] * Utility::pow<5>(n) + 120.0 * _c1[_qp] * Utility::pow<4>(n) -
-         80.0 * _c1[_qp] * Utility::pow<3>(n) -
-         48.0 * Utility::pow<2>(_c2[_qp]) * Utility::pow<5>(n) +
-         120.0 * Utility::pow<2>(_c2[_qp]) * Utility::pow<4>(n) -
-         80.0 * Utility::pow<2>(_c2[_qp]) * Utility::pow<3>(n) + 8.0 * Utility::pow<2>(_c2[_qp]) +
-         48.0 * _c2[_qp] * Utility::pow<5>(n) - 120.0 * _c2[_qp] * Utility::pow<4>(n) +
-         80.0 * _c2[_qp] * Utility::pow<3>(n) - 8.0 * _c2[_qp] + 7.0);
+    // terms used in the determinant
+    Real deqn1dc1;
+    Real deqn1dc2;
+    Real deqn2dc1;
+    Real deqn2dc2;
+
+    deqn1dc1 = d2c1_Jacob;
+    deqn1dc2 = -d2c2_Jacob;
+    deqn2dc1 = _h[_qp] - 1;
+    deqn2dc2 = -_h[_qp];
+
+    // The determinant of the Jacobian matrix
+    Real D;
+    D = 1 / (deqn1dc1 * deqn2dc2 - deqn1dc2 * deqn2dc1);
+
+    // compute the update of ci (inv(J)*f_vec)
+    Real update[2];
+
+    update[0] = D * (eqn1 * deqn2dc2 - eqn2 * deqn1dc2);
+
+    update[1] = D * (-eqn1 * deqn2dc1 + eqn2 * deqn1dc1);
+
+    // compute c1 and c2
+    _c1[_qp] = old_ci_Newton[0] - update[0];
+
+    _c2[_qp] = old_ci_Newton[1] - update[1];
 
     // std::cout << "eta is " << _eta[_qp] << std::endl;
     // std::cout << "c1 is " << _c1[_qp] << std::endl;
@@ -283,16 +244,21 @@ SubConcentration::computeQpProperties()
     // std::cout << "dc1deta is " << _dc1deta[_qp] << std::endl;
     // std::cout << "dc2deta is " << _dc2deta[_qp] << std::endl;
 
+    // compute df1dc1_new and df2dc2_new for calculating the updated absolute error
+    fparser.Parse(f1, "c1");
+    fparser.AutoDiff("c1");
+    fparser.Optimize();
+    params = _c1[_qp];
+    Real df1dc1_new = fparser.Eval(params);
+
+    fparser.Parse(f2, "c2");
+    fparser.AutoDiff("c2");
+    fparser.Optimize();
+    params = _c2[_qp];
+    Real df2dc2_new = fparser.Eval(params);
+
     // compute the absolute Newton error
-    abs_err[0] = 800 * _c1[_qp] - 800 * _c2[_qp] +
-                 400 * _c1[_qp] * (Utility::pow<2>(_c1[_qp] - 1) - _c1[_qp] + 2) -
-                 400 * _c2[_qp] * (Utility::pow<2>(_c2[_qp] - 1) - _c2[_qp] + 2) -
-                 200 * Utility::pow<2>(_c1[_qp] - 1) + (400 * Utility::pow<3>(_c1[_qp] - 1)) / 3 +
-                 200 * Utility::pow<2>(_c2[_qp] - 1) - (400 * Utility::pow<3>(_c2[_qp] - 1)) / 3 +
-                 400 * (_c1[_qp] - 1) * (Utility::pow<2>(_c1[_qp]) + _c1[_qp] + 1) -
-                 400 * (_c2[_qp] - 1) * (Utility::pow<2>(_c2[_qp]) + _c2[_qp] + 1) +
-                 200 * Utility::pow<2>(_c1[_qp]) + (400 * Utility::pow<3>(_c1[_qp])) / 3 -
-                 200 * Utility::pow<2>(_c2[_qp]) - (400 * Utility::pow<3>(_c2[_qp])) / 3 - 4279.99;
+    abs_err[0] = df2dc2_new - df2dc2_new;
     abs_err[1] = _c[_qp] - _c2[_qp] * _h[_qp] + _c1[_qp] * (_h[_qp] - 1);
     abs_err_norm = std::sqrt(Utility::pow<2>(abs_err[0]) + Utility::pow<2>(abs_err[1]));
 
@@ -318,4 +284,30 @@ SubConcentration::computeQpProperties()
     else if (rel_err_norm < _rel_tol)
       break;
   }
+
+  // compute dc1dc, dc2dc, dc1deta, and dc2deta
+  // ////////////////////////////////////////////////////////////////////////////////////////
+  fparser.Parse(c1_syms, "c1,c2,c,n");
+  fparser.AutoDiff("c");
+  fparser.Optimize();
+  params = {_c1[_qp], _c2[_qp], _c[_qp], _eta[_qp]};
+  Real _dc1dc[_qp] = fparser.Eval(params);
+
+  fparser.Parse(c2_syms, "c1,c2,c,n");
+  fparser.AutoDiff("c");
+  fparser.Optimize();
+  params = {_c1[_qp], _c2[_qp], _c[_qp], _eta[_qp]};
+  Real _dc2dc[_qp] = fparser.Eval(params);
+
+  fparser.Parse(c1_syms, "c1,c2,c,n");
+  fparser.AutoDiff("n");
+  fparser.Optimize();
+  params = {_c1[_qp], _c2[_qp], _c[_qp], _eta[_qp]};
+  Real _dc1deta[_qp] = fparser.Eval(params);
+
+  fparser.Parse(c2_syms, "c1,c2,c,n");
+  fparser.AutoDiff("n");
+  fparser.Optimize();
+  params = {_c1[_qp], _c2[_qp], _c[_qp], _eta[_qp]};
+  Real _dc2deta[_qp] = fparser.Eval(params);
 }
