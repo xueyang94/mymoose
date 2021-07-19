@@ -9,8 +9,8 @@
 
 #include "SubConcentration.h"
 #include "libmesh/utility.h"
-// #include "MathUtils.h"
 #include <cmath>
+#include "libmesh/fparser_ad.hh"
 
 registerMooseObject("PhaseFieldApp", SubConcentration);
 
@@ -43,10 +43,8 @@ SubConcentration::validParams()
                                                 "The approximated first derivative of c2 w.r.t. c");
   params.addRequiredParam<MaterialPropertyName>(
       "dc2deta_name", "The approximated first derivative of c2 w.r.t. eta");
-  // params.addParam<Real>("log_tol_value",
-  //                       1e-4,
-  //                       "The minimum value to use log, and the maximum value to start using
-  //                       Taylor " "expansion of log functions");
+  params.addRequiredParam<Real>(
+      "log_tol_value", "The maximum value to start using Taylor expansion of log functions");
   return params;
 }
 
@@ -69,8 +67,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _dc1dc(declareProperty<Real>("dc1dc_name")),
     _dc1deta(declareProperty<Real>("dc1deta_name")),
     _dc2dc(declareProperty<Real>("dc2dc_name")),
-    _dc2deta(declareProperty<Real>("dc2deta_name"))
-// _tol(getParam<Real>("log_tol_value"))
+    _dc2deta(declareProperty<Real>("dc2deta_name")),
+    _tol(getParam<Real>("log_tol_value"))
 
 {
 }
@@ -85,55 +83,72 @@ SubConcentration::initQpStatefulProperties()
   // _eta_mat[_qp] = _eta[_qp];
 }
 
-// // define a tlog Taylor expansion function
-// Real
-// tlog(Real x)
-// {
-//   Real approx;
-//   approx =
-//       (x - 1) - Utility::pow<2>(x - 1) / 2 + Utility::pow<3>(x - 1) / 3 -
-//       Utility::pow<4>(x - 1) / 4 + Utility::pow<5>(x - 1) / 5 - Utility::pow<6>(x - 1) / 6 +
-//       Utility::pow<7>(x - 1) / 7 - Utility::pow<8>(x - 1) / 8 + Utility::pow<9>(x - 1) / 9 -
-//       Utility::pow<10>(x - 1) / 10 + Utility::pow<11>(x - 1) / 11 - Utility::pow<12>(x - 1) / 12
-//       + Utility::pow<13>(x - 1) / 13 - Utility::pow<14>(x - 1) / 14 + Utility::pow<15>(x - 1) /
-//       15 - Utility::pow<16>(x - 1) / 16 + Utility::pow<17>(x - 1) / 17 - Utility::pow<18>(x - 1)
-//       / 18 + Utility::pow<19>(x - 1) / 19 - Utility::pow<20>(x - 1) / 20 + Utility::pow<21>(x -
-//       1) / 21 - Utility::pow<22>(x - 1) / 22 + Utility::pow<23>(x - 1) / 23 - Utility::pow<24>(x
-//       - 1) / 24 + Utility::pow<25>(x - 1) / 25 - Utility::pow<26>(x - 1) / 26 +
-//       Utility::pow<27>(x - 1) / 27 - Utility::pow<28>(x - 1) / 28 + Utility::pow<29>(x - 1) / 29
-//       - Utility::pow<30>(x - 1) / 30;
-//   return approx;
-// }
-
-// Real
-// tlog(Real x)
-// {
-//   if (x > = _tol)
-//     return log(x);
-//   else
-//     return (x - 1) - Utility::pow<2>(x - 1) / 2 + Utility::pow<3>(x - 1) / 3;
-// }
-//
-// Real
-// dlog(Real x)
-// {
-//   if (x > = _tol)
-//     return 1 / x;
-//   else
-//     return 1 - (x - 1) + Utility::pow<2>(x - 1);
-// }
+Real
+tlog(Real x, Real eps)
+{
+  return log(eps) + 1 / eps * (x - eps) - 1 / (2 * eps * eps) * (x - eps) * (x - eps) +
+         1 / (3 * eps * eps * eps) * (x - eps) * (x - eps) * (x - eps);
+}
 
 void
 SubConcentration::computeQpProperties()
 {
+  // FunctionParserADBase<Real> fparser;
 
+  // std::string f1 = "sin(a*x)+x^2*(3+sin(3*x))+a + log(x)";
+  // std::string f2 = "x + a";
+  //
+  // // Parse the input expression into bytecode
+  // fparser.Parse(f1, "x,a");
+  //
+  // // transform F -> dF/dx
+  // fparser.AutoDiff("x");
+  //
+  // // run optimizer to simplify the derivative
+  // fparser.Optimize();
+  //
+  // // evaluate the derivative (method from FParserBase<Real>)
+  // Real params[2] = {0.1, 1.7};
+  // std::cout << fparser.Eval(params) << std::endl;
+  //
+  // fparser.Parse(f2, "x,a");
+  // fparser.AutoDiff("a");
+  // fparser.Optimize();
+  // Real pp[2] = {0.1, 1.7};
+  // std::cout << fparser.Eval(pp) << std::endl;
+
+  /////////////////////////////////////////////////////////////////////////////////
   // old ci inside Newton iteration
   std::vector<Real> old_ci_Newton(2);
-  // old_ci_Newton[0] = 0.6;
-  // old_ci_Newton[1] = 0.1;
   old_ci_Newton[0] = _c1_old[_qp];
   old_ci_Newton[1] = _c2_old[_qp];
 
+  FunctionParserADBase<Real> fparser;
+
+  std::string f1;
+  std::string f2;
+
+  if (old_ci_Newton[0] < _tol && old_ci_Newton[1] < _tol)
+  {
+    f1 = "20*c1 + 300*(1 - c1) + 400*(c1*tlog(c1) + (1 - c1)*log(1 - c1))";
+    f2 = "4000*c2 + 0.01*(1 - c2) + 400*(c2*tlog(c2) + (1 - c2)*log(1 - c2))";
+  }
+
+  // compute df1dc1
+  fparser.Parse(f1, "c1");
+  fparser.AutoDiff("c1");
+  fparser.Optimize();
+  Real params = old_ci_Newton[0];
+  Real df1dc1 = fparser.Eval(params);
+
+  // compute df2dc2
+  fparser.Parse(f2, "c2");
+  fparser.AutoDiff("c2");
+  fparser.Optimize();
+  params = old_ci_Newton[1];
+  Real df2dc2 = fparser.Eval(params);
+
+  // error of Newton iteration
   std::vector<Real> init_err(2);
   std::vector<Real> abs_err(2);
 
@@ -141,19 +156,7 @@ SubConcentration::computeQpProperties()
   Real abs_err_norm;
   Real rel_err_norm;
 
-  init_err[0] =
-      800 * old_ci_Newton[0] - 800 * old_ci_Newton[1] +
-      400 * old_ci_Newton[0] * (Utility::pow<2>(old_ci_Newton[0] - 1) - old_ci_Newton[0] + 2) -
-      400 * old_ci_Newton[1] * (Utility::pow<2>(old_ci_Newton[1] - 1) - old_ci_Newton[1] + 2) -
-      200 * Utility::pow<2>(old_ci_Newton[0] - 1) +
-      (400 * Utility::pow<3>(old_ci_Newton[0] - 1)) / 3 +
-      200 * Utility::pow<2>(old_ci_Newton[1] - 1) -
-      (400 * Utility::pow<3>(old_ci_Newton[1] - 1)) / 3 +
-      400 * (old_ci_Newton[0] - 1) * (Utility::pow<2>(old_ci_Newton[0]) + old_ci_Newton[0] + 1) -
-      400 * (old_ci_Newton[1] - 1) * (Utility::pow<2>(old_ci_Newton[1]) + old_ci_Newton[1] + 1) +
-      200 * Utility::pow<2>(old_ci_Newton[0]) + (400 * Utility::pow<3>(old_ci_Newton[0])) / 3 -
-      200 * Utility::pow<2>(old_ci_Newton[1]) - (400 * Utility::pow<3>(old_ci_Newton[1])) / 3 -
-      4279.99;
+  init_err[0] = 3;
   init_err[1] = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
   init_err_norm = std::sqrt(Utility::pow<2>(init_err[0]) + Utility::pow<2>(init_err[1]));
 
@@ -164,28 +167,6 @@ SubConcentration::computeQpProperties()
   {
 
     Real n = _eta[_qp];
-
-    // _c1[_qp] = old_ci_Newton[0] -
-    //            ((old_ci_Newton[0] * (old_ci_Newton[0] - 1) *
-    //              (40000 * _c[_qp] - 40000 * old_ci_Newton[0] + 40000 * old_ci_Newton[0] *
-    //              _h[_qp]
-    //              +
-    //               387999 * old_ci_Newton[1] * _h[_qp] -
-    //               427999 * Utility::pow<2>(old_ci_Newton[1]) * _h[_qp] -
-    //               40000 * Utility::pow<2>(old_ci_Newton[1]) * _h[_qp] * tlog(1 -
-    //               old_ci_Newton[0]) + 40000 * Utility::pow<2>(old_ci_Newton[1]) * _h[_qp] *
-    //               tlog(1 - old_ci_Newton[1]) + 40000 * Utility::pow<2>(old_ci_Newton[1]) *
-    //               _h[_qp] * tlog(old_ci_Newton[0]) - 40000 * Utility::pow<2>(old_ci_Newton[1])
-    //               * _h[_qp] * tlog(old_ci_Newton[1]) + 40000 * old_ci_Newton[1] * _h[_qp] *
-    //               tlog(1
-    //               - old_ci_Newton[0]) - 40000 * old_ci_Newton[1] * _h[_qp] * tlog(1 -
-    //               old_ci_Newton[1]) - 40000 * old_ci_Newton[1] * _h[_qp] *
-    //               tlog(old_ci_Newton[0])
-    //               + 40000 * old_ci_Newton[1] * _h[_qp] * tlog(old_ci_Newton[1]))) /
-    //             (40000 * (old_ci_Newton[0] - old_ci_Newton[0] * _h[_qp] +
-    //                       old_ci_Newton[1] * _h[_qp] + Utility::pow<2>(old_ci_Newton[0]) *
-    //                       _h[_qp] - Utility::pow<2>(old_ci_Newton[1]) * _h[_qp] -
-    //                       Utility::pow<2>(old_ci_Newton[0]))));
 
     _c1[_qp] =
         old_ci_Newton[0] -
@@ -203,33 +184,6 @@ SubConcentration::computeQpProperties()
                     8 * old_ci_Newton[1] + 8 * Utility::pow<2>(old_ci_Newton[0]) * _h[_qp] -
                     8 * Utility::pow<2>(old_ci_Newton[1]) * _h[_qp] +
                     8 * Utility::pow<2>(old_ci_Newton[1]) + 7)));
-
-    // _c2[_qp] = old_ci_Newton[1] -
-    //            ((old_ci_Newton[1] * (old_ci_Newton[1] - 1) *
-    //              (40000 * _c[_qp] - 467999 * old_ci_Newton[0] +
-    //               467999 * old_ci_Newton[0] * _h[_qp] - 40000 * old_ci_Newton[1] * _h[_qp] -
-    //               40000 * old_ci_Newton[0] * tlog(1 - old_ci_Newton[0]) +
-    //               40000 * old_ci_Newton[0] * tlog(1 - old_ci_Newton[1]) -
-    //               427999 * Utility::pow<2>(old_ci_Newton[0]) * _h[_qp] +
-    //               40000 * old_ci_Newton[0] * tlog(old_ci_Newton[0]) -
-    //               40000 * old_ci_Newton[0] * tlog(old_ci_Newton[1]) +
-    //               40000 * Utility::pow<2>(old_ci_Newton[0]) * tlog(1 - old_ci_Newton[0]) -
-    //               40000 * Utility::pow<2>(old_ci_Newton[0]) * tlog(1 - old_ci_Newton[1]) +
-    //               427999 * Utility::pow<2>(old_ci_Newton[0]) -
-    //               40000 * Utility::pow<2>(old_ci_Newton[0]) * tlog(old_ci_Newton[0]) +
-    //               40000 * Utility::pow<2>(old_ci_Newton[0]) * tlog(old_ci_Newton[1]) -
-    //               40000 * Utility::pow<2>(old_ci_Newton[0]) * _h[_qp] * tlog(1 -
-    //               old_ci_Newton[0]) + 40000 * Utility::pow<2>(old_ci_Newton[0]) * _h[_qp] *
-    //               tlog(1 - old_ci_Newton[1]) + 40000 * Utility::pow<2>(old_ci_Newton[0]) *
-    //               _h[_qp] * tlog(old_ci_Newton[0]) - 40000 * Utility::pow<2>(old_ci_Newton[0]) *
-    //               _h[_qp] * tlog(old_ci_Newton[1]) + 40000 * old_ci_Newton[0] * _h[_qp] * tlog(1
-    //               - old_ci_Newton[0]) - 40000 * old_ci_Newton[0] * _h[_qp] * tlog(1 -
-    //               old_ci_Newton[1]) - 40000 * old_ci_Newton[0] * _h[_qp] * tlog(old_ci_Newton[0])
-    //               + 40000 * old_ci_Newton[0] * _h[_qp] * tlog(old_ci_Newton[1]))) /
-    //             (40000 * (old_ci_Newton[0] - old_ci_Newton[0] * _h[_qp] +
-    //                       old_ci_Newton[1] * _h[_qp] + Utility::pow<2>(old_ci_Newton[0]) *
-    //                       _h[_qp] - Utility::pow<2>(old_ci_Newton[1]) * _h[_qp] -
-    //                       Utility::pow<2>(old_ci_Newton[0]))));
 
     _c2[_qp] =
         old_ci_Newton[1] -
@@ -345,7 +299,8 @@ SubConcentration::computeQpProperties()
     // compute the relative Newton error
     rel_err_norm = std::abs(abs_err_norm / init_err_norm);
 
-    // std::cout << "current count is " << count << " %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+    // std::cout << "current count is " << count << "
+    // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
     //           << std::endl;
     count += 1;
 
