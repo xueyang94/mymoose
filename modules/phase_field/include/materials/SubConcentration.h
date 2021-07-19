@@ -45,4 +45,6 @@ protected:
   MaterialProperty<Real> & _dc1deta;
   MaterialProperty<Real> & _dc2dc;
   MaterialProperty<Real> & _dc2deta;
+
+  const Real _tol;
 };
