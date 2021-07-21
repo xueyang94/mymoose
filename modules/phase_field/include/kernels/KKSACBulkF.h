@@ -34,14 +34,20 @@ protected:
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
   /// double well height parameter
-  const MaterialProperty<Real> & _L;
+  Real _m;
 
+  const MaterialProperty<Real> & _c1;
+  const MaterialProperty<Real> & _c2;
+
+  const MaterialProperty<Real> & _dc1dc;
+  const MaterialProperty<Real> & _dc1deta;
+  const MaterialProperty<Real> & _dc2dc;
+  const MaterialProperty<Real> & _dc2deta;
+
+  const MaterialProperty<Real> & _L;
   const MaterialProperty<Real> & _f1;
   const MaterialProperty<Real> & _f2;
 
-  const Real _m;
-
   // Chemical potential
   unsigned int _w_var;
-  const VariableValue & _w;
 };
