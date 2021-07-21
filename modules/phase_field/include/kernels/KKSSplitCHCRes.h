@@ -39,9 +39,11 @@ protected:
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
   // private:
-  const MaterialProperty<Real> & _c1;
   const MaterialProperty<Real> & _dc1dc;
   const MaterialProperty<Real> & _dc1deta;
+
+  const MaterialProperty<Real> & _first_df1;
+  const MaterialProperty<Real> & _second_df1;
 
   /// Chemical potential
   unsigned int _w_var;
