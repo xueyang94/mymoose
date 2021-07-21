@@ -18,9 +18,12 @@ KKSSplitCHCRes::validParams()
   params.addClassDescription(
       "KKS model kernel for the split Bulk Cahn-Hilliard term. This kernel operates on the "
       "physical concentration 'c' as the non-linear variable");
-  params.addRequiredParam<MaterialPropertyName>("c1_name", "The name of c1");
   params.addRequiredParam<MaterialPropertyName>("dc1dc_name", "The name of dc1/dc");
   params.addRequiredParam<MaterialPropertyName>("dc1deta_name", "The name of dc1/deta");
+  params.addRequiredParam<MaterialPropertyName>("df1dc1_name",
+                                                "The name of the first derivative of f1 w.r.t. c1");
+  params.addRequiredParam<MaterialPropertyName>(
+      "d2f1dc1_name", "The name of the second derivative of f1 w.r.t. c1");
   params.addRequiredCoupledVar("w",
                                "Chemical potential non-linear helper variable for the split solve");
   return params;
@@ -28,9 +31,10 @@ KKSSplitCHCRes::validParams()
 
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
   : Kernel(parameters),
-    _c1(getMaterialProperty<Real>("c1_name")),
     _dc1dc(getMaterialProperty<Real>("dc1dc_name")),
     _dc1deta(getMaterialProperty<Real>("dc1deta_name")),
+    _first_df1(getMaterialProperty<Real>("df1dc1_name")),
+    _second_df1(getMaterialProperty<Real>("d2f1dc1_name")),
     _w_var(coupled("w")),
     _w(coupledValue("w"))
 
@@ -40,20 +44,13 @@ KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
 Real
 KKSSplitCHCRes::computeQpResidual()
 {
-  return (800 * _c1[_qp] + 400 * _c1[_qp] * (Utility::pow<2>(_c1[_qp] - 1) - _c1[_qp] + 2) -
-          200 * Utility::pow<2>(_c1[_qp] - 1) + (400 * Utility::pow<3>(_c1[_qp] - 1)) / 3 +
-          400 * (_c1[_qp] - 1) * (Utility::pow<2>(_c1[_qp]) + _c1[_qp] + 1) +
-          200 * Utility::pow<2>(_c1[_qp]) + (400 * Utility::pow<3>(_c1[_qp])) / 3 - 680 - _w[_qp]) *
-         _test[_i][_qp];
+  return (_first_df1[_qp] - _w[_qp]) * _test[_i][_qp];
 }
 
 Real
 KKSSplitCHCRes::computeQpJacobian()
 {
-  return _dc1dc[_qp] *
-         (800 * Utility::pow<2>(_c1[_qp] - 1) + 400 * (2 * _c1[_qp] + 1) * (_c1[_qp] - 1) +
-          800 * Utility::pow<2>(_c1[_qp]) + 400 * _c1[_qp] * (2 * _c1[_qp] - 3) + 2400) *
-         _phi[_j][_qp] * _test[_i][_qp];
+  return _second_df1[_qp] * _dc1dc[_qp] * _phi[_j][_qp] * _test[_i][_qp];
 }
 
 Real
@@ -65,8 +62,5 @@ KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
     return -_phi[_j][_qp] * _test[_i][_qp];
 
   // eta is the coupled variable
-  return _dc1deta[_qp] *
-         (800 * Utility::pow<2>(_c1[_qp] - 1) + 400 * (2 * _c1[_qp] + 1) * (_c1[_qp] - 1) +
-          800 * Utility::pow<2>(_c1[_qp]) + 400 * _c1[_qp] * (2 * _c1[_qp] - 3) + 2400) *
-         _phi[_j][_qp] * _test[_i][_qp];
+  return _second_df1[_qp] * _dc1deta[_qp] * _phi[_j][_qp] * _test[_i][_qp];
 }
