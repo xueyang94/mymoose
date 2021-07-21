@@ -36,18 +36,21 @@ protected:
   /// double well height parameter
   Real _m;
 
-  const VariableValue & _eta;
   const MaterialProperty<Real> & _c1;
   const MaterialProperty<Real> & _c2;
 
   const MaterialProperty<Real> & _dc1dc;
-  const MaterialProperty<Real> & _dc1deta;
   const MaterialProperty<Real> & _dc2dc;
+  const MaterialProperty<Real> & _dc1deta;
   const MaterialProperty<Real> & _dc2deta;
 
-  const MaterialProperty<Real> & _L;
   const MaterialProperty<Real> & _f1;
   const MaterialProperty<Real> & _f2;
+
+  const MaterialProperty<Real> & _first_df1;
+  const MaterialProperty<Real> & _first_df2;
+
+  const MaterialProperty<Real> & _L;
 
   // Chemical potential
   unsigned int _w_var;
