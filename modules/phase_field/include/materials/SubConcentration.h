@@ -10,8 +10,10 @@
 #pragma once
 
 #include "Material.h"
+#include "DerivativeMaterialInterface.h"
 
-class SubConcentration : public Material
+// class SubConcentration : public Material
+class SubConcentration : public DerivativeMaterialInterface<Material>
 {
 public:
   static InputParameters validParams();
@@ -23,7 +25,11 @@ protected:
   virtual void computeQpProperties() override;
 
   const VariableValue & _c;
+  std::string _c_name;
+
   const VariableValue & _eta;
+  std::string _eta_name;
+
   const MaterialProperty<Real> & _h;
 
   MaterialProperty<Real> & _c1;
@@ -49,4 +55,12 @@ protected:
   MaterialProperty<Real> & _second_df2;
 
   const Real _tol;
+
+  std::unique_ptr<FunctionParserADBase<Real>> _fparser1;
+
+  std::unique_ptr<FunctionParserADBase<Real>> _fparser2;
+
+  std::unique_ptr<FunctionParserADBase<Real>> _fparser3;
+
+  std::unique_ptr<FunctionParserADBase<Real>> _fparser4;
 };
