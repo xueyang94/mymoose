@@ -18,8 +18,8 @@ KKSSplitCHCRes::validParams()
   params.addClassDescription(
       "KKS model kernel for the split Bulk Cahn-Hilliard term. This kernel operates on the "
       "physical concentration 'c' as the non-linear variable");
-  params.addRequiredParam<MaterialPropertyName>("dc1dc_name", "The name of dc1/dc");
-  params.addRequiredParam<MaterialPropertyName>("dc1deta_name", "The name of dc1/deta");
+  params.addRequiredCoupledVar("global_c", "The interpolated concentration");
+  params.addRequiredCoupledVar("eta", "The order parameter");
   params.addRequiredParam<MaterialPropertyName>("df1dc1_name",
                                                 "The name of the first derivative of f1 w.r.t. c1");
   params.addRequiredParam<MaterialPropertyName>(
@@ -30,9 +30,14 @@ KKSSplitCHCRes::validParams()
 }
 
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
-  : Kernel(parameters),
-    _dc1dc(getMaterialProperty<Real>("dc1dc_name")),
-    _dc1deta(getMaterialProperty<Real>("dc1deta_name")),
+  // : Kernel(parameters),
+  : DerivativeMaterialInterface<Kernel>(parameters),
+    _c(coupledValue("global_c")),
+    _c_name(getVar("global_c", 0)->name()),
+    _eta(coupledValue("eta")),
+    _eta_name(getVar("eta", 0)->name()),
+    _dc1dc(getMaterialPropertyDerivative<Real>("c1_name", _c_name)),
+    _dc1deta(getMaterialPropertyDerivative<Real>("c1_name", _eta_name)),
     _first_df1(getMaterialProperty<Real>("df1dc1_name")),
     _second_df1(getMaterialProperty<Real>("d2f1dc1_name")),
     _w_var(coupled("w")),
