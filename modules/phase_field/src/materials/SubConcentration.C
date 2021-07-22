@@ -8,9 +8,9 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "SubConcentration.h"
+#include "libmesh/fparser_ad.hh"
 #include "libmesh/utility.h"
 #include <cmath>
-#include "libmesh/fparser_ad.hh"
 
 registerMooseObject("PhaseFieldApp", SubConcentration);
 
@@ -22,7 +22,7 @@ SubConcentration::validParams()
       "Computes the KKS sub-concentrations by using Newton iteration to solve the equal chemical "
       "potential and concentration conservation equations");
   params.addRequiredCoupledVar("global_c", "The interpolated concentration");
-  params.addRequiredCoupledVar("eta_name", "The order parameter");
+  params.addRequiredCoupledVar("eta", "The order parameter");
   params.addRequiredParam<MaterialPropertyName>("h_name", "Name of the switching function");
   params.addRequiredParam<MaterialPropertyName>("c1_name", "Name of the first phase concentration");
   params.addRequiredParam<MaterialPropertyName>("c2_name",
@@ -30,14 +30,6 @@ SubConcentration::validParams()
   params.addParam<Real>("absolute_tol_value", 1e-9, "Absolute tolerance of the Newton iteration");
   params.addParam<Real>("relative_tol_value", 1e-9, "Relative tolerance of the Newton iteration");
   params.addParam<Real>("max_iteration", 100, "The maximum number of Newton iterations");
-  params.addRequiredParam<MaterialPropertyName>("dc1dc_name",
-                                                "The approximated first derivative of c1 w.r.t. c");
-  params.addRequiredParam<MaterialPropertyName>("dc2dc_name",
-                                                "The approximated first derivative of c2 w.r.t. c");
-  params.addRequiredParam<MaterialPropertyName>(
-      "dc1deta_name", "The approximated first derivative of c1 w.r.t. eta");
-  params.addRequiredParam<MaterialPropertyName>(
-      "dc2deta_name", "The approximated first derivative of c2 w.r.t. eta");
   params.addRequiredParam<MaterialPropertyName>(
       "df1dc1_name", "The approximated first derivative of f1 w.r.t. c1");
   params.addRequiredParam<MaterialPropertyName>(
@@ -52,9 +44,12 @@ SubConcentration::validParams()
 }
 
 SubConcentration::SubConcentration(const InputParameters & parameters)
-  : Material(parameters),
+  // : Material(parameters),
+  : DerivativeMaterialInterface<Material>(parameters),
     _c(coupledValue("global_c")),
-    _eta(coupledValue("eta_name")),
+    _c_name(getVar("global_c", 0)->name()),
+    _eta(coupledValue("eta")),
+    _eta_name(getVar("eta", 0)->name()),
     _h(getMaterialProperty<Real>("h_name")),
     _c1(declareProperty<Real>("c1_name")),
     _c2(declareProperty<Real>("c2_name")),
@@ -63,10 +58,10 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _abs_tol(getParam<Real>("absolute_tol_value")),
     _rel_tol(getParam<Real>("relative_tol_value")),
     _maxiter(getParam<Real>("max_iteration")),
-    _dc1dc(declareProperty<Real>("dc1dc_name")),
-    _dc2dc(declareProperty<Real>("dc2dc_name")),
-    _dc1deta(declareProperty<Real>("dc1deta_name")),
-    _dc2deta(declareProperty<Real>("dc2deta_name")),
+    _dc1dc(declarePropertyDerivative<Real>("c1_name", _c_name)),
+    _dc2dc(declarePropertyDerivative<Real>("c2_name", _c_name)),
+    _dc1deta(declarePropertyDerivative<Real>("c1_name", _eta_name)),
+    _dc2deta(declarePropertyDerivative<Real>("c2_name", _eta_name)),
     _first_df1(declareProperty<Real>("df1dc1_name")),
     _first_df2(declareProperty<Real>("df2dc2_name")),
     _second_df1(declareProperty<Real>("d2f1dc1_name")),
@@ -74,6 +69,36 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _tol(getParam<Real>("plog_tol_value"))
 
 {
+  _fparser1 = std::make_unique<FunctionParserADBase<Real>>();
+  _fparser2 = std::make_unique<FunctionParserADBase<Real>>();
+  _fparser3 = std::make_unique<FunctionParserADBase<Real>>();
+  _fparser4 = std::make_unique<FunctionParserADBase<Real>>();
+
+  // declare bulk energies f1 and f2
+  std::string f1 = "2*c1 + 30*(1 - c1) + 400*(c1*plog(c1, 1e-4) + (1 - c1)*plog(1 - c1, 1e-4))";
+  std::string f2 = "40*c2 + (1 - c2) + 400*(c2*plog(c2, 1e-4) + (1 - c2)*plog(1 - c2, 1e-4))";
+
+  // parsed function of df1/dc1
+  _fparser1->Parse(f1, "c1");
+  _fparser1->AutoDiff("c1");
+  _fparser1->Optimize();
+
+  // parsed function of df2/dc2
+  _fparser2->Parse(f2, "c2");
+  _fparser2->AutoDiff("c2");
+  _fparser2->Optimize();
+
+  // parsed function of second derivative of f1 w.r.t. c1
+  _fparser3->Parse(f1, "c1");
+  _fparser3->AutoDiff("c1");
+  _fparser3->AutoDiff("c1");
+  _fparser3->Optimize();
+
+  // parsed function of second derivative of f2 w.r.t. c2
+  _fparser4->Parse(f2, "c2");
+  _fparser4->AutoDiff("c2");
+  _fparser4->AutoDiff("c2");
+  _fparser4->Optimize();
 }
 
 void
@@ -83,15 +108,6 @@ SubConcentration::initQpStatefulProperties()
   // computeProperties)
   _c1[_qp] = 0.6;
   _c2[_qp] = 0.4;
-}
-
-// Taylor expansion definition of plog()
-Real
-taylor(Real x)
-{
-  Real tol = 1e-4;
-  return log(tol) + 1 / tol * (x - tol) - 1 / (2 * tol * tol) * (x - tol) * (x - tol) +
-         1 / (3 * tol * tol * tol) * (x - tol) * (x - tol) * (x - tol);
 }
 
 void
@@ -106,82 +122,18 @@ SubConcentration::computeQpProperties()
   old_ci_Newton[0] = _c1_old[_qp];
   old_ci_Newton[1] = _c2_old[_qp];
 
-  // declare bulk energies f1 and f2
-  std::string f1;
-  std::string f2;
-
-  // f1 and f2 equations based on the range of c1 and c2
-  if (old_ci_Newton[0] < _tol && old_ci_Newton[1] < _tol)
-  {
-
-    f1 = "2*c1 + 30*(1 - c1) + 400*(c1*taylor(c1) + (1 - c1)*log(1 - c1))";
-    f2 = "40*c2 + (1 - c2) + 400*(c2*taylor(c2) + (1 - c2)*log(1 - c2))";
-  }
-  else if (old_ci_Newton[0] >= _tol && old_ci_Newton[0] < 1 && old_ci_Newton[1] < _tol)
-  {
-
-    f1 = "2*c1 + 30*(1 - c1) + 400*(c1*log(c1) + (1 - c1)*log(1 - c1))";
-    f2 = "40*c2 + (1 - c2) + 400*(c2*taylor(c2) + (1 - c2)*log(1 - c2))";
-  }
-  else if (old_ci_Newton[0] >= 1 && old_ci_Newton[1] < _tol)
-  {
-
-    f1 = "2*c1 + 30*(1 - c1) + 400*(c1*log(c1) + (1 - c1)*taylor(1 - c1))";
-    f2 = "40*c2 + (1 - c2) + 400*(c2*taylor(c2) + (1 - c2)*log(1 - c2))";
-  }
-  else if (old_ci_Newton[0] < _tol && old_ci_Newton[1] >= _tol && old_ci_Newton[1] < 1)
-  {
-
-    f1 = "2*c1 + 30*(1 - c1) + 400*(c1*taylor(c1) + (1 - c1)*log(1 - c1))";
-    f2 = "40*c2 + (1 - c2) + 400*(c2*log(c2) + (1 - c2)*log(1 - c2))";
-  }
-  else if (old_ci_Newton[0] >= _tol && old_ci_Newton[0] < 1 && old_ci_Newton[1] >= _tol &&
-           old_ci_Newton[1] < 1)
-  {
-
-    f1 = "2*c1 + 30*(1 - c1) + 400*(c1*log(c1) + (1 - c1)*log(1 - c1))";
-    f2 = "40*c2 + (1 - c2) + 400*(c2*log(c2) + (1 - c2)*log(1 - c2))";
-  }
-  else if (old_ci_Newton[0] >= 1 && old_ci_Newton[1] >= _tol && old_ci_Newton[1] < 1)
-  {
-
-    f1 = "2*c1 + 30*(1 - c1) + 400*(c1*log(c1) + (1 - c1)*taylor(1 - c1))";
-    f2 = "40*c2 + (1 - c2) + 400*(c2*log(c2) + (1 - c2)*log(1 - c2))";
-  }
-  else if (old_ci_Newton[0] < _tol && old_ci_Newton[1] >= 1)
-  {
-
-    f1 = "2*c1 + 30*(1 - c1) + 400*(c1*taylor(c1) + (1 - c1)*log(1 - c1))";
-    f2 = "40*c2 + (1 - c2) + 400*(c2*log(c2) + (1 - c2)*taylor(1 - c2))";
-  }
-  else if (old_ci_Newton[0] >= _tol && old_ci_Newton[0] < 1 && old_ci_Newton[1] >= 1)
-  {
-
-    f1 = "2*c1 + 30*(1 - c1) + 400*(c1*log(c1) + (1 - c1)*log(1 - c1))";
-    f2 = "40*c2 + (1 - c2) + 400*(c2*log(c2) + (1 - c2)*taylor(1 - c2))";
-  }
-  else if (old_ci_Newton[0] >= 1 && old_ci_Newton[1] >= 1)
-  {
-
-    f1 = "2*c1 + 30*(1 - c1) + 400*(c1*log(c1) + (1 - c1)*taylor(1 - c1))";
-    f2 = "40*c2 + (1 - c2) + 400*(c2*log(c2) + (1 - c2)*taylor(1 - c2))";
-  }
+  std::string f1 = "2*c1 + 30*(1 - c1) + 400*(c1*plog(c1, 1e-4) + (1 - c1)*plog(1 - c1, 1e-4))";
+  std::string f2 = "40*c2 + (1 - c2) + 400*(c2*plog(c2, 1e-4) + (1 - c2)*plog(1 - c2, 1e-4))";
 
   Real params[1]; // declare the params used in substitution of symbolic functions fparser.Eval()
 
   // compute df1dc1_init for computing the initial error
-  fparser.Parse(f1, "c1");
-  fparser.AutoDiff("c1");
-  fparser.Optimize();
   params[0] = {old_ci_Newton[0]};
-  Real df1dc1_init = fparser.Eval(params);
+  Real df1dc1_init = _fparser1->Eval(params);
 
   // compute df2dc2_init for computing the initial error
-  fparser.Parse(f2, "c2");
-  fparser.AutoDiff("c2");
-  fparser.Optimize();
   params[0] = {old_ci_Newton[1]};
-  Real df2dc2_init = fparser.Eval(params);
+  Real df2dc2_init = _fparser2->Eval(params);
 
   // declare the error vectors and norms of Newton iteration
   std::vector<Real> init_err(2);
@@ -205,34 +157,20 @@ SubConcentration::computeQpProperties()
   {
 
     // compute first_df1 in eqn1
-    fparser.Parse(f1, "c1");
-    fparser.AutoDiff("c1");
-    fparser.Optimize();
     params[0] = {old_ci_Newton[0]};
-    _first_df1[_qp] = fparser.Eval(params);
+    _first_df1[_qp] = _fparser1->Eval(params);
 
     // compute second derivative second_df1 in determinant D
-    fparser.Parse(f1, "c1");
-    fparser.AutoDiff("c1");
-    fparser.AutoDiff("c1");
-    fparser.Optimize();
     params[0] = {old_ci_Newton[0]};
-    _second_df1[_qp] = fparser.Eval(params);
+    _second_df1[_qp] = _fparser3->Eval(params);
 
     // compute first_df2 in eqn1
-    fparser.Parse(f2, "c2");
-    fparser.AutoDiff("c2");
-    fparser.Optimize();
     params[0] = {old_ci_Newton[1]};
-    _first_df2[_qp] = fparser.Eval(params);
+    _first_df2[_qp] = _fparser2->Eval(params);
 
     // compute second derivative second_df2 in determinant D
-    fparser.Parse(f2, "c2");
-    fparser.AutoDiff("c2");
-    fparser.AutoDiff("c2");
-    fparser.Optimize();
     params[0] = {old_ci_Newton[1]};
-    _second_df2[_qp] = fparser.Eval(params);
+    _second_df2[_qp] = _fparser4->Eval(params);
 
     // compute eqn1 and eqn2
     Real eqn1 = _first_df1[_qp] - _first_df2[_qp];
@@ -260,17 +198,11 @@ SubConcentration::computeQpProperties()
     _c2[_qp] = old_ci_Newton[1] - update[1];
 
     // compute df1dc1_new and df2dc2_new for calculating the updated absolute error
-    fparser.Parse(f1, "c1");
-    fparser.AutoDiff("c1");
-    fparser.Optimize();
     params[0] = {_c1[_qp]};
-    Real df1dc1_new = fparser.Eval(params);
+    Real df1dc1_new = _fparser1->Eval(params);
 
-    fparser.Parse(f2, "c2");
-    fparser.AutoDiff("c2");
-    fparser.Optimize();
     params[0] = {_c2[_qp]};
-    Real df2dc2_new = fparser.Eval(params);
+    Real df2dc2_new = _fparser2->Eval(params);
 
     // compute the absolute Newton error
     abs_err[0] = df1dc1_new - df2dc2_new;
@@ -324,4 +256,9 @@ SubConcentration::computeQpProperties()
   _dc2deta[_qp] = _second_df1[_qp] * (_c1[_qp] - _c2[_qp]) *
                   (30.0 * n * n * (n * n - 2.0 * n + 1.0)) /
                   (_second_df2[_qp] + _h[_qp] * (_second_df1[_qp] - _second_df2[_qp]));
+
+  // std::cout << "dc1dc is " << _dc1dc[_qp] << std::endl;
+  // std::cout << "dc2dc is " << _dc2dc[_qp] << std::endl;
+  // std::cout << "dc1deta is " << _dc1deta[_qp] << std::endl;
+  // std::cout << "dc2deta is " << _dc2deta[_qp] << std::endl;
 }
