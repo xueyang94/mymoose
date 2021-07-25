@@ -11,7 +11,7 @@
 
 // #include "KKSACBulkBase.h"
 #include "Kernel.h"
-#include "DerivativeMaterialInterface.h"
+// #include "DerivativeMaterialInterface.h"
 
 // Forward Declarations
 
@@ -23,8 +23,8 @@
  * The non-linear variable for this Kernel is the order parameter 'eta'.
  */
 
-// class KKSACBulkC : public Kernel
-class KKSACBulkC : public DerivativeMaterialInterface<Kernel>
+class KKSACBulkC : public Kernel
+// class KKSACBulkC : public DerivativeMaterialInterface<Kernel>
 {
 public:
   static InputParameters validParams();
@@ -36,11 +36,11 @@ protected:
   virtual Real computeQpJacobian();
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-  const VariableValue & _c;
-  VariableName _c_name;
-
-  const VariableValue & _eta;
-  VariableName _eta_name;
+  // const VariableValue & _c;
+  // VariableName _c_name;
+  //
+  // const VariableValue & _eta;
+  // VariableName _eta_name;
 
   const MaterialProperty<Real> & _c1;
   const MaterialProperty<Real> & _c2;

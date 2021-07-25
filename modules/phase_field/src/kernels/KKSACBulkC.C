@@ -17,10 +17,14 @@ KKSACBulkC::validParams()
   InputParameters params = Kernel::validParams();
   params.addClassDescription("KKS model kernel (part 2 of 2) for the Bulk Allen-Cahn. This "
                              "includes all terms dependent on chemical potential.");
-  params.addRequiredCoupledVar("global_c", "The interpolated concentration");
-  params.addRequiredCoupledVar("eta", "The order parameter");
+  // params.addRequiredCoupledVar("global_c", "The interpolated concentration");
+  // params.addRequiredCoupledVar("eta", "The order parameter");
   params.addRequiredParam<MaterialPropertyName>("c1_name", "The name of c1");
   params.addRequiredParam<MaterialPropertyName>("c2_name", "The name of c2");
+  params.addRequiredParam<MaterialPropertyName>("dc1dc_name", "The name of dc1/dc");
+  params.addRequiredParam<MaterialPropertyName>("dc2dc_name", "The name of dc2/dc");
+  params.addRequiredParam<MaterialPropertyName>("dc1deta_name", "The name of dc1/deta");
+  params.addRequiredParam<MaterialPropertyName>("dc2deta_name", "The name of dc2/deta");
   params.addRequiredParam<MaterialPropertyName>("df1dc1_name",
                                                 "The name of the first derivative of f1 w.r.t. c1");
   params.addRequiredParam<MaterialPropertyName>(
@@ -32,18 +36,22 @@ KKSACBulkC::validParams()
 }
 
 KKSACBulkC::KKSACBulkC(const InputParameters & parameters)
-  // : Kernel(parameters),
-  : DerivativeMaterialInterface<Kernel>(parameters),
-    _c(coupledValue("global_c")),
-    _c_name(getVar("global_c", 0)->name()),
-    _eta(coupledValue("eta")),
-    _eta_name(getVar("eta", 0)->name()),
+  : Kernel(parameters),
+    // : DerivativeMaterialInterface<Kernel>(parameters),
+    // _c(coupledValue("global_c")),
+    // _c_name(getVar("global_c", 0)->name()),
+    // _eta(coupledValue("eta")),
+    // _eta_name(getVar("eta", 0)->name()),
     _c1(getMaterialProperty<Real>("c1_name")),
     _c2(getMaterialProperty<Real>("c2_name")),
-    _dc1dc(getMaterialPropertyDerivative<Real>("c1_name", _c_name)),
-    _dc2dc(getMaterialPropertyDerivative<Real>("c2_name", _c_name)),
-    _dc1deta(getMaterialPropertyDerivative<Real>("c1_name", _eta_name)),
-    _dc2deta(getMaterialPropertyDerivative<Real>("c2_name", _eta_name)),
+    _dc1dc(getMaterialProperty<Real>("dc1dc_name")),
+    _dc2dc(getMaterialProperty<Real>("dc2dc_name")),
+    _dc1deta(getMaterialProperty<Real>("dc1deta_name")),
+    _dc2deta(getMaterialProperty<Real>("dc2deta_name")),
+    // _dc1dc(getMaterialPropertyDerivative<Real>("c1_name", _c_name)),
+    // _dc2dc(getMaterialPropertyDerivative<Real>("c2_name", _c_name)),
+    // _dc1deta(getMaterialPropertyDerivative<Real>("c1_name", _eta_name)),
+    // _dc2deta(getMaterialPropertyDerivative<Real>("c2_name", _eta_name)),
     _first_df1(getMaterialProperty<Real>("df1dc1_name")),
     _second_df1(getMaterialProperty<Real>("d2f1dc1_name")),
     _L(getMaterialProperty<Real>("L_name")),
