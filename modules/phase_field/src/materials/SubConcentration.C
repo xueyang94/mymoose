@@ -61,8 +61,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _h(getMaterialProperty<Real>("h_name")),
     _c1(declareProperty<Real>("c1_name")),
     _c2(declareProperty<Real>("c2_name")),
-    // _c1_old(getMaterialPropertyOld<Real>("c1_name")), // old
-    // _c2_old(getMaterialPropertyOld<Real>("c2_name")), // old
+    _c1_old(getMaterialPropertyOld<Real>("c1_name")), // old
+    _c2_old(getMaterialPropertyOld<Real>("c2_name")), // old
     _abs_tol(getParam<Real>("absolute_tol_value")),
     _rel_tol(getParam<Real>("relative_tol_value")),
     _maxiter(getParam<Real>("max_iteration")),
@@ -118,14 +118,14 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
   _fparser4->Optimize();
 }
 
-// void
-// SubConcentration::initQpStatefulProperties()
-// {
-//   // init the ci property (this will become _c1_old and _c2_old in the first call of
-//   // computeProperties)
-//   _c1[_qp] = 0.6;
-//   _c2[_qp] = 0.4;
-// }
+void
+SubConcentration::initQpStatefulProperties()
+{
+  // init the ci property (this will become _c1_old and _c2_old in the first call of
+  // computeProperties)
+  _c1[_qp] = 0.6;
+  _c2[_qp] = 0.1;
+}
 
 void
 SubConcentration::computeQpProperties()
@@ -136,27 +136,16 @@ SubConcentration::computeQpProperties()
 
   // declare and initialize the old ci inside Newton iteration
   std::vector<Real> old_ci_Newton(2);
-  // old_ci_Newton[0] = _c1_old[_qp];
-  // old_ci_Newton[1] = _c2_old[_qp];
+  old_ci_Newton[0] = _c1_old[_qp];
+  old_ci_Newton[1] = _c2_old[_qp];
   // old_ci_Newton[0] = 0.6;
   // old_ci_Newton[1] = 0.4;
-  old_ci_Newton[0] = 0.6;
-  old_ci_Newton[1] = 0.1;
+  // old_ci_Newton[0] = 0.6;
+  // old_ci_Newton[1] = 0.1;
 
   // declare the params used in substitution of symbolic functions fparser.Eval()
   double params;
   double * p = &params;
-
-  // params = 3.94695e-5;
-  // Real temp1 = _fparser1->Eval(p);
-  // Real temp2 = _fparser2->Eval(p);
-  // Real temp3 = _fparser3->Eval(p);
-  // Real temp4 = _fparser4->Eval(p);
-
-  // std::cout << "First derivative of f1 is " << temp1 << std::endl;
-  // std::cout << "Second derivative of f1 is " << temp3 << std::endl;
-  // std::cout << "First derivative of f2 is " << temp2 << std::endl;
-  // std::cout << "Second derivative of f2 is " << temp4 << std::endl;
 
   // compute df1dc1_init and df2dc2_init for computing the initial error
   params = old_ci_Newton[0];
@@ -177,10 +166,6 @@ SubConcentration::computeQpProperties()
   init_err[0] = df1dc1_init - df2dc2_init;
   init_err[1] = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
   init_err_norm = std::sqrt(Utility::pow<2>(init_err[0]) + Utility::pow<2>(init_err[1]));
-
-  // counter of the Newton iteration
-  Real count;
-  count = 0;
 
   // Newton iteration
   for (unsigned int nloop = 0; nloop < _maxiter; ++nloop)
@@ -242,19 +227,19 @@ SubConcentration::computeQpProperties()
     // compute the relative Newton error
     rel_err_norm = std::abs(abs_err_norm / init_err_norm);
 
-    // std::cout << "current count is " << count
-    //           << " %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
-    // std::cout << "initial error norm is " << init_err_norm << std::endl;
-    // std::cout << "absolute error norm is " << abs_err_norm << std::endl;
-    // std::cout << "relative error norm is " << rel_err_norm << std::endl;
-
-    count += 1;
+    std::cout << "nloop is " << nloop << std::endl;
+    std::cout << "initial error norm is " << init_err_norm << std::endl;
+    std::cout << "absolute error norm is " << abs_err_norm << std::endl;
+    std::cout << "relative error norm is " << rel_err_norm << std::endl;
 
     // Newton iteration convergence criterion
     if (abs_err_norm < _abs_tol)
       break;
     // else if (rel_err_norm < _rel_tol)
     //   break;
+
+    if (nloop == (_maxiter - 1))
+      mooseError("The SubConcentration Newton iteration exceeds the max iteration.");
 
     // update old ci
     old_ci_Newton[0] = _c1[_qp];
