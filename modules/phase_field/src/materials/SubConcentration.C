@@ -147,6 +147,17 @@ SubConcentration::computeQpProperties()
   double params;
   double * p = &params;
 
+  // params = 3.94695e-5;
+  // Real temp1 = _fparser1->Eval(p);
+  // Real temp2 = _fparser2->Eval(p);
+  // Real temp3 = _fparser3->Eval(p);
+  // Real temp4 = _fparser4->Eval(p);
+
+  // std::cout << "First derivative of f1 is " << temp1 << std::endl;
+  // std::cout << "Second derivative of f1 is " << temp3 << std::endl;
+  // std::cout << "First derivative of f2 is " << temp2 << std::endl;
+  // std::cout << "Second derivative of f2 is " << temp4 << std::endl;
+
   // compute df1dc1_init and df2dc2_init for computing the initial error
   params = old_ci_Newton[0];
   Real df1dc1_init = _fparser1->Eval(p);
