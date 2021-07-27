@@ -91,7 +91,7 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
   // std::string f2 = "40*c2 + (1 - c2) + 400*(c2*plog(c2, 1e-4) + (1 - c2)*plog(1 - c2, 1e-4))";
   std::string f1 = "20*c1 + 300*(1 - c1) + 400*(c1*plog(c1, 1e-4) + (1 - c1)*plog(1 - c1, 1e-4))";
   std::string f2 =
-      "4000*c2 + 0.01*(1 - c2) + 400*(c2*plog(c2, 1e-4) + (1 - c2)*plog(1 - c2, 1e-4))";
+      "2500*c2 + 0.01*(1 - c2) + 400*(c2*plog(c2, 1e-4) + (1 - c2)*plog(1 - c2, 1e-4))";
   // std::string f1 = "1e2*(c1 - 0.3)^2 - 10";
   // std::string f2 = "1e2*(c2 - 0.7)^2";
 
