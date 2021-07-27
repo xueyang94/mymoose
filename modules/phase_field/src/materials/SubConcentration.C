@@ -227,10 +227,10 @@ SubConcentration::computeQpProperties()
     // compute the relative Newton error
     rel_err_norm = std::abs(abs_err_norm / init_err_norm);
 
-    std::cout << "nloop is " << nloop << std::endl;
-    std::cout << "initial error norm is " << init_err_norm << std::endl;
-    std::cout << "absolute error norm is " << abs_err_norm << std::endl;
-    std::cout << "relative error norm is " << rel_err_norm << std::endl;
+    // std::cout << "nloop is " << nloop << std::endl;
+    // std::cout << "initial error norm is " << init_err_norm << std::endl;
+    // std::cout << "absolute error norm is " << abs_err_norm << std::endl;
+    // std::cout << "relative error norm is " << rel_err_norm << std::endl;
 
     // Newton iteration convergence criterion
     if (abs_err_norm < _abs_tol)
