@@ -23,7 +23,7 @@ protected:
   virtual void computeQpProperties() override;
 
   const VariableValue & _c;
-  const VariableValue & _eta;
+
   const MaterialProperty<Real> & _h;
 
   MaterialProperty<Real> & _c1;
@@ -37,8 +37,5 @@ protected:
 
   const unsigned int _maxiter;
 
-  MaterialProperty<Real> & _dc1dc;
-  MaterialProperty<Real> & _dc1deta;
-  MaterialProperty<Real> & _dc2dc;
-  MaterialProperty<Real> & _dc2deta;
+  unsigned int n_qp;
 };

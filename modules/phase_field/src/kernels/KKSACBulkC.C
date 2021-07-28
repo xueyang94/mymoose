@@ -17,29 +17,17 @@ KKSACBulkC::validParams()
   InputParameters params = Kernel::validParams();
   params.addClassDescription("KKS model kernel (part 2 of 2) for the Bulk Allen-Cahn. This "
                              "includes all terms dependent on chemical potential.");
-  params.addRequiredCoupledVar("eta_name", "The name of the order parameter");
-  params.addRequiredParam<MaterialPropertyName>("c1_name", "The name of c1");
-  params.addRequiredParam<MaterialPropertyName>("c2_name", "The name of c2");
-  params.addRequiredParam<MaterialPropertyName>("dc1dc_name", "The name of dc1/dc");
-  params.addRequiredParam<MaterialPropertyName>("dc1deta_name", "The name of dc1/deta");
-  params.addRequiredParam<MaterialPropertyName>("dc2dc_name", "The name of dc2/dc");
-  params.addRequiredParam<MaterialPropertyName>("dc2deta_name", "The name of dc2/deta");
   params.addRequiredParam<MaterialPropertyName>("L_name", "The name of the Allen-Cahn mobility");
-  // params.addRequiredCoupledVar("global_c", "The global concentration");
-  params.addRequiredCoupledVar("w",
-                               "Chemical potential non-linear helper variable for the split solve");
+  params.addRequiredParam<MaterialPropertyName>("c1_name",
+                                                "The name of the first sub-concentration");
+  params.addRequiredCoupledVar("w", "Chemical potential");
   return params;
 }
 
 KKSACBulkC::KKSACBulkC(const InputParameters & parameters)
   : Kernel(parameters),
-    _c1(getMaterialProperty<Real>("c1_name")),
-    _c2(getMaterialProperty<Real>("c2_name")),
-    _dc1dc(getMaterialProperty<Real>("dc1dc_name")),
-    _dc1deta(getMaterialProperty<Real>("dc1deta_name")),
-    _dc2dc(getMaterialProperty<Real>("dc2dc_name")),
-    _dc2deta(getMaterialProperty<Real>("dc2deta_name")),
     _L(getMaterialProperty<Real>("L_name")),
+    _c1(getMaterialProperty<Real>("c1_name")),
     _w_var(coupled("w")),
     _w(coupledValue("w"))
 {
@@ -50,8 +38,7 @@ KKSACBulkC::computeQpResidual()
 {
   Real n = _u[_qp];
 
-  return _L[_qp] * (30.0 * n * n * (n * n - 2.0 * n + 1.0)) *
-         (400 * log(_c1[_qp]) - 400 * log(1 - _c1[_qp]) - 28) * (_c1[_qp] - _c2[_qp]) *
+  return _L[_qp] * 30.0 * n * n * (n * n - 2.0 * n + 1.0) * 200 * (_c1[_qp] - 0.3) * (-0.4) *
          _test[_i][_qp];
 }
 
@@ -60,27 +47,19 @@ KKSACBulkC::computeQpJacobian()
 {
   Real n = _u[_qp];
 
-  return _L[_qp] *
-         (n * (120.0 * n * n - 180.0 * n + 60.0) *
-              (400 * log(_c1[_qp]) - 400 * log(1 - _c1[_qp]) - 28) * (_c1[_qp] - _c2[_qp]) +
-          30.0 * n * n * (n * n - 2.0 * n + 1.0) *
-              ((_c1[_qp] - _c2[_qp]) * _dc1deta[_qp] * (400 / _c1[_qp] + 400 / (1 - _c1[_qp])) +
-               (400 * log(_c1[_qp]) - 400 * log(1 - _c1[_qp]) - 28) *
-                   (_dc1deta[_qp] - _dc2deta[_qp]))) *
+  return _L[_qp] * (-80) *
+         (n * (120.0 * n * n - 180.0 * n + 60.0) * (_c1[_qp] - 0.3) -
+          0.4 * Utility::pow<2>(30.0 * n * n * (n * n - 2.0 * n + 1.0))) *
          _phi[_j][_qp] * _test[_i][_qp];
 }
 
-Real KKSACBulkC::computeQpOffDiagJacobian(unsigned int jvar) // needs to multiply the mobility L
+Real
+KKSACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
 {
-  Real n = _u[_qp];
-
-  // treat w variable explicitly
   if (jvar == _w_var)
     return 0.0;
 
+  Real n = _u[_qp];
   // c is the coupled variable
-  return _L[_qp] * 30.0 * n * n * (n * n - 2.0 * n + 1.0) *
-         ((_c1[_qp] - _c2[_qp]) * _dc1dc[_qp] * (400 / _c1[_qp] + 400 / (1 - _c1[_qp])) +
-          (400 * log(_c1[_qp]) - 400 * log(1 - _c1[_qp]) - 28) * (_dc1dc[_qp] - _dc2dc[_qp])) *
-         _phi[_j][_qp] * _test[_i][_qp];
+  return _L[_qp] * (-80) * 30.0 * n * n * (n * n - 2.0 * n + 1.0) * _phi[_j][_qp] * _test[_i][_qp];
 }
