@@ -48,6 +48,8 @@ SubConcentration::validParams()
                                                 "The second derivative of f2 w.r.t. c2");
   params.addRequiredParam<Real>(
       "plog_tol_value", "The maximum value to start using the Taylor expansion of log functions");
+  params.addParam<Real>("dt", "Time step");
+  params.addParam<Real>("visco", "Viscosity");
   return params;
 }
 
@@ -77,7 +79,9 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _first_df1(declareProperty<Real>("df1dc1_name")),
     _first_df2(declareProperty<Real>("df2dc2_name")),
     _second_df1(declareProperty<Real>("d2f1dc1_name")),
-    _second_df2(declareProperty<Real>("d2f2dc2_name"))
+    _second_df2(declareProperty<Real>("d2f2dc2_name")),
+    _dt(getParam<Real>("dt")),
+    _visco(getParam<Real>("visco"))
 
 {
   _fparser1 = std::make_unique<FunctionParserADBase<Real>>();
@@ -245,6 +249,10 @@ SubConcentration::computeQpProperties()
     old_ci_Newton[0] = _c1[_qp];
     old_ci_Newton[1] = _c2[_qp];
   }
+
+  // use viscosity to reduce ci interfacial oscillation
+  _c1[_qp] = (_c1[_qp] + _visco / _dt * _c1_old[_qp]) / (1 + _visco / _dt);
+  _c2[_qp] = (_c2[_qp] + _visco / _dt * _c2_old[_qp]) / (1 + _visco / _dt);
 
   // compute the updated first and second derivatives in the kernel R and chain rule
   // derivatives
