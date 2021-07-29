@@ -48,8 +48,8 @@ SubConcentration::validParams()
                                                 "The second derivative of f2 w.r.t. c2");
   params.addRequiredParam<Real>(
       "plog_tol_value", "The maximum value to start using the Taylor expansion of log functions");
-  params.addParam<Real>("dt", "Time step");
-  params.addParam<Real>("visco", "Viscosity");
+  // params.addParam<Real>("dt", "Time step");
+  // params.addParam<Real>("visco", "Viscosity");
   return params;
 }
 
@@ -79,9 +79,9 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _first_df1(declareProperty<Real>("df1dc1_name")),
     _first_df2(declareProperty<Real>("df2dc2_name")),
     _second_df1(declareProperty<Real>("d2f1dc1_name")),
-    _second_df2(declareProperty<Real>("d2f2dc2_name")),
-    _dt(getParam<Real>("dt")),
-    _visco(getParam<Real>("visco"))
+    _second_df2(declareProperty<Real>("d2f2dc2_name"))
+// _dt(getParam<Real>("dt")),
+// _visco(getParam<Real>("visco"))
 
 {
   _fparser1 = std::make_unique<FunctionParserADBase<Real>>();
@@ -93,7 +93,7 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
   // std::string f1 = "2*c1 + 30*(1 - c1) + 400*(c1*plog(c1, 1e-4) + (1 - c1)*plog(1 - c1, 1e-4))";
   // std::string f2 = "40*c2 + (1 - c2) + 400*(c2*plog(c2, 1e-4) + (1 - c2)*plog(1 - c2, 1e-4))";
   std::string f1 = "20*c1 + 300*(1 - c1) + 400*(c1*plog(c1, 1e-4) + (1 - c1)*plog(1 - c1,1e-4))";
-  std::string f2 = "4000*c2 + 0.01*(1 - c2) + 400*(c2*plog(c2, 1e-4) + (1 - c2)*plog(1 - c2,1e-4))";
+  std::string f2 = "800*c2 + 0.01*(1 - c2) + 400*(c2*plog(c2, 1e-4) + (1 - c2)*plog(1 - c2,1e-4))";
   // std::string f1 = "1e2*(c1 - 0.3)^2 - 10";
   // std::string f2 = "1e2*(c2 - 0.7)^2";
 
@@ -250,9 +250,9 @@ SubConcentration::computeQpProperties()
     old_ci_Newton[1] = _c2[_qp];
   }
 
-  // use viscosity to reduce ci interfacial oscillation
-  _c1[_qp] = (_c1[_qp] + _visco / _dt * _c1_old[_qp]) / (1 + _visco / _dt);
-  _c2[_qp] = (_c2[_qp] + _visco / _dt * _c2_old[_qp]) / (1 + _visco / _dt);
+  // // use viscosity to reduce ci interfacial oscillation
+  // _c1[_qp] = (_c1[_qp] + _visco / _dt * _c1_old[_qp]) / (1 + _visco / _dt);
+  // _c2[_qp] = (_c2[_qp] + _visco / _dt * _c2_old[_qp]) / (1 + _visco / _dt);
 
   // compute the updated first and second derivatives in the kernel R and chain rule
   // derivatives
