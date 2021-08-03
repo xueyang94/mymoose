@@ -54,9 +54,6 @@ protected:
   MaterialProperty<Real> & _second_df1;
   MaterialProperty<Real> & _second_df2;
 
-  // const Real _dt;
-  // const Real _visco;
-
   std::unique_ptr<FunctionParserADBase<Real>> _fparser1;
 
   std::unique_ptr<FunctionParserADBase<Real>> _fparser2;
