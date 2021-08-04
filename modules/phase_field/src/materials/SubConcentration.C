@@ -151,6 +151,120 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
   _fparser4->Optimize();
 }
 
+Real
+first1(Real x)
+{
+  Real tol = 1e-4;
+
+  if (x < tol || x == tol)
+  {
+    return 400 * log(tol) - 400 * log(1 - x) -
+           (200 * Utility::pow<2>(tol - x)) / Utility::pow<2>(tol) -
+           (400 * Utility::pow<3>(tol - x)) / (3 * Utility::pow<3>(tol)) +
+           400 * x *
+               ((2 * tol - 2 * x) / (2 * Utility::pow<2>(tol)) +
+                Utility::pow<2>(tol - x) / Utility::pow<3>(tol) + 1 / tol) -
+           (400 * (tol - x)) / tol - 680;
+  }
+  else if (x > tol && x < 1)
+  {
+    return 400 * log(x) - 400 * log(1 - x) - 280;
+  }
+  // else if (x > 1 || x == 1)
+  else
+  {
+    return 400 * log(x) - 400 * log(tol) + (400 * (tol + x - 1)) / tol +
+           400 * (x - 1) *
+               ((2 * tol + 2 * x - 2) / (2 * Utility::pow<2>(tol)) + 1 / tol +
+                Utility::pow<2>(tol + x - 1) / Utility::pow<3>(tol)) +
+           (200 * Utility::pow<2>(tol + x - 1)) / Utility::pow<2>(tol) +
+           (400 * Utility::pow<3>(tol + x - 1)) / (3 * Utility::pow<3>(tol)) + 120;
+  }
+}
+
+Real
+first2(Real x)
+{
+  Real tol = 1e-4;
+
+  if (x < tol || x == tol)
+  {
+    return 400 * log(tol) - 400 * log(1 - x) -
+           (200 * Utility::pow<2>(tol - x)) / Utility::pow<2>(tol) -
+           (400 * Utility::pow<3>(tol - x)) / (3 * Utility::pow<3>(tol)) +
+           400 * x *
+               ((2 * tol - 2 * x) / (2 * Utility::pow<2>(tol)) +
+                Utility::pow<2>(tol - x) / Utility::pow<3>(tol) + 1 / tol) -
+           (400 * (tol - x)) / tol + 2099.99;
+  }
+  else if (x > tol && x < 1)
+  {
+    return 400 * log(x) - 400 * log(1 - x) + 2499.99;
+  }
+  // else if (x > 1 || x == 1)
+  else
+  {
+    return 400 * log(x) - 400 * log(tol) + (400 * (tol + x - 1)) / tol +
+           400 * (x - 1) *
+               ((2 * tol + 2 * x - 2) / (2 * Utility::pow<2>(tol)) + 1 / tol +
+                Utility::pow<2>(tol + x - 1) / Utility::pow<3>(tol)) +
+           (200 * Utility::pow<2>(tol + x - 1)) / Utility::pow<2>(tol) +
+           (400 * Utility::pow<3>(tol + x - 1)) / (3 * Utility::pow<3>(tol)) + 2899.99;
+  }
+}
+
+Real
+second1(Real x)
+{
+  Real tol = 1e-4;
+
+  if (x < tol || x == tol)
+  {
+    return (400 * (2 * tol - 2 * x)) / Utility::pow<2>(tol) - 400 / (x - 1) +
+           (800 * Utility::pow<2>(tol - x)) / Utility::pow<3>(tol) -
+           400 * x * ((2 * tol - 2 * x) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol)) +
+           800 / tol;
+  }
+  else if (x > tol && x < 1)
+  {
+    return 400 / x - 400 / (x - 1);
+  }
+  // else if (x > 1 || x == 1)
+  else
+  {
+    return (400 * (2 * tol + 2 * x - 2)) / Utility::pow<2>(tol) +
+           400 * ((2 * tol + 2 * x - 2) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol)) *
+               (x - 1) +
+           800 / tol + 400 / x + (800 * Utility::pow<2>(tol + x - 1)) / Utility::pow<3>(tol);
+  }
+}
+
+Real
+second2(Real x)
+{
+  Real tol = 1e-4;
+
+  if (x < tol || x == tol)
+  {
+    return (400 * (2 * tol - 2 * x)) / Utility::pow<2>(tol) - 400 / (x - 1) +
+           (800 * Utility::pow<2>(tol - x)) / Utility::pow<3>(tol) -
+           400 * x * ((2 * tol - 2 * x) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol)) +
+           800 / tol;
+  }
+  else if (x > tol && x < 1)
+  {
+    return 400 / x - 400 / (x - 1);
+  }
+  // else if (x > 1 || x == 1)
+  else
+  {
+    return (400 * (2 * tol + 2 * x - 2)) / Utility::pow<2>(tol) +
+           400 * ((2 * tol + 2 * x - 2) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol)) *
+               (x - 1) +
+           800 / tol + 400 / x + (800 * Utility::pow<2>(tol + x - 1)) / Utility::pow<3>(tol);
+  }
+}
+
 void
 SubConcentration::initQpStatefulProperties()
 {
@@ -179,15 +293,17 @@ SubConcentration::computeQpProperties()
   // old_ci_Newton[1] = 0.1;
 
   // declare the params used in substitution of symbolic functions fparser.Eval()
-  double params;
-  double * p = &params;
+  // double params;
+  // double * p = &params;
 
-  // compute df1dc1_init and df2dc2_init for computing the initial error
-  params = old_ci_Newton[0];
-  Real df1dc1_init = _fparser1->Eval(p);
+  // // compute df1dc1_init and df2dc2_init for computing the initial error
+  // params = old_ci_Newton[0];
+  // Real df1dc1_init = _fparser1->Eval(p);
+  Real df1dc1_init = first1(old_ci_Newton[0]);
 
-  params = old_ci_Newton[1];
-  Real df2dc2_init = _fparser2->Eval(p);
+  // params = old_ci_Newton[1];
+  // Real df2dc2_init = _fparser2->Eval(p);
+  Real df2dc2_init = first2(old_ci_Newton[1]);
 
   // declare the error vectors and norms of Newton iteration
   std::vector<Real> init_err(2);
@@ -206,21 +322,25 @@ SubConcentration::computeQpProperties()
   for (unsigned int nloop = 0; nloop < _maxiter; ++nloop)
   {
 
-    // compute first_df1 in eqn1
-    params = old_ci_Newton[0];
-    _first_df1[_qp] = _fparser1->Eval(p);
+    // // compute first_df1 in eqn1
+    // params = old_ci_Newton[0];
+    // _first_df1[_qp] = _fparser1->Eval(p);
+    _first_df1[_qp] = first1(old_ci_Newton[0]);
 
-    // compute second derivative second_df1 in determinant D
-    params = old_ci_Newton[0];
-    _second_df1[_qp] = _fparser3->Eval(p);
+    // // compute second derivative second_df1 in determinant D
+    // params = old_ci_Newton[0];
+    // _second_df1[_qp] = _fparser3->Eval(p);
+    _second_df1[_qp] = second1(old_ci_Newton[0]);
 
-    // compute first_df2 in eqn1
-    params = old_ci_Newton[1];
-    _first_df2[_qp] = _fparser2->Eval(p);
+    // // compute first_df2 in eqn1
+    // params = old_ci_Newton[1];
+    // _first_df2[_qp] = _fparser2->Eval(p);
+    _first_df2[_qp] = first2(old_ci_Newton[1]);
 
-    // compute second derivative second_df2 in determinant D
-    params = old_ci_Newton[1];
-    _second_df2[_qp] = _fparser4->Eval(p);
+    // // compute second derivative second_df2 in determinant D
+    // params = old_ci_Newton[1];
+    // _second_df2[_qp] = _fparser4->Eval(p);
+    _second_df2[_qp] = second2(old_ci_Newton[1]);
 
     // compute eqn1 and eqn2
     Real eqn1 = _first_df1[_qp] - _first_df2[_qp];
@@ -247,12 +367,14 @@ SubConcentration::computeQpProperties()
 
     _c2[_qp] = old_ci_Newton[1] - update[1];
 
-    // compute df1dc1_new and df2dc2_new for calculating the updated absolute error
-    params = _c1[_qp];
-    Real df1dc1_new = _fparser1->Eval(p);
+    // // compute df1dc1_new and df2dc2_new for calculating the updated absolute error
+    // params = _c1[_qp];
+    // Real df1dc1_new = _fparser1->Eval(p);
+    Real df1dc1_new = first1(_c1[_qp]);
 
-    params = _c2[_qp];
-    Real df2dc2_new = _fparser2->Eval(p);
+    // params = _c2[_qp];
+    // Real df2dc2_new = _fparser2->Eval(p);
+    Real df2dc2_new = first2(_c2[_qp]);
 
     // compute the updated absolute Newton error
     abs_err[0] = df1dc1_new - df2dc2_new;
@@ -261,11 +383,6 @@ SubConcentration::computeQpProperties()
 
     // compute the relative Newton error
     rel_err_norm = std::abs(abs_err_norm / init_err_norm);
-
-    // std::cout << "nloop is " << nloop << std::endl;
-    // std::cout << "initial error norm is " << init_err_norm << std::endl;
-    // std::cout << "absolute error norm is " << abs_err_norm << std::endl;
-    // std::cout << "relative error norm is " << rel_err_norm << std::endl;
 
     // Newton iteration convergence criterion
     if (abs_err_norm < _abs_tol)
@@ -281,23 +398,23 @@ SubConcentration::computeQpProperties()
     old_ci_Newton[1] = _c2[_qp];
   }
 
-  // // use viscosity to reduce ci interfacial oscillation
-  // _c1[_qp] = (_c1[_qp] + _visco / _dt * _c1_old[_qp]) / (1 + _visco / _dt);
-  // _c2[_qp] = (_c2[_qp] + _visco / _dt * _c2_old[_qp]) / (1 + _visco / _dt);
+  // // compute the updated first and second derivatives in the kernel R and chain rule
+  // // derivatives
+  // params = _c1[_qp];
+  // _first_df1[_qp] = _fparser1->Eval(p);
+  _first_df1[_qp] = first1(_c1[_qp]);
 
-  // compute the updated first and second derivatives in the kernel R and chain rule
-  // derivatives
-  params = _c1[_qp];
-  _first_df1[_qp] = _fparser1->Eval(p);
+  // params = _c2[_qp];
+  // _first_df2[_qp] = _fparser2->Eval(p);
+  _first_df2[_qp] = first2(_c2[_qp]);
 
-  params = _c2[_qp];
-  _first_df2[_qp] = _fparser2->Eval(p);
+  // params = _c1[_qp];
+  // _second_df1[_qp] = _fparser3->Eval(p);
+  _second_df1[_qp] = second1(_c1[_qp]);
 
-  params = _c1[_qp];
-  _second_df1[_qp] = _fparser3->Eval(p);
-
-  params = _c2[_qp];
-  _second_df2[_qp] = _fparser4->Eval(p);
+  // params = _c2[_qp];
+  // _second_df2[_qp] = _fparser4->Eval(p);
+  _second_df2[_qp] = second2(_c2[_qp]);
 
   // compute dc1dc, dc2dc, dc1deta, and dc2deta
   _dc1dc[_qp] =
