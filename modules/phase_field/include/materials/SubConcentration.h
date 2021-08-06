@@ -9,11 +9,11 @@
 
 #pragma once
 
-#include "Material.h"
-// #include "DerivativeMaterialInterface.h"
+// #include "Material.h"
+#include "DerivativeMaterialInterface.h"
 
-class SubConcentration : public Material
-// class SubConcentration : public DerivativeMaterialInterface<Material>
+// class SubConcentration : public Material
+class SubConcentration : public DerivativeMaterialInterface<Material>
 {
 public:
   static InputParameters validParams();
@@ -48,11 +48,11 @@ protected:
   MaterialProperty<Real> & _dc1deta;
   MaterialProperty<Real> & _dc2deta;
 
-  MaterialProperty<Real> & _first_df1;
-  MaterialProperty<Real> & _first_df2;
+  const MaterialProperty<Real> & _first_df1;
+  const MaterialProperty<Real> & _first_df2;
 
-  MaterialProperty<Real> & _second_df1;
-  MaterialProperty<Real> & _second_df2;
+  const MaterialProperty<Real> & _second_df1;
+  const MaterialProperty<Real> & _second_df2;
 
   // std::unique_ptr<FunctionParserADBase<Real>> _fparser1;
   //
