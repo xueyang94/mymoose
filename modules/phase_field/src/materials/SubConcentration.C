@@ -38,20 +38,22 @@ SubConcentration::validParams()
                                                 "The first derivative of c1 w.r.t. eta");
   params.addRequiredParam<MaterialPropertyName>("dc2deta_name",
                                                 "The first derivative of c2 w.r.t. eta");
-  params.addRequiredParam<MaterialPropertyName>("df1dc1_name",
-                                                "The first derivative of f1 w.r.t. c1");
-  params.addRequiredParam<MaterialPropertyName>("df2dc2_name",
-                                                "The first derivative of f2 w.r.t. c2");
-  params.addRequiredParam<MaterialPropertyName>("d2f1dc1_name",
-                                                "The second derivative of f1 w.r.t. c1");
-  params.addRequiredParam<MaterialPropertyName>("d2f2dc2_name",
-                                                "The second derivative of f2 w.r.t. c2");
+  // params.addRequiredParam<MaterialPropertyName>("df1dc1_name",
+  //                                               "The first derivative of f1 w.r.t. c1");
+  // params.addRequiredParam<MaterialPropertyName>("df2dc2_name",
+  //                                               "The first derivative of f2 w.r.t. c2");
+  // params.addRequiredParam<MaterialPropertyName>("d2f1dc1_name",
+  //                                               "The second derivative of f1 w.r.t. c1");
+  // params.addRequiredParam<MaterialPropertyName>("d2f2dc2_name",
+  //                                               "The second derivative of f2 w.r.t. c2");
+  params.addRequiredParam<MaterialPropertyName>("F1_name", "F1");
+  params.addRequiredParam<MaterialPropertyName>("F2_name", "F2");
   return params;
 }
 
 SubConcentration::SubConcentration(const InputParameters & parameters)
-  : Material(parameters),
-    // : DerivativeMaterialInterface<Material>(parameters),
+  // : Material(parameters),
+  : DerivativeMaterialInterface<Material>(parameters),
     _c(coupledValue("global_c")),
     // _c_name(getVar("global_c", 0)->name()),
     _eta(coupledValue("eta")),
@@ -68,14 +70,14 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _dc2dc(declareProperty<Real>("dc2dc_name")),
     _dc1deta(declareProperty<Real>("dc1deta_name")),
     _dc2deta(declareProperty<Real>("dc2deta_name")),
-    // _dc1dc(declarePropertyDerivative<Real>("c1_name", _c_name)),
-    // _dc2dc(declarePropertyDerivative<Real>("c2_name", _c_name)),
-    // _dc1deta(declarePropertyDerivative<Real>("c1_name", _eta_name)),
-    // _dc2deta(declarePropertyDerivative<Real>("c2_name", _eta_name)),
-    _first_df1(declareProperty<Real>("df1dc1_name")),
-    _first_df2(declareProperty<Real>("df2dc2_name")),
-    _second_df1(declareProperty<Real>("d2f1dc1_name")),
-    _second_df2(declareProperty<Real>("d2f2dc2_name"))
+    // _first_df1(declareProperty<Real>("df1dc1_name")),
+    // _first_df2(declareProperty<Real>("df2dc2_name")),
+    // _second_df1(declareProperty<Real>("d2f1dc1_name")),
+    // _second_df2(declareProperty<Real>("d2f2dc2_name"))
+    _first_df1(getMaterialPropertyDerivative<Real>("F1_name", "c1_name")),
+    _first_df2(getMaterialPropertyDerivative<Real>("F2_name", "c2_name")),
+    _second_df1(getMaterialPropertyDerivative<Real>("F1_name", "c1_name", "c1_name")),
+    _second_df2(getMaterialPropertyDerivative<Real>("F2_name", "c2_name", "c2_name"))
 
 {
   // _fparser1 = std::make_unique<FunctionParserADBase<Real>>();
@@ -270,117 +272,117 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// middle log end
 
-Real
-first1(Real x)
-{
-  Real tol = 1e-4;
-
-  if (x < tol || x == tol)
-  {
-    return 400 * log(tol) - 400 * log(1 - x) -
-           (200 * Utility::pow<2>(tol - x)) / Utility::pow<2>(tol) -
-           (400 * Utility::pow<3>(tol - x)) / (3 * Utility::pow<3>(tol)) +
-           400 * x *
-               ((2 * tol - 2 * x) / (2 * Utility::pow<2>(tol)) +
-                Utility::pow<2>(tol - x) / Utility::pow<3>(tol) + 1 / tol) -
-           (400 * (tol - x)) / tol - 680;
-  }
-  else if (x > tol && x < 1)
-  {
-    return 400 * log(x) - 400 * log(1 - x) - 280;
-  }
-  // else if (x > 1 || x == 1)
-  else
-  {
-    return 400 * log(x) - 400 * log(tol) + (400 * (tol + x - 1)) / tol +
-           400 * (x - 1) *
-               ((2 * tol + 2 * x - 2) / (2 * Utility::pow<2>(tol)) + 1 / tol +
-                Utility::pow<2>(tol + x - 1) / Utility::pow<3>(tol)) +
-           (200 * Utility::pow<2>(tol + x - 1)) / Utility::pow<2>(tol) +
-           (400 * Utility::pow<3>(tol + x - 1)) / (3 * Utility::pow<3>(tol)) + 120;
-  }
-}
-
-Real
-first2(Real x)
-{
-  Real tol = 1e-4;
-
-  if (x < tol || x == tol)
-  {
-    return 400 * log(tol) - 400 * log(1 - x) -
-           (200 * Utility::pow<2>(tol - x)) / Utility::pow<2>(tol) -
-           (400 * Utility::pow<3>(tol - x)) / (3 * Utility::pow<3>(tol)) +
-           400 * x *
-               ((2 * tol - 2 * x) / (2 * Utility::pow<2>(tol)) +
-                Utility::pow<2>(tol - x) / Utility::pow<3>(tol) + 1 / tol) -
-           (400 * (tol - x)) / tol + 2099.99;
-  }
-  else if (x > tol && x < 1)
-  {
-    return 400 * log(x) - 400 * log(1 - x) + 2499.99;
-  }
-  // else if (x > 1 || x == 1)
-  else
-  {
-    return 400 * log(x) - 400 * log(tol) + (400 * (tol + x - 1)) / tol +
-           400 * (x - 1) *
-               ((2 * tol + 2 * x - 2) / (2 * Utility::pow<2>(tol)) + 1 / tol +
-                Utility::pow<2>(tol + x - 1) / Utility::pow<3>(tol)) +
-           (200 * Utility::pow<2>(tol + x - 1)) / Utility::pow<2>(tol) +
-           (400 * Utility::pow<3>(tol + x - 1)) / (3 * Utility::pow<3>(tol)) + 2899.99;
-  }
-}
-
-Real
-second1(Real x)
-{
-  Real tol = 1e-4;
-
-  if (x < tol || x == tol)
-  {
-    return (400 * (2 * tol - 2 * x)) / Utility::pow<2>(tol) - 400 / (x - 1) +
-           (800 * Utility::pow<2>(tol - x)) / Utility::pow<3>(tol) -
-           400 * x * ((2 * tol - 2 * x) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol)) +
-           800 / tol;
-  }
-  else if (x > tol && x < 1)
-  {
-    return 400 / x - 400 / (x - 1);
-  }
-  else
-  {
-    return (400 * (2 * tol + 2 * x - 2)) / Utility::pow<2>(tol) +
-           400 * ((2 * tol + 2 * x - 2) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol)) *
-               (x - 1) +
-           800 / tol + 400 / x + (800 * Utility::pow<2>(tol + x - 1)) / Utility::pow<3>(tol);
-  }
-}
-
-Real
-second2(Real x)
-{
-  Real tol = 1e-4;
-
-  if (x < tol || x == tol)
-  {
-    return (400 * (2 * tol - 2 * x)) / Utility::pow<2>(tol) - 400 / (x - 1) +
-           (800 * Utility::pow<2>(tol - x)) / Utility::pow<3>(tol) -
-           400 * x * ((2 * tol - 2 * x) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol)) +
-           800 / tol;
-  }
-  else if (x > tol && x < 1)
-  {
-    return 400 / x - 400 / (x - 1);
-  }
-  else
-  {
-    return (400 * (2 * tol + 2 * x - 2)) / Utility::pow<2>(tol) +
-           400 * ((2 * tol + 2 * x - 2) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol)) *
-               (x - 1) +
-           800 / tol + 400 / x + (800 * Utility::pow<2>(tol + x - 1)) / Utility::pow<3>(tol);
-  }
-}
+// Real
+// first1(Real x)
+// {
+//   Real tol = 1e-4;
+//
+//   if (x < tol || x == tol)
+//   {
+//     return 400 * log(tol) - 400 * log(1 - x) -
+//            (200 * Utility::pow<2>(tol - x)) / Utility::pow<2>(tol) -
+//            (400 * Utility::pow<3>(tol - x)) / (3 * Utility::pow<3>(tol)) +
+//            400 * x *
+//                ((2 * tol - 2 * x) / (2 * Utility::pow<2>(tol)) +
+//                 Utility::pow<2>(tol - x) / Utility::pow<3>(tol) + 1 / tol) -
+//            (400 * (tol - x)) / tol - 680;
+//   }
+//   else if (x > tol && x < 1)
+//   {
+//     return 400 * log(x) - 400 * log(1 - x) - 280;
+//   }
+//   // else if (x > 1 || x == 1)
+//   else
+//   {
+//     return 400 * log(x) - 400 * log(tol) + (400 * (tol + x - 1)) / tol +
+//            400 * (x - 1) *
+//                ((2 * tol + 2 * x - 2) / (2 * Utility::pow<2>(tol)) + 1 / tol +
+//                 Utility::pow<2>(tol + x - 1) / Utility::pow<3>(tol)) +
+//            (200 * Utility::pow<2>(tol + x - 1)) / Utility::pow<2>(tol) +
+//            (400 * Utility::pow<3>(tol + x - 1)) / (3 * Utility::pow<3>(tol)) + 120;
+//   }
+// }
+//
+// Real
+// first2(Real x)
+// {
+//   Real tol = 1e-4;
+//
+//   if (x < tol || x == tol)
+//   {
+//     return 400 * log(tol) - 400 * log(1 - x) -
+//            (200 * Utility::pow<2>(tol - x)) / Utility::pow<2>(tol) -
+//            (400 * Utility::pow<3>(tol - x)) / (3 * Utility::pow<3>(tol)) +
+//            400 * x *
+//                ((2 * tol - 2 * x) / (2 * Utility::pow<2>(tol)) +
+//                 Utility::pow<2>(tol - x) / Utility::pow<3>(tol) + 1 / tol) -
+//            (400 * (tol - x)) / tol + 2099.99;
+//   }
+//   else if (x > tol && x < 1)
+//   {
+//     return 400 * log(x) - 400 * log(1 - x) + 2499.99;
+//   }
+//   // else if (x > 1 || x == 1)
+//   else
+//   {
+//     return 400 * log(x) - 400 * log(tol) + (400 * (tol + x - 1)) / tol +
+//            400 * (x - 1) *
+//                ((2 * tol + 2 * x - 2) / (2 * Utility::pow<2>(tol)) + 1 / tol +
+//                 Utility::pow<2>(tol + x - 1) / Utility::pow<3>(tol)) +
+//            (200 * Utility::pow<2>(tol + x - 1)) / Utility::pow<2>(tol) +
+//            (400 * Utility::pow<3>(tol + x - 1)) / (3 * Utility::pow<3>(tol)) + 2899.99;
+//   }
+// }
+//
+// Real
+// second1(Real x)
+// {
+//   Real tol = 1e-4;
+//
+//   if (x < tol || x == tol)
+//   {
+//     return (400 * (2 * tol - 2 * x)) / Utility::pow<2>(tol) - 400 / (x - 1) +
+//            (800 * Utility::pow<2>(tol - x)) / Utility::pow<3>(tol) -
+//            400 * x * ((2 * tol - 2 * x) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol)) +
+//            800 / tol;
+//   }
+//   else if (x > tol && x < 1)
+//   {
+//     return 400 / x - 400 / (x - 1);
+//   }
+//   else
+//   {
+//     return (400 * (2 * tol + 2 * x - 2)) / Utility::pow<2>(tol) +
+//            400 * ((2 * tol + 2 * x - 2) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol)) *
+//                (x - 1) +
+//            800 / tol + 400 / x + (800 * Utility::pow<2>(tol + x - 1)) / Utility::pow<3>(tol);
+//   }
+// }
+//
+// Real
+// second2(Real x)
+// {
+//   Real tol = 1e-4;
+//
+//   if (x < tol || x == tol)
+//   {
+//     return (400 * (2 * tol - 2 * x)) / Utility::pow<2>(tol) - 400 / (x - 1) +
+//            (800 * Utility::pow<2>(tol - x)) / Utility::pow<3>(tol) -
+//            400 * x * ((2 * tol - 2 * x) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol)) +
+//            800 / tol;
+//   }
+//   else if (x > tol && x < 1)
+//   {
+//     return 400 / x - 400 / (x - 1);
+//   }
+//   else
+//   {
+//     return (400 * (2 * tol + 2 * x - 2)) / Utility::pow<2>(tol) +
+//            400 * ((2 * tol + 2 * x - 2) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol)) *
+//                (x - 1) +
+//            800 / tol + 400 / x + (800 * Utility::pow<2>(tol + x - 1)) / Utility::pow<3>(tol);
+//   }
+// }
 
 // void
 // SubConcentration::initQpStatefulProperties()
@@ -396,18 +398,20 @@ second2(Real x)
 void
 SubConcentration::computeQpProperties()
 {
-  FunctionParserADBase<Real> fparser;
+  // FunctionParserADBase<Real> fparser;
 
   Real n = _eta[_qp];
 
   // declare and initialize the old ci inside Newton iteration
-  std::vector<Real> old_ci_Newton(2);
+  // std::vector<Real> old_ci_Newton(2);
   // old_ci_Newton[0] = _c1_old[_qp];
   // old_ci_Newton[1] = _c2_old[_qp];
   // old_ci_Newton[0] = 0.6;
   // old_ci_Newton[1] = 0.4;
-  old_ci_Newton[0] = 0.6;
-  old_ci_Newton[1] = 0.1;
+  // old_ci_Newton[0] = 0.6;
+  // old_ci_Newton[1] = 0.1;
+  _c1[_qp] = 0.6;
+  _c2[_qp] = 0.1;
 
   // declare the params used in substitution of symbolic functions fparser.Eval()
   // double params;
@@ -416,11 +420,11 @@ SubConcentration::computeQpProperties()
   // // compute df1dc1_init and df2dc2_init for computing the initial error
   // params = old_ci_Newton[0];
   // Real df1dc1_init = _fparser1->Eval(p);
-  Real df1dc1_init = first1(old_ci_Newton[0]);
+  // Real df1dc1_init = first1(old_ci_Newton[0]);
 
   // params = old_ci_Newton[1];
   // Real df2dc2_init = _fparser2->Eval(p);
-  Real df2dc2_init = first2(old_ci_Newton[1]);
+  // Real df2dc2_init = first2(old_ci_Newton[1]);
 
   // declare the error vectors and norms of Newton iteration
   std::vector<Real> init_err(2);
@@ -431,8 +435,8 @@ SubConcentration::computeQpProperties()
   Real rel_err_norm;
 
   // compute the initial error norm
-  init_err[0] = df1dc1_init - df2dc2_init;
-  init_err[1] = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
+  init_err[0] = _first_df1[_qp] - _first_df2[_qp];
+  init_err[1] = _c[_qp] - _c2[_qp] * _h[_qp] + _c1[_qp] * (_h[_qp] - 1);
   init_err_norm = std::sqrt(Utility::pow<2>(init_err[0]) + Utility::pow<2>(init_err[1]));
 
   // Newton iteration
@@ -442,26 +446,26 @@ SubConcentration::computeQpProperties()
     // // compute first_df1 in eqn1
     // params = old_ci_Newton[0];
     // _first_df1[_qp] = _fparser1->Eval(p);
-    _first_df1[_qp] = first1(old_ci_Newton[0]);
+    // _first_df1[_qp] = first1(old_ci_Newton[0]);
 
     // // compute second derivative second_df1 in determinant D
     // params = old_ci_Newton[0];
     // _second_df1[_qp] = _fparser3->Eval(p);
-    _second_df1[_qp] = second1(old_ci_Newton[0]);
+    // _second_df1[_qp] = second1(old_ci_Newton[0]);
 
     // // compute first_df2 in eqn1
     // params = old_ci_Newton[1];
     // _first_df2[_qp] = _fparser2->Eval(p);
-    _first_df2[_qp] = first2(old_ci_Newton[1]);
+    // _first_df2[_qp] = first2(old_ci_Newton[1]);
 
     // // compute second derivative second_df2 in determinant D
     // params = old_ci_Newton[1];
     // _second_df2[_qp] = _fparser4->Eval(p);
-    _second_df2[_qp] = second2(old_ci_Newton[1]);
+    // _second_df2[_qp] = second2(old_ci_Newton[1]);
 
     // compute eqn1 and eqn2
     Real eqn1 = _first_df1[_qp] - _first_df2[_qp];
-    Real eqn2 = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
+    Real eqn2 = _c[_qp] - _c2[_qp] * _h[_qp] + _c1[_qp] * (_h[_qp] - 1);
 
     // terms used in the determinant D
     Real deqn1dc1 = _second_df1[_qp];
@@ -480,21 +484,21 @@ SubConcentration::computeQpProperties()
     update[1] = 1 / D * (-eqn1 * deqn2dc1 + eqn2 * deqn1dc1);
 
     // compute c1 and c2
-    _c1[_qp] = old_ci_Newton[0] - update[0];
+    _c1[_qp] -= update[0];
 
-    _c2[_qp] = old_ci_Newton[1] - update[1];
+    _c2[_qp] -= update[1];
 
     // // compute df1dc1_new and df2dc2_new for calculating the updated absolute error
     // params = _c1[_qp];
     // Real df1dc1_new = _fparser1->Eval(p);
-    Real df1dc1_new = first1(_c1[_qp]);
+    // Real df1dc1_new = first1(_c1[_qp]);
 
     // params = _c2[_qp];
     // Real df2dc2_new = _fparser2->Eval(p);
-    Real df2dc2_new = first2(_c2[_qp]);
+    // Real df2dc2_new = first2(_c2[_qp]);
 
     // compute the updated absolute Newton error
-    abs_err[0] = df1dc1_new - df2dc2_new;
+    abs_err[0] = _first_df1[_qp] - _first_df2[_qp];
     abs_err[1] = _c[_qp] - _c2[_qp] * _h[_qp] + _c1[_qp] * (_h[_qp] - 1);
     abs_err_norm = std::sqrt(Utility::pow<2>(abs_err[0]) + Utility::pow<2>(abs_err[1]));
 
@@ -510,31 +514,31 @@ SubConcentration::computeQpProperties()
     if (nloop == (_maxiter - 1))
       mooseError("The SubConcentration Newton iteration exceeds the max iteration.");
 
-    // update old ci
-    old_ci_Newton[0] = _c1[_qp];
-    old_ci_Newton[1] = _c2[_qp];
+    // // update old ci
+    // old_ci_Newton[0] = _c1[_qp];
+    // old_ci_Newton[1] = _c2[_qp];
   }
 
   // // compute the updated first and second derivatives in the kernel R and chain rule
   // // derivatives
   // params = _c1[_qp];
   // _first_df1[_qp] = _fparser1->Eval(p);
-  _first_df1[_qp] = first1(_c1[_qp]);
+  // _first_df1[_qp] = first1(_c1[_qp]);
 
   // params = _c2[_qp];
   // _first_df2[_qp] = _fparser2->Eval(p);
-  _first_df2[_qp] = first2(_c2[_qp]);
+  // _first_df2[_qp] = first2(_c2[_qp]);
 
   // params = _c1[_qp];
   // _second_df1[_qp] = _fparser3->Eval(p);
-  _second_df1[_qp] = second1(_c1[_qp]);
+  // _second_df1[_qp] = second1(_c1[_qp]);
 
   // params = _c2[_qp];
   // _second_df2[_qp] = _fparser4->Eval(p);
-  _second_df2[_qp] = second2(_c2[_qp]);
+  // _second_df2[_qp] = second2(_c2[_qp]);
 
-  std::cout << "c2 is " << _c2[_qp] << ", and second derivative is " << _second_df2[_qp]
-            << std::endl;
+  // std::cout << "c2 is " << _c2[_qp] << ", and second derivative is " << _second_df2[_qp]
+  //           << std::endl;
 
   // compute dc1dc, dc2dc, dc1deta, and dc2deta
   _dc1dc[_qp] =
