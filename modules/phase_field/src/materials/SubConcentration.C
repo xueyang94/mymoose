@@ -46,8 +46,6 @@ SubConcentration::validParams()
                                                 "The second derivative of f1 w.r.t. c1");
   params.addRequiredParam<MaterialPropertyName>("d2f2dc2_name",
                                                 "The second derivative of f2 w.r.t. c2");
-  params.addRequiredParam<Real>(
-      "plog_tol_value", "The maximum value to start using the Taylor expansion of log functions");
   return params;
 }
 
@@ -227,8 +225,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 //   {
 //     return (800.0 * Utility::pow<2>(tol - 1.0 * x)) / Utility::pow<3>(tol) - 400.0 / (x - 1.0) +
 //            (400.0 * (2.0 * tol - 2.0 * x)) / Utility::pow<2>(tol) -
-//            400.0 * x * ((2.0 * tol - 2.0 * x) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol)) +
-//            800.0 / tol;
+//            400.0 * x * ((2.0 * tol - 2.0 * x) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol))
+//            + 800.0 / tol;
 //   }
 //   else if (x > tol && x < 1)
 //   {
@@ -239,7 +237,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 //     return (800.0 * Utility::pow<2>(tol + x - 1.0)) / Utility::pow<3>(tol) +
 //            400.0 * (x - 1.0) *
 //                (1 / Utility::pow<2>(tol) + (2.0 * tol + 2.0 * x - 2.0) / Utility::pow<3>(tol)) +
-//            800.0 / tol + 400.0 / x + (400.0 * (2.0 * tol + 2.0 * x - 2.0)) / Utility::pow<2>(tol);
+//            800.0 / tol + 400.0 / x + (400.0 * (2.0 * tol + 2.0 * x - 2.0)) /
+//            Utility::pow<2>(tol);
 //   }
 // }
 //
@@ -252,8 +251,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 //   {
 //     return (800.0 * Utility::pow<2>(tol - 1.0 * x)) / Utility::pow<3>(tol) - 400.0 / (x - 1.0) +
 //            (400.0 * (2.0 * tol - 2.0 * x)) / Utility::pow<2>(tol) -
-//            400.0 * x * ((2.0 * tol - 2.0 * x) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol)) +
-//            800.0 / tol;
+//            400.0 * x * ((2.0 * tol - 2.0 * x) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol))
+//            + 800.0 / tol;
 //   }
 //   else if (x > tol && x < 1)
 //   {
@@ -264,7 +263,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 //     return (800.0 * Utility::pow<2>(tol + x - 1.0)) / Utility::pow<3>(tol) +
 //            400.0 * (x - 1.0) *
 //                (1 / Utility::pow<2>(tol) + (2.0 * tol + 2.0 * x - 2.0) / Utility::pow<3>(tol)) +
-//            800.0 / tol + 400.0 / x + (400.0 * (2.0 * tol + 2.0 * x - 2.0)) / Utility::pow<2>(tol);
+//            800.0 / tol + 400.0 / x + (400.0 * (2.0 * tol + 2.0 * x - 2.0)) /
+//            Utility::pow<2>(tol);
 //   }
 // }
 
@@ -348,7 +348,6 @@ second1(Real x)
   {
     return 400 / x - 400 / (x - 1);
   }
-  // else if (x > 1 || x == 1)
   else
   {
     return (400 * (2 * tol + 2 * x - 2)) / Utility::pow<2>(tol) +
@@ -374,7 +373,6 @@ second2(Real x)
   {
     return 400 / x - 400 / (x - 1);
   }
-  // else if (x > 1 || x == 1)
   else
   {
     return (400 * (2 * tol + 2 * x - 2)) / Utility::pow<2>(tol) +
@@ -406,10 +404,10 @@ SubConcentration::computeQpProperties()
   std::vector<Real> old_ci_Newton(2);
   // old_ci_Newton[0] = _c1_old[_qp];
   // old_ci_Newton[1] = _c2_old[_qp];
-  old_ci_Newton[0] = 0.6;
-  old_ci_Newton[1] = 0.4;
   // old_ci_Newton[0] = 0.6;
-  // old_ci_Newton[1] = 0.1;
+  // old_ci_Newton[1] = 0.4;
+  old_ci_Newton[0] = 0.6;
+  old_ci_Newton[1] = 0.1;
 
   // declare the params used in substitution of symbolic functions fparser.Eval()
   // double params;
@@ -534,6 +532,9 @@ SubConcentration::computeQpProperties()
   // params = _c2[_qp];
   // _second_df2[_qp] = _fparser4->Eval(p);
   _second_df2[_qp] = second2(_c2[_qp]);
+
+  std::cout << "c2 is " << _c2[_qp] << ", and second derivative is " << _second_df2[_qp]
+            << std::endl;
 
   // compute dc1dc, dc2dc, dc1deta, and dc2deta
   _dc1dc[_qp] =
