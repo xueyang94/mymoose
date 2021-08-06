@@ -54,11 +54,11 @@ protected:
   MaterialProperty<Real> & _second_df1;
   MaterialProperty<Real> & _second_df2;
 
-  std::unique_ptr<FunctionParserADBase<Real>> _fparser1;
-
-  std::unique_ptr<FunctionParserADBase<Real>> _fparser2;
-
-  std::unique_ptr<FunctionParserADBase<Real>> _fparser3;
-
-  std::unique_ptr<FunctionParserADBase<Real>> _fparser4;
+  // std::unique_ptr<FunctionParserADBase<Real>> _fparser1;
+  //
+  // std::unique_ptr<FunctionParserADBase<Real>> _fparser2;
+  //
+  // std::unique_ptr<FunctionParserADBase<Real>> _fparser3;
+  //
+  // std::unique_ptr<FunctionParserADBase<Real>> _fparser4;
 };
