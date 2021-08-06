@@ -61,8 +61,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _h(getMaterialProperty<Real>("h_name")),
     _c1(declareProperty<Real>("c1_name")),
     _c2(declareProperty<Real>("c2_name")),
-    _c1_old(getMaterialPropertyOld<Real>("c1_name")), // old
-    _c2_old(getMaterialPropertyOld<Real>("c2_name")), // old
+    // _c1_old(getMaterialPropertyOld<Real>("c1_name")), // old
+    // _c2_old(getMaterialPropertyOld<Real>("c2_name")), // old
     _abs_tol(getParam<Real>("absolute_tol_value")),
     _rel_tol(getParam<Real>("relative_tol_value")),
     _maxiter(getParam<Real>("max_iteration")),
@@ -80,15 +80,15 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _second_df2(declareProperty<Real>("d2f2dc2_name"))
 
 {
-  _fparser1 = std::make_unique<FunctionParserADBase<Real>>();
-  _fparser2 = std::make_unique<FunctionParserADBase<Real>>();
-  _fparser3 = std::make_unique<FunctionParserADBase<Real>>();
-  _fparser4 = std::make_unique<FunctionParserADBase<Real>>();
+  // _fparser1 = std::make_unique<FunctionParserADBase<Real>>();
+  // _fparser2 = std::make_unique<FunctionParserADBase<Real>>();
+  // _fparser3 = std::make_unique<FunctionParserADBase<Real>>();
+  // _fparser4 = std::make_unique<FunctionParserADBase<Real>>();
 
   // declare bulk energies f1 and f2
   // std::string f1 = "2*c1 + 30*(1 - c1) + 400*(c1*plog(c1, 1e-4) + (1 - c1)*plog(1 - c1, 1e-4))";
   // std::string f2 = "40*c2 + (1 - c2) + 400*(c2*plog(c2, 1e-4) + (1 - c2)*plog(1 - c2, 1e-4))";
-  std::string f1 = "20*c1 + 300*(1 - c1) + 400*(c1*plog(c1, 1e-4) + (1 - c1)*plog(1 - c1, 1e-4))";
+  std::string f1 = "20*c1 + 300*(1 - c1) + 400*(c1*plog(c1, 1e-4) + (1 - c1)*plog(1 - c1,1e-4))";
   std::string f2 =
       "2500*c2 + 0.01*(1 - c2) + 400*(c2*plog(c2, 1e-4) + (1 - c2)*plog(1 - c2, 1e-4))";
   // std::string f1 = "20*c1 + 300*(1 - c1) + 400*(c1*plog(c1, 1e-4) + (1 - c1)*plog(1 - c1,1e-4))";
@@ -128,28 +128,147 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
   //                    1e-4)^3/(3*1e-3^3)))";
   // }
 
-  // parsed function of df1/dc1
-  _fparser1->Parse(f1, "c1");
-  _fparser1->AutoDiff("c1");
-  _fparser1->Optimize();
-
-  // parsed function of df2/dc2
-  _fparser2->Parse(f2, "c2");
-  _fparser2->AutoDiff("c2");
-  _fparser2->Optimize();
-
-  // parsed function of second derivative of f1 w.r.t. c1
-  _fparser3->Parse(f1, "c1");
-  _fparser3->AutoDiff("c1");
-  _fparser3->AutoDiff("c1");
-  _fparser3->Optimize();
-
-  // parsed function of second derivative of f2 w.r.t. c2
-  _fparser4->Parse(f2, "c2");
-  _fparser4->AutoDiff("c2");
-  _fparser4->AutoDiff("c2");
-  _fparser4->Optimize();
+  // // parsed function of df1/dc1
+  // _fparser1->Parse(f1, "c1");
+  // _fparser1->AutoDiff("c1");
+  // _fparser1->Optimize();
+  //
+  // // parsed function of df2/dc2
+  // _fparser2->Parse(f2, "c2");
+  // _fparser2->AutoDiff("c2");
+  // _fparser2->Optimize();
+  //
+  // // parsed function of second derivative of f1 w.r.t. c1
+  // _fparser3->Parse(f1, "c1");
+  // _fparser3->AutoDiff("c1");
+  // _fparser3->AutoDiff("c1");
+  // _fparser3->Optimize();
+  //
+  // // parsed function of second derivative of f2 w.r.t. c2
+  // _fparser4->Parse(f2, "c2");
+  // _fparser4->AutoDiff("c2");
+  // _fparser4->AutoDiff("c2");
+  // _fparser4->Optimize();
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// middle log start
+// Real
+// first1(Real x)
+// {
+//   Real tol = 1e-4;
+//
+//   if (x < tol || x == tol)
+//   {
+//     return 400.0 * log(tol) - 400.0 * log(1.0 - 1.0 * x) - (400.0 * (tol - 1.0 * x)) / tol -
+//            (200.0 * Utility::pow<2>(tol - 1.0 * x)) / Utility::pow<2>(tol) -
+//            (133.33333333333333333333333333333 * Utility::pow<3>(tol - 1.0 * x)) /
+//                Utility::pow<3>(tol) +
+//            400.0 * x *
+//                (Utility::pow<2>(tol - 1.0 * x) / Utility::pow<3>(tol) +
+//                 (0.5 * (2.0 * tol - 2.0 * x)) / Utility::pow<2>(tol) + 1 / tol) -
+//            428.0;
+//   }
+//   else if (x > tol && x < 1)
+//   {
+//     return 400.0 * log(x) - 400.0 * log(1.0 - 1.0 * x) - 28.0;
+//   }
+//   else
+//   {
+//     return 400.0 * log(x) - 400.0 * log(tol) +
+//            400.0 * (x - 1.0) *
+//                (Utility::pow<2>(tol + x - 1.0) / Utility::pow<3>(tol) + 1 / tol +
+//                 (0.5 * (2.0 * tol + 2.0 * x - 2.0)) / Utility::pow<2>(tol)) +
+//            (200.0 * Utility::pow<2>(tol + x - 1.0)) / Utility::pow<2>(tol) +
+//            (133.33333333333333333333333333333 * Utility::pow<3>(tol + x - 1.0)) /
+//                Utility::pow<3>(tol) +
+//            (400.0 * (tol + x - 1.0)) / tol + 372.0;
+//   }
+// }
+//
+// Real
+// first2(Real x)
+// {
+//   Real tol = 1e-4;
+//
+//   if (x < tol || x == tol)
+//   {
+//     return 400.0 * log(tol) - 400.0 * log(1.0 - 1.0 * x) - (400.0 * (tol - 1.0 * x)) / tol -
+//            (200.0 * Utility::pow<2>(tol - 1.0 * x)) / Utility::pow<2>(tol) -
+//            (133.33333333333333333333333333333 * Utility::pow<3>(tol - 1.0 * x)) /
+//                Utility::pow<3>(tol) +
+//            400.0 * x *
+//                (Utility::pow<2>(tol - 1.0 * x) / Utility::pow<3>(tol) +
+//                 (0.5 * (2.0 * tol - 2.0 * x)) / Utility::pow<2>(tol) + 1 / tol) -
+//            361.0;
+//   }
+//   else if (x > tol && x < 1)
+//   {
+//     return 400.0 * log(x) - 400.0 * log(1.0 - 1.0 * x) + 39.0;
+//   }
+//   else
+//   {
+//     return 400.0 * log(x) - 400.0 * log(tol) +
+//            400.0 * (x - 1.0) *
+//                (Utility::pow<2>(tol + x - 1.0) / Utility::pow<3>(tol) + 1 / tol +
+//                 (0.5 * (2.0 * tol + 2.0 * x - 2.0)) / Utility::pow<2>(tol)) +
+//            (200.0 * Utility::pow<2>(tol + x - 1.0)) / Utility::pow<2>(tol) +
+//            (133.33333333333333333333333333333 * Utility::pow<3>(tol + x - 1.0)) /
+//                Utility::pow<3>(tol) +
+//            (400.0 * (tol + x - 1.0)) / tol + 439.0;
+//   }
+// }
+//
+// Real
+// second1(Real x)
+// {
+//   Real tol = 1e-4;
+//
+//   if (x < tol || x == tol)
+//   {
+//     return (800.0 * Utility::pow<2>(tol - 1.0 * x)) / Utility::pow<3>(tol) - 400.0 / (x - 1.0) +
+//            (400.0 * (2.0 * tol - 2.0 * x)) / Utility::pow<2>(tol) -
+//            400.0 * x * ((2.0 * tol - 2.0 * x) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol)) +
+//            800.0 / tol;
+//   }
+//   else if (x > tol && x < 1)
+//   {
+//     return 400.0 / x - 400.0 / (x - 1.0);
+//   }
+//   else
+//   {
+//     return (800.0 * Utility::pow<2>(tol + x - 1.0)) / Utility::pow<3>(tol) +
+//            400.0 * (x - 1.0) *
+//                (1 / Utility::pow<2>(tol) + (2.0 * tol + 2.0 * x - 2.0) / Utility::pow<3>(tol)) +
+//            800.0 / tol + 400.0 / x + (400.0 * (2.0 * tol + 2.0 * x - 2.0)) / Utility::pow<2>(tol);
+//   }
+// }
+//
+// Real
+// second2(Real x)
+// {
+//   Real tol = 1e-4;
+//
+//   if (x < tol || x == tol)
+//   {
+//     return (800.0 * Utility::pow<2>(tol - 1.0 * x)) / Utility::pow<3>(tol) - 400.0 / (x - 1.0) +
+//            (400.0 * (2.0 * tol - 2.0 * x)) / Utility::pow<2>(tol) -
+//            400.0 * x * ((2.0 * tol - 2.0 * x) / Utility::pow<3>(tol) + 1 / Utility::pow<2>(tol)) +
+//            800.0 / tol;
+//   }
+//   else if (x > tol && x < 1)
+//   {
+//     return 400.0 / x - 400.0 / (x - 1.0);
+//   }
+//   else
+//   {
+//     return (800.0 * Utility::pow<2>(tol + x - 1.0)) / Utility::pow<3>(tol) +
+//            400.0 * (x - 1.0) *
+//                (1 / Utility::pow<2>(tol) + (2.0 * tol + 2.0 * x - 2.0) / Utility::pow<3>(tol)) +
+//            800.0 / tol + 400.0 / x + (400.0 * (2.0 * tol + 2.0 * x - 2.0)) / Utility::pow<2>(tol);
+//   }
+// }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// middle log end
 
 Real
 first1(Real x)
@@ -265,16 +384,16 @@ second2(Real x)
   }
 }
 
-void
-SubConcentration::initQpStatefulProperties()
-{
-  // init the ci property (this will become _c1_old and _c2_old in the first call of
-  // computeProperties)
-  _c1[_qp] = 0.6;
-  _c2[_qp] = 0.1;
-  // _c1[_qp] = 0.4;
-  // _c2[_qp] = 0.6;
-}
+// void
+// SubConcentration::initQpStatefulProperties()
+// {
+//   // init the ci property (this will become _c1_old and _c2_old in the first call of
+//   // computeProperties)
+//   _c1[_qp] = 0.6;
+//   _c2[_qp] = 0.1;
+//   // _c1[_qp] = 0.4;
+//   // _c2[_qp] = 0.6;
+// }
 
 void
 SubConcentration::computeQpProperties()
@@ -285,10 +404,10 @@ SubConcentration::computeQpProperties()
 
   // declare and initialize the old ci inside Newton iteration
   std::vector<Real> old_ci_Newton(2);
-  old_ci_Newton[0] = _c1_old[_qp];
-  old_ci_Newton[1] = _c2_old[_qp];
-  // old_ci_Newton[0] = 0.6;
-  // old_ci_Newton[1] = 0.4;
+  // old_ci_Newton[0] = _c1_old[_qp];
+  // old_ci_Newton[1] = _c2_old[_qp];
+  old_ci_Newton[0] = 0.6;
+  old_ci_Newton[1] = 0.4;
   // old_ci_Newton[0] = 0.6;
   // old_ci_Newton[1] = 0.1;
 
