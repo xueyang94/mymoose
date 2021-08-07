@@ -17,7 +17,9 @@ registerMooseObject("PhaseFieldApp", SubConcentration);
 InputParameters
 SubConcentration::validParams()
 {
-  InputParameters params = Material::validParams();
+  // InputParameters params = Material::validParams();
+  InputParameters params = DerivativeMaterialInterface<Material>::validParams();
+  // InputParameters params = DerivativeMaterialPropertyNameInterface<Material>::validParams();
   params.addClassDescription(
       "Computes the KKS sub-concentrations by using Newton iteration to solve the equal chemical "
       "potential and concentration conservation equations");
@@ -54,6 +56,7 @@ SubConcentration::validParams()
 SubConcentration::SubConcentration(const InputParameters & parameters)
   // : Material(parameters),
   : DerivativeMaterialInterface<Material>(parameters),
+    // : DerivativeMaterialPropertyNameInterface<Material>(parameters),
     _c(coupledValue("global_c")),
     // _c_name(getVar("global_c", 0)->name()),
     _eta(coupledValue("eta")),
@@ -74,10 +77,12 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     // _first_df2(declareProperty<Real>("df2dc2_name")),
     // _second_df1(declareProperty<Real>("d2f1dc1_name")),
     // _second_df2(declareProperty<Real>("d2f2dc2_name"))
-    _first_df1(getMaterialPropertyDerivative<Real>("F1_name", "c1_name")),
-    _first_df2(getMaterialPropertyDerivative<Real>("F2_name", "c2_name")),
-    _second_df1(getMaterialPropertyDerivative<Real>("F1_name", "c1_name", "c1_name")),
-    _second_df2(getMaterialPropertyDerivative<Real>("F2_name", "c2_name", "c2_name"))
+    _c1_name(getSymbolName("c1_name", 0)->name()),
+    _c2_name(getSymbolName("c2_name", 0)->name()),
+    _first_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name)),
+    _first_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name)),
+    _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
+    _second_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name, _c2_name))
 
 {
   // _fparser1 = std::make_unique<FunctionParserADBase<Real>>();
@@ -398,6 +403,9 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 void
 SubConcentration::computeQpProperties()
 {
+  std::cout << "first_f1 is " << _first_df1[_qp] << std::endl;
+  std::cout << "first_f2 is " << _first_df2[_qp] << std::endl;
+
   // FunctionParserADBase<Real> fparser;
 
   Real n = _eta[_qp];
@@ -504,6 +512,11 @@ SubConcentration::computeQpProperties()
 
     // compute the relative Newton error
     rel_err_norm = std::abs(abs_err_norm / init_err_norm);
+
+    // std::cout << "c1 is " << _c1[_qp] << std::endl;
+    // std::cout << "c2 is " << _c2[_qp] << std::endl;
+    // std::cout << "absolute error is " << abs_err_norm << std::endl;
+    // std::cout << "relative error is " << rel_err_norm << std::endl;
 
     // Newton iteration convergence criterion
     if (abs_err_norm < _abs_tol)
