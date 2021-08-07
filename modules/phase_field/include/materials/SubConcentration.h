@@ -11,9 +11,11 @@
 
 // #include "Material.h"
 #include "DerivativeMaterialInterface.h"
+// #include "DerivativeMaterialPropertyNameInterface.h"
 
 // class SubConcentration : public Material
 class SubConcentration : public DerivativeMaterialInterface<Material>
+// class SubConcentration : public DerivativeMaterialPropertyNameInterface<Material>
 {
 public:
   static InputParameters validParams();
@@ -47,6 +49,9 @@ protected:
   MaterialProperty<Real> & _dc2dc;
   MaterialProperty<Real> & _dc1deta;
   MaterialProperty<Real> & _dc2deta;
+
+  SymbolName _c1_name;
+  SymbolName _c2_name;
 
   const MaterialProperty<Real> & _first_df1;
   const MaterialProperty<Real> & _first_df2;
