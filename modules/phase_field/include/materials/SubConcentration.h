@@ -50,20 +50,12 @@ protected:
   MaterialProperty<Real> & _dc1deta;
   MaterialProperty<Real> & _dc2deta;
 
-  SymbolName _c1_name;
-  SymbolName _c2_name;
+  const SymbolName _c1_name;
+  const SymbolName _c2_name;
 
   const MaterialProperty<Real> & _first_df1;
   const MaterialProperty<Real> & _first_df2;
 
   const MaterialProperty<Real> & _second_df1;
   const MaterialProperty<Real> & _second_df2;
-
-  // std::unique_ptr<FunctionParserADBase<Real>> _fparser1;
-  //
-  // std::unique_ptr<FunctionParserADBase<Real>> _fparser2;
-  //
-  // std::unique_ptr<FunctionParserADBase<Real>> _fparser3;
-  //
-  // std::unique_ptr<FunctionParserADBase<Real>> _fparser4;
 };
