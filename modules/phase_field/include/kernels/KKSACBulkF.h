@@ -10,8 +10,8 @@
 #pragma once
 
 // #include "KKSACBulkBase.h"
-#include "Kernel.h"
-// #include "DerivativeMaterialInterface.h"
+// #include "Kernel.h"
+#include "DerivativeMaterialInterface.h"
 
 // Forward Declarations
 
@@ -22,8 +22,8 @@
  *
  * The non-linear variable for this Kernel is the order parameter 'eta'.
  */
-class KKSACBulkF : public Kernel
-// class KKSACBulkF : public DerivativeMaterialInterface<Kernel>
+// class KKSACBulkF : public Kernel
+class KKSACBulkF : public DerivativeMaterialInterface<Kernel>
 {
 public:
   static InputParameters validParams();
@@ -41,8 +41,8 @@ protected:
   // const VariableValue & _eta;
   // VariableName _eta_name;
 
-  const MaterialProperty<Real> & _c1;
-  const MaterialProperty<Real> & _c2;
+  // const MaterialProperty<Real> & _c1;
+  // const MaterialProperty<Real> & _c2;
 
   const MaterialProperty<Real> & _dc1dc;
   const MaterialProperty<Real> & _dc2dc;
@@ -52,6 +52,10 @@ protected:
   const MaterialProperty<Real> & _f1;
   const MaterialProperty<Real> & _f2;
 
+  // const MaterialProperty<Real> & _first_df1;
+  // const MaterialProperty<Real> & _first_df2;
+  const SymbolName _c1_name;
+  const SymbolName _c2_name;
   const MaterialProperty<Real> & _first_df1;
   const MaterialProperty<Real> & _first_df2;
 
