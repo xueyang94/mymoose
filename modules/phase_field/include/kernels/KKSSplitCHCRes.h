@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "Kernel.h"
-// #include "DerivativeMaterialInterface.h"
+// #include "Kernel.h"
+#include "DerivativeMaterialInterface.h"
 
 // Forward Declarations
 
@@ -27,8 +27,8 @@
  * phase concentration \f$ c_a \f$
  */
 
-class KKSSplitCHCRes : public Kernel
-// class KKSSplitCHCRes : public DerivativeMaterialInterface<Kernel>
+// class KKSSplitCHCRes : public Kernel
+class KKSSplitCHCRes : public DerivativeMaterialInterface<Kernel>
 {
 public:
   static InputParameters validParams();
@@ -49,6 +49,10 @@ protected:
   const MaterialProperty<Real> & _dc1dc;
   const MaterialProperty<Real> & _dc1deta;
 
+  // const MaterialProperty<Real> & _first_df1;
+  // const MaterialProperty<Real> & _second_df1;
+  const SymbolName _c1_name;
+  const SymbolName _c2_name;
   const MaterialProperty<Real> & _first_df1;
   const MaterialProperty<Real> & _second_df1;
 
