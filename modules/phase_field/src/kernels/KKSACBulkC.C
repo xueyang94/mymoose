@@ -14,7 +14,8 @@ registerMooseObject("PhaseFieldApp", KKSACBulkC);
 InputParameters
 KKSACBulkC::validParams()
 {
-  InputParameters params = Kernel::validParams();
+  // InputParameters params = Kernel::validParams();
+  InputParameters params = DerivativeMaterialInterface<Kernel>::validParams();
   params.addClassDescription("KKS model kernel (part 2 of 2) for the Bulk Allen-Cahn. This "
                              "includes all terms dependent on chemical potential.");
   // params.addRequiredCoupledVar("global_c", "The interpolated concentration");
@@ -25,10 +26,15 @@ KKSACBulkC::validParams()
   params.addRequiredParam<MaterialPropertyName>("dc2dc_name", "The name of dc2/dc");
   params.addRequiredParam<MaterialPropertyName>("dc1deta_name", "The name of dc1/deta");
   params.addRequiredParam<MaterialPropertyName>("dc2deta_name", "The name of dc2/deta");
-  params.addRequiredParam<MaterialPropertyName>("df1dc1_name",
-                                                "The name of the first derivative of f1 w.r.t. c1");
-  params.addRequiredParam<MaterialPropertyName>(
-      "d2f1dc1_name", "The name of the second derivative of f1 w.r.t. c1");
+  // params.addRequiredParam<MaterialPropertyName>("df1dc1_name",
+  //                                               "The name of the first derivative of f1 w.r.t.
+  //                                               c1");
+  // params.addRequiredParam<MaterialPropertyName>(
+  //     "d2f1dc1_name", "The name of the second derivative of f1 w.r.t. c1");
+  params.addRequiredParam<MaterialPropertyName>("F1_name",
+                                                "The name of the bulk energy of phase 1");
+  params.addRequiredParam<MaterialPropertyName>("F2_name",
+                                                "The name of the bulk energy of phase 2");
   params.addRequiredParam<MaterialPropertyName>("L_name", "The name of the Allen-Cahn mobility");
   params.addRequiredCoupledVar("w",
                                "Chemical potential non-linear helper variable for the split solve");
@@ -36,8 +42,8 @@ KKSACBulkC::validParams()
 }
 
 KKSACBulkC::KKSACBulkC(const InputParameters & parameters)
-  : Kernel(parameters),
-    // : DerivativeMaterialInterface<Kernel>(parameters),
+  // : Kernel(parameters),
+  : DerivativeMaterialInterface<Kernel>(parameters),
     // _c(coupledValue("global_c")),
     // _c_name(getVar("global_c", 0)->name()),
     // _eta(coupledValue("eta")),
@@ -52,8 +58,12 @@ KKSACBulkC::KKSACBulkC(const InputParameters & parameters)
     // _dc2dc(getMaterialPropertyDerivative<Real>("c2_name", _c_name)),
     // _dc1deta(getMaterialPropertyDerivative<Real>("c1_name", _eta_name)),
     // _dc2deta(getMaterialPropertyDerivative<Real>("c2_name", _eta_name)),
-    _first_df1(getMaterialProperty<Real>("df1dc1_name")),
-    _second_df1(getMaterialProperty<Real>("d2f1dc1_name")),
+    // _first_df1(getMaterialProperty<Real>("df1dc1_name")),
+    // _second_df1(getMaterialProperty<Real>("d2f1dc1_name")),
+    _c1_name("c1"),
+    _c2_name("c2"),
+    _first_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name)),
+    _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
     _L(getMaterialProperty<Real>("L_name")),
     _w_var(coupled("w")),
     _w(coupledValue("w"))
