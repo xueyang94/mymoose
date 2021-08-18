@@ -39,8 +39,8 @@ SubConcentration::validParams()
                                                 "The first derivative of c1 w.r.t. eta");
   params.addRequiredParam<MaterialPropertyName>("dc2deta_name",
                                                 "The first derivative of c2 w.r.t. eta");
-  params.addRequiredParam<MaterialPropertyName>("F1_name", "F1");
-  params.addRequiredParam<MaterialPropertyName>("F2_name", "F2");
+  // params.addRequiredParam<MaterialPropertyName>("F1_name", "F1");
+  // params.addRequiredParam<MaterialPropertyName>("F2_name", "F2");
   return params;
 }
 
