@@ -53,6 +53,9 @@ protected:
   const SymbolName _c1_name;
   const SymbolName _c2_name;
 
+  MaterialBase & _f1;
+  MaterialBase & _f2;
+
   const MaterialProperty<Real> & _first_df1;
   const MaterialProperty<Real> & _first_df2;
 
