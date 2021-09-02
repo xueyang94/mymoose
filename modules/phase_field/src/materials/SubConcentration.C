@@ -39,6 +39,8 @@ SubConcentration::validParams()
                                                 "The first derivative of c1 w.r.t. eta");
   params.addRequiredParam<MaterialPropertyName>("dc2deta_name",
                                                 "The first derivative of c2 w.r.t. eta");
+  params.addRequiredParam<MaterialName>("F1_material", "F1");
+  params.addRequiredParam<MaterialName>("F2_material", "F2");
   params.addRequiredParam<MaterialPropertyName>("F1_name", "F1");
   params.addRequiredParam<MaterialPropertyName>("F2_name", "F2");
   return params;
@@ -63,6 +65,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _dc2deta(declareProperty<Real>("dc2deta_name")),
     _c1_name("c1"),
     _c2_name("c2"),
+    _f1(getMaterial("F1_material")),
+    _f2(getMaterial("F2_material")),
     _first_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name)),
     _first_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name)),
     _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
@@ -106,6 +110,8 @@ SubConcentration::computeQpProperties()
   // Newton iteration
   for (unsigned int nloop = 0; nloop < _maxiter; ++nloop)
   {
+    _f1.computePropertiesAtQp(_qp);
+    _f2.computePropertiesAtQp(_qp);
 
     // compute eqn1 and eqn2
     Real eqn1 = _first_df1[_qp] - _first_df2[_qp];
