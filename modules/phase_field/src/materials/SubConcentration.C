@@ -89,7 +89,7 @@ SubConcentration::computeQpProperties()
   // old_ci_Newton[0] = 0.6;
   // old_ci_Newton[1] = 0.1;
   _c1[_qp] = 0.6;
-  _c2[_qp] = 0.1;
+  _c2[_qp] = 0.4;
 
   // std::cout << "first_f1 is " << _first_df1[_qp] << std::endl;
   // std::cout << "first_f2 is " << _first_df2[_qp] << std::endl;
