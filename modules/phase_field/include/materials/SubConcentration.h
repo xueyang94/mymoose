@@ -11,11 +11,9 @@
 
 // #include "Material.h"
 #include "DerivativeMaterialInterface.h"
-// #include "DerivativeMaterialPropertyNameInterface.h"
 
 // class SubConcentration : public Material
 class SubConcentration : public DerivativeMaterialInterface<Material>
-// class SubConcentration : public DerivativeMaterialPropertyNameInterface<Material>
 {
 public:
   static InputParameters validParams();
@@ -23,21 +21,22 @@ public:
   SubConcentration(const InputParameters & parameters);
 
 protected:
-  // virtual void initQpStatefulProperties() override;
+  virtual void initQpStatefulProperties() override;
   virtual void computeQpProperties() override;
 
   const VariableValue & _c;
-  // std::string _c_name;
 
   const VariableValue & _eta;
-  // std::string _eta_name;
 
   const MaterialProperty<Real> & _h;
 
   MaterialProperty<Real> & _c1;
   MaterialProperty<Real> & _c2;
-  // const MaterialProperty<Real> & _c1_old;
-  // const MaterialProperty<Real> & _c2_old;
+  const MaterialProperty<Real> & _c1_old;
+  const MaterialProperty<Real> & _c2_old;
+
+  const Real _c1_initial;
+  const Real _c2_initial;
 
   const Real _abs_tol;
 
