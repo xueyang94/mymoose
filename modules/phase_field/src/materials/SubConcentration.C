@@ -91,8 +91,8 @@ SubConcentration::computeQpProperties()
   _c1[_qp] = 0.6;
   _c2[_qp] = 0.1;
 
-  std::cout << "first_f1 is " << _first_df1[_qp] << std::endl;
-  std::cout << "first_f2 is " << _first_df2[_qp] << std::endl;
+  // std::cout << "first_f1 is " << _first_df1[_qp] << std::endl;
+  // std::cout << "first_f2 is " << _first_df2[_qp] << std::endl;
 
   // declare the error vectors and norms of Newton iteration
   std::vector<Real> init_err(2);
