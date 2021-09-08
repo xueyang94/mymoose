@@ -36,12 +36,6 @@ protected:
   virtual Real computeQpJacobian();
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-  // const VariableValue & _c;
-  // VariableName _c_name;
-  //
-  // const VariableValue & _eta;
-  // VariableName _eta_name;
-
   const MaterialProperty<Real> & _c1;
   const MaterialProperty<Real> & _c2;
 
@@ -50,8 +44,6 @@ protected:
   const MaterialProperty<Real> & _dc1deta;
   const MaterialProperty<Real> & _dc2deta;
 
-  // const MaterialProperty<Real> & _first_df1;
-  // const MaterialProperty<Real> & _second_df1;
   const SymbolName _c1_name;
   const SymbolName _c2_name;
   const MaterialProperty<Real> & _first_df1;
