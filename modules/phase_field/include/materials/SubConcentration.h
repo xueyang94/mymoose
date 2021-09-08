@@ -21,7 +21,7 @@ public:
   SubConcentration(const InputParameters & parameters);
 
 protected:
-  virtual void initQpStatefulProperties() override;
+  // virtual void initQpStatefulProperties() override;
   virtual void computeQpProperties() override;
 
   const VariableValue & _c;
@@ -32,8 +32,8 @@ protected:
 
   MaterialProperty<Real> & _c1;
   MaterialProperty<Real> & _c2;
-  const MaterialProperty<Real> & _c1_old;
-  const MaterialProperty<Real> & _c2_old;
+  // const MaterialProperty<Real> & _c1_old;
+  // const MaterialProperty<Real> & _c2_old;
 
   const Real _c1_initial;
   const Real _c2_initial;

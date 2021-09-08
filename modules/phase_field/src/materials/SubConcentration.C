@@ -56,8 +56,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _h(getMaterialProperty<Real>("h_name")),
     _c1(declareProperty<Real>("c1_name")),
     _c2(declareProperty<Real>("c2_name")),
-    _c1_old(getMaterialPropertyOld<Real>("c1_name")), // old
-    _c2_old(getMaterialPropertyOld<Real>("c2_name")), // old
+    // _c1_old(getMaterialPropertyOld<Real>("c1_name")), // old
+    // _c2_old(getMaterialPropertyOld<Real>("c2_name")), // old
     _c1_initial(getParam<Real>("c1_IC")),
     _c2_initial(getParam<Real>("c2_IC")),
     _abs_tol(getParam<Real>("absolute_tol_value")),
@@ -79,22 +79,30 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 {
 }
 
-void
-SubConcentration::initQpStatefulProperties()
-{
-  _c1[_qp] = _c1_initial;
-  _c2[_qp] = _c2_initial;
-}
+// void
+// SubConcentration::initQpStatefulProperties()
+// {
+//   _c1[_qp] = _c1_initial;
+//   _c2[_qp] = _c2_initial;
+// }
 
 void
 SubConcentration::computeQpProperties()
 {
+  _c1[_qp] = _c1_initial;
+  _c2[_qp] = _c2_initial;
+
+  std::cout << "qp point "
+               "###################################################################################"
+               "##########"
+            << std::endl;
+
   Real n = _eta[_qp];
 
   // declare and initialize the old ci inside Newton iteration
-  std::vector<Real> old_ci_Newton(2);
-  old_ci_Newton[0] = _c1_old[_qp];
-  old_ci_Newton[1] = _c2_old[_qp];
+  // std::vector<Real> old_ci_Newton(2);
+  // old_ci_Newton[0] = _c1_old[_qp];
+  // old_ci_Newton[1] = _c2_old[_qp];
 
   // declare the error vectors and norms of Newton iteration
   std::vector<Real> init_err(2);
@@ -106,8 +114,11 @@ SubConcentration::computeQpProperties()
 
   // compute the initial error norm
   init_err[0] = _first_df1[_qp] - _first_df2[_qp];
-  init_err[1] = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
+  // init_err[1] = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
+  init_err[1] = _c[_qp] - _c2[_qp] * _h[_qp] + _c1[_qp] * (_h[_qp] - 1);
   init_err_norm = std::sqrt(Utility::pow<2>(init_err[0]) + Utility::pow<2>(init_err[1]));
+
+  // std::cout << "initial error is " << init_err_norm << std::endl;
 
   // Newton iteration
   for (unsigned int nloop = 0; nloop < _maxiter; ++nloop)
@@ -115,9 +126,12 @@ SubConcentration::computeQpProperties()
     _f1.computePropertiesAtQp(_qp);
     _f2.computePropertiesAtQp(_qp);
 
+    // std::cout << "The first df1dc1 is " << _first_df1[_qp] << std::endl;
+
     // compute eqn1 and eqn2
     Real eqn1 = _first_df1[_qp] - _first_df2[_qp];
-    Real eqn2 = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
+    // Real eqn2 = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
+    Real eqn2 = _c[_qp] - _c2[_qp] * _h[_qp] + _c1[_qp] * (_h[_qp] - 1);
 
     // terms used in the determinant D
     Real deqn1dc1 = _second_df1[_qp];
@@ -134,25 +148,52 @@ SubConcentration::computeQpProperties()
     update[0] = 1 / D * (eqn1 * deqn2dc2 - eqn2 * deqn1dc2);
     update[1] = 1 / D * (-eqn1 * deqn2dc1 + eqn2 * deqn1dc1);
 
-    // update old_ci_Newton
-    old_ci_Newton[0] -= update[0];
-    old_ci_Newton[1] -= update[1];
+    std::cout << "D is " << D << std::endl;
+    std::cout << "eqn1 is " << eqn1 << ", and eqn2 is " << eqn2 << std::endl;
+    std::cout << "deqn2dc1 is " << deqn2dc1 << ", and deqn1dc1 is " << deqn1dc1 << std::endl;
+    std::cout << "update[1] is " << update[1] << std::endl;
 
-    // make ci equal to old_ci_Newton in order to update the derivatives of fi
-    _c1[_qp] = old_ci_Newton[0];
-    _c2[_qp] = old_ci_Newton[1];
+    _c1[_qp] = _c1[_qp] - update[0];
+    _c2[_qp] = _c2[_qp] - update[1];
+
+    // // update old_ci_Newton
+    // old_ci_Newton[0] -= update[0];
+    // old_ci_Newton[1] -= update[1];
+
+    // // make ci equal to old_ci_Newton in order to update the derivatives of fi
+    // _c1[_qp] = old_ci_Newton[0];
+    // _c2[_qp] = old_ci_Newton[1];
+
+    _f1.computePropertiesAtQp(_qp);
+    _f2.computePropertiesAtQp(_qp);
+
+    // std::cout << "The second df1dc1 is " << _first_df1[_qp] << std::endl;
 
     // compute the updated absolute Newton error
     abs_err[0] = _first_df1[_qp] - _first_df2[_qp];
-    abs_err[1] = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
+    // abs_err[1] = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
+    abs_err[1] = _c[_qp] - _c2[_qp] * _h[_qp] + _c1[_qp] * (_h[_qp] - 1);
     abs_err_norm = std::sqrt(Utility::pow<2>(abs_err[0]) + Utility::pow<2>(abs_err[1]));
 
     // compute the relative Newton error
     rel_err_norm = std::abs(abs_err_norm / init_err_norm);
 
+    std::cout << "h is " << _h[_qp] << std::endl;
+    std::cout << "second_df2 is " << _second_df2[_qp] << ", and second_df1 is " << _second_df1[_qp]
+              << std::endl;
+    std::cout << "c1 is " << _c1[_qp] << ", and df1dc1 is " << _first_df1[_qp] << std::endl;
+    std::cout << "c2 is " << _c2[_qp] << ", and df2dc2 is " << _first_df2[_qp] << std::endl;
+    std::cout << "c is " << _c[_qp] << std::endl;
+    std::cout << "absolute error is " << abs_err_norm << std::endl;
+    std::cout << "relative error is " << rel_err_norm << std::endl;
+
     // Newton iteration convergence criterion
     if ((abs_err_norm < _abs_tol) || (rel_err_norm < _rel_tol))
+    {
+      std::cout << "criterion met //////////////////////////////////////////////////////"
+                << std::endl;
       break;
+    }
 
     if (nloop == (_maxiter - 1))
       mooseError("The SubConcentration Newton iteration exceeds the max iteration.");
