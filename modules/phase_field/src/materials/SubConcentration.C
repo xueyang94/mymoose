@@ -99,7 +99,7 @@ SubConcentration::computeQpProperties()
 
   Real n = _eta[_qp];
 
-  // declare and initialize the old ci inside Newton iteration
+  // // declare and initialize the old ci inside Newton iteration
   // std::vector<Real> old_ci_Newton(2);
   // old_ci_Newton[0] = _c1_old[_qp];
   // old_ci_Newton[1] = _c2_old[_qp];
@@ -164,8 +164,8 @@ SubConcentration::computeQpProperties()
     // _c1[_qp] = old_ci_Newton[0];
     // _c2[_qp] = old_ci_Newton[1];
 
-    _f1.computePropertiesAtQp(_qp);
-    _f2.computePropertiesAtQp(_qp);
+    // _f1.computePropertiesAtQp(_qp);
+    // _f2.computePropertiesAtQp(_qp);
 
     // compute the updated absolute Newton error
     abs_err[0] = _first_df1[_qp] - _first_df2[_qp];
