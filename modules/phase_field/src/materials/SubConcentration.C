@@ -60,8 +60,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _h(getMaterialProperty<Real>("h_name")),
     _c1(declareProperty<Real>("c1_name")),
     _c2(declareProperty<Real>("c2_name")),
-    _c1_old(getMaterialPropertyOld<Real>("c1_name")), // old
-    _c2_old(getMaterialPropertyOld<Real>("c2_name")), // old
+    // _c1_old(getMaterialPropertyOld<Real>("c1_name")), // old
+    // _c2_old(getMaterialPropertyOld<Real>("c2_name")), // old
     _abs_tol(getParam<Real>("absolute_tol_value")),
     _rel_tol(getParam<Real>("relative_tol_value")),
     _maxiter(getParam<Real>("max_iteration")),
@@ -109,36 +109,41 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
   _fparser4->Optimize();
 }
 
-void
-SubConcentration::initQpStatefulProperties()
-{
-  // init the ci property (this will become _c1_old and _c2_old in the first call of
-  // computeProperties)
-  _c1[_qp] = _c1_initial;
-  _c2[_qp] = _c2_initial;
-}
+// void
+// SubConcentration::initQpStatefulProperties()
+// {
+//   // init the ci property (this will become _c1_old and _c2_old in the first call of
+//   // computeProperties)
+//   _c1[_qp] = _c1_initial;
+//   _c2[_qp] = _c2_initial;
+// }
 
 void
 SubConcentration::computeQpProperties()
 {
+  _c1[_qp] = _c1_initial;
+  _c2[_qp] = _c2_initial;
+
   FunctionParserADBase<Real> fparser;
 
   Real n = _eta[_qp];
 
-  // declare and initialize the old ci inside Newton iteration
-  std::vector<Real> old_ci_Newton(2);
-  old_ci_Newton[0] = _c1_old[_qp];
-  old_ci_Newton[1] = _c2_old[_qp];
+  // // declare and initialize the old ci inside Newton iteration
+  // std::vector<Real> old_ci_Newton(2);
+  // old_ci_Newton[0] = _c1_old[_qp];
+  // old_ci_Newton[1] = _c2_old[_qp];
 
   // declare the params used in substitution of symbolic functions fparser.Eval()
   double params;
   double * p = &params;
 
   // compute df1dc1_init and df2dc2_init for computing the initial error
-  params = old_ci_Newton[0];
+  // params = old_ci_Newton[0];
+  params = _c1[_qp];
   Real df1dc1_init = _fparser1->Eval(p);
 
-  params = old_ci_Newton[1];
+  // params = old_ci_Newton[1];
+  params = _c2[_qp];
   Real df2dc2_init = _fparser2->Eval(p);
 
   // declare the error vectors and norms of Newton iteration
@@ -151,31 +156,37 @@ SubConcentration::computeQpProperties()
 
   // compute the initial error norm
   init_err[0] = df1dc1_init - df2dc2_init;
-  init_err[1] = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
+  // init_err[1] = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
+  init_err[1] = _c[_qp] - _c2[_qp] * _h[_qp] + _c1[_qp] * (_h[_qp] - 1);
   init_err_norm = std::sqrt(Utility::pow<2>(init_err[0]) + Utility::pow<2>(init_err[1]));
 
   // Newton iteration
   for (unsigned int nloop = 0; nloop < _maxiter; ++nloop)
   {
     // compute first_df1 in eqn1
-    params = old_ci_Newton[0];
+    // params = old_ci_Newton[0];
+    params = _c1[_qp];
     _first_df1[_qp] = _fparser1->Eval(p);
 
     // compute second derivative second_df1 in determinant D
-    params = old_ci_Newton[0];
+    // params = old_ci_Newton[0];
+    params = _c1[_qp];
     _second_df1[_qp] = _fparser3->Eval(p);
 
     // compute first_df2 in eqn1
-    params = old_ci_Newton[1];
+    // params = old_ci_Newton[1];
+    params = _c2[_qp];
     _first_df2[_qp] = _fparser2->Eval(p);
 
     // compute second derivative second_df2 in determinant D
-    params = old_ci_Newton[1];
+    // params = old_ci_Newton[1];
+    params = _c2[_qp];
     _second_df2[_qp] = _fparser4->Eval(p);
 
     // compute eqn1 and eqn2
     Real eqn1 = _first_df1[_qp] - _first_df2[_qp];
-    Real eqn2 = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
+    // Real eqn2 = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
+    Real eqn2 = _c[_qp] - _c2[_qp] * _h[_qp] + _c1[_qp] * (_h[_qp] - 1);
 
     // terms used in the determinant D
     Real deqn1dc1 = _second_df1[_qp];
@@ -193,10 +204,12 @@ SubConcentration::computeQpProperties()
 
     update[1] = 1 / D * (-eqn1 * deqn2dc1 + eqn2 * deqn1dc1);
 
-    // compute c1 and c2
-    _c1[_qp] = old_ci_Newton[0] - update[0];
+    // // compute c1 and c2
+    // _c1[_qp] = old_ci_Newton[0] - update[0];
+    // _c2[_qp] = old_ci_Newton[1] - update[1];
 
-    _c2[_qp] = old_ci_Newton[1] - update[1];
+    _c1[_qp] = _c1[_qp] - update[0];
+    _c2[_qp] = _c2[_qp] - update[1];
 
     // compute df1dc1_new and df2dc2_new for calculating the updated absolute error
     params = _c1[_qp];
@@ -220,9 +233,9 @@ SubConcentration::computeQpProperties()
     if (nloop == (_maxiter - 1))
       mooseError("The SubConcentration Newton iteration exceeds the max iteration.");
 
-    // update old ci
-    old_ci_Newton[0] = _c1[_qp];
-    old_ci_Newton[1] = _c2[_qp];
+    // // update old ci
+    // old_ci_Newton[0] = _c1[_qp];
+    // old_ci_Newton[1] = _c2[_qp];
   }
 
   // compute the updated first and second derivatives in the kernel R and chain rule
