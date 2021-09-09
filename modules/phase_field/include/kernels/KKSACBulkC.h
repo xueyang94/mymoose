@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "KKSACBulkBase.h"
+#include "Kernel.h"
 
 // Forward Declarations
 
@@ -20,7 +20,8 @@
  *
  * The non-linear variable for this Kernel is the order parameter 'eta'.
  */
-class KKSACBulkC : public KKSACBulkBase
+
+class KKSACBulkC : public Kernel
 {
 public:
   static InputParameters validParams();
@@ -28,26 +29,24 @@ public:
   KKSACBulkC(const InputParameters & parameters);
 
 protected:
-  virtual Real computeDFDOP(PFFunctionType type);
+  virtual Real computeQpResidual();
+  virtual Real computeQpJacobian();
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-  /// phase a concentration
-  std::string _ca_name;
-  unsigned int _ca_var;
-  const VariableValue & _ca;
+  const MaterialProperty<Real> & _c1;
+  const MaterialProperty<Real> & _c2;
 
-  /// phase b concentration
-  std::string _cb_name;
-  unsigned int _cb_var;
-  const VariableValue & _cb;
+  const MaterialProperty<Real> & _dc1dc;
+  const MaterialProperty<Real> & _dc2dc;
+  const MaterialProperty<Real> & _dc1deta;
+  const MaterialProperty<Real> & _dc2deta;
 
-  /// Derivative of the free energy function \f$ \frac d{dc_a} F_a \f$
-  const MaterialProperty<Real> & _prop_dFadca;
+  const MaterialProperty<Real> & _first_df1;
+  const MaterialProperty<Real> & _second_df1;
 
-  /// Second derivative of the free energy function \f$ \frac {d^2}{dc_a^2} F_a \f$
-  const MaterialProperty<Real> & _prop_d2Fadca2;
+  const MaterialProperty<Real> & _L;
 
-  /// Mixed partial derivatives of the free energy function wrt ca and
-  /// any other coupled variables \f$ \frac {d^2}{dc_a dq} F_a \f$
-  std::vector<const MaterialProperty<Real> *> _prop_d2Fadcadarg;
+  // Chemical potential
+  unsigned int _w_var;
+  const VariableValue & _w;
 };
