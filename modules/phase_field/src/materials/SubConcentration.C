@@ -8,7 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "SubConcentration.h"
-#include "libmesh/fparser_ad.hh"
+// #include "libmesh/fparser_ad.hh"
 #include "libmesh/utility.h"
 #include <cmath>
 
@@ -32,7 +32,7 @@ SubConcentration::validParams()
   params.addRequiredParam<Real>("c2_IC", "The initial value of c2");
   params.addParam<Real>("absolute_tol_value", 1e-9, "Absolute tolerance of the Newton iteration");
   params.addParam<Real>("relative_tol_value", 1e-9, "Relative tolerance of the Newton iteration");
-  params.addParam<Real>("max_iteration", 100, "The maximum number of Newton iterations");
+  params.addParam<Real>("max_iteration", 500, "The maximum number of Newton iterations");
   params.addRequiredParam<MaterialPropertyName>("dc1dc_name",
                                                 "The first derivative of c1 w.r.t. c");
   params.addRequiredParam<MaterialPropertyName>("dc2dc_name",
@@ -150,8 +150,8 @@ SubConcentration::computeQpProperties()
     // _c1[_qp] = old_ci_Newton[0];
     // _c2[_qp] = old_ci_Newton[1];
 
-    // _f1.computePropertiesAtQp(_qp);
-    // _f2.computePropertiesAtQp(_qp);
+    _f1.computePropertiesAtQp(_qp);
+    _f2.computePropertiesAtQp(_qp);
 
     // compute the updated absolute Newton error
     abs_err[0] = _first_df1[_qp] - _first_df2[_qp];
