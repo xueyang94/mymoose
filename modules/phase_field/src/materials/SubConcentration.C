@@ -89,6 +89,10 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 void
 SubConcentration::computeQpProperties()
 {
+
+  // std::cout << "qp point ================================================================="
+  //           << std::endl;
+
   _c1[_qp] = _c1_initial;
   _c2[_qp] = _c2_initial;
 
@@ -150,8 +154,8 @@ SubConcentration::computeQpProperties()
     // _c1[_qp] = old_ci_Newton[0];
     // _c2[_qp] = old_ci_Newton[1];
 
-    _f1.computePropertiesAtQp(_qp);
-    _f2.computePropertiesAtQp(_qp);
+    // _f1.computePropertiesAtQp(_qp);
+    // _f2.computePropertiesAtQp(_qp);
 
     // compute the updated absolute Newton error
     abs_err[0] = _first_df1[_qp] - _first_df2[_qp];
@@ -162,8 +166,19 @@ SubConcentration::computeQpProperties()
     // compute the relative Newton error
     rel_err_norm = std::abs(abs_err_norm / init_err_norm);
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // std::cout << "c1 is " << _c1[_qp] << ", and df1dc1 is " << _first_df1[_qp]
+    //           << ", and _second_df1 is " << _second_df1[_qp] << std::endl;
+    // std::cout << "c2 is " << _c2[_qp] << ", and df2dc2 is " << _first_df2[_qp]
+    //           << ", and _second_df2 is " << _second_df2[_qp] << std::endl;
+    //
+    // std::cout << "initial error is " << init_err_norm << ", and relative error is " <<
+    // rel_err_norm
+    //           << ", and absolute error is " << abs_err_norm << std::endl;
+
     // Newton iteration convergence criterion
-    if ((abs_err_norm < _abs_tol) || (rel_err_norm < _rel_tol))
+    // if ((abs_err_norm < _abs_tol) || (rel_err_norm < _rel_tol))
+    if (abs_err_norm < _abs_tol)
       break;
 
     if (nloop == (_maxiter - 1))
