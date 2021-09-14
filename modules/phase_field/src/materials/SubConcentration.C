@@ -11,6 +11,8 @@
 #include "libmesh/fparser_ad.hh"
 #include "libmesh/utility.h"
 #include <cmath>
+#include "NestedSolve.h"
+// #include "libmesh/vector_value.h"
 
 registerMooseObject("PhaseFieldApp", SubConcentration);
 
@@ -89,86 +91,44 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 void
 SubConcentration::computeQpProperties()
 {
-  _c1[_qp] = _c1_initial;
-  _c2[_qp] = _c2_initial;
-
   Real n = _eta[_qp];
 
-  // // declare and initialize the old ci inside Newton iteration
-  // std::vector<Real> old_ci_Newton(2);
-  // old_ci_Newton[0] = _c1_old[_qp];
-  // old_ci_Newton[1] = _c2_old[_qp];
+  FunctionMaterialBase<Real> f1_parser;
 
-  // declare the error vectors and norms of Newton iteration
-  std::vector<Real> init_err(2);
-  std::vector<Real> abs_err(2);
+  // _f1.computePropertiesAtQp(_qp);
+  // _f2.computePropertiesAtQp(_qp);
 
-  Real init_err_norm;
-  Real abs_err_norm;
-  Real rel_err_norm;
+  NestedSolve solver;
+  NestedSolve::Value<2> solution{_c1_initial, _c2_initial};
+  solver.setRelativeTolerance(1e-9);
 
-  // compute the initial error norm
-  init_err[0] = _first_df1[_qp] - _first_df2[_qp];
-  // init_err[1] = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
-  init_err[1] = _c[_qp] - _c2[_qp] * _h[_qp] + _c1[_qp] * (_h[_qp] - 1);
-  init_err_norm = std::sqrt(Utility::pow<2>(init_err[0]) + Utility::pow<2>(init_err[1]));
-
-  // Newton iteration
-  for (unsigned int nloop = 0; nloop < _maxiter; ++nloop)
-  {
-    _f1.computePropertiesAtQp(_qp);
-    _f2.computePropertiesAtQp(_qp);
-
-    // compute eqn1 and eqn2
-    Real eqn1 = _first_df1[_qp] - _first_df2[_qp];
-    // Real eqn2 = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
-    Real eqn2 = _c[_qp] - _c2[_qp] * _h[_qp] + _c1[_qp] * (_h[_qp] - 1);
-
-    // terms used in the determinant D
-    Real deqn1dc1 = _second_df1[_qp];
-    Real deqn1dc2 = -_second_df2[_qp];
-    Real deqn2dc1 = _h[_qp] - 1;
-    Real deqn2dc2 = -_h[_qp];
-
-    // the determinant of the Jacobian matrix
-    Real D = deqn1dc1 * deqn2dc2 - deqn1dc2 * deqn2dc1;
-
-    // compute the update of old_ci_Newton (is inv(J)*f_vec)
-    Real update[2];
-
-    update[0] = 1 / D * (eqn1 * deqn2dc2 - eqn2 * deqn1dc2);
-    update[1] = 1 / D * (-eqn1 * deqn2dc1 + eqn2 * deqn1dc1);
-
-    _c1[_qp] = _c1[_qp] - update[0];
-    _c2[_qp] = _c2[_qp] - update[1];
-
-    // // update old_ci_Newton
-    // old_ci_Newton[0] -= update[0];
-    // old_ci_Newton[1] -= update[1];
-
-    // // make ci equal to old_ci_Newton in order to update the derivatives of fi
-    // _c1[_qp] = old_ci_Newton[0];
-    // _c2[_qp] = old_ci_Newton[1];
+  auto compute = [&](const NestedSolve::Value<2> & guess,
+                     NestedSolve::Value<2> & residual,
+                     NestedSolve::Jacobian<2> & jacobian) {
+    _c1[_qp] = guess(0);
+    _c2[_qp] = guess(1);
 
     // _f1.computePropertiesAtQp(_qp);
     // _f2.computePropertiesAtQp(_qp);
+    _f1->recomputeAtQp(_qp);
+    _f2->recomputeAtQp(_qp);
 
-    // compute the updated absolute Newton error
-    abs_err[0] = _first_df1[_qp] - _first_df2[_qp];
-    // abs_err[1] = _c[_qp] - old_ci_Newton[1] * _h[_qp] + old_ci_Newton[0] * (_h[_qp] - 1);
-    abs_err[1] = _c[_qp] - _c2[_qp] * _h[_qp] + _c1[_qp] * (_h[_qp] - 1);
-    abs_err_norm = std::sqrt(Utility::pow<2>(abs_err[0]) + Utility::pow<2>(abs_err[1]));
+    residual(0) = _first_df1[_qp] - _first_df2[_qp];
+    // residual(0) = 200 * (guess(0) - 0.3) - 200 * (guess(1) - 0.7);
+    residual(1) = _c[_qp] - guess(1) * _h[_qp] + guess(0) * (_h[_qp] - 1);
 
-    // compute the relative Newton error
-    rel_err_norm = std::abs(abs_err_norm / init_err_norm);
+    jacobian(0, 0) = _second_df1[_qp];
+    jacobian(0, 1) = -_second_df2[_qp];
+    // jacobian(0, 0) = 200;
+    // jacobian(0, 1) = -200;
+    jacobian(1, 0) = _h[_qp] - 1;
+    jacobian(1, 1) = -_h[_qp];
+  };
 
-    // Newton iteration convergence criterion
-    if ((abs_err_norm < _abs_tol) || (rel_err_norm < _rel_tol))
-      break;
+  solver.nonlinear(solution, compute);
 
-    if (nloop == (_maxiter - 1))
-      mooseError("The SubConcentration Newton iteration exceeds the max iteration.");
-  }
+  _c1[_qp] = solution[0];
+  _c2[_qp] = solution[1];
 
   // compute dc1dc, dc2dc, dc1deta, and dc2deta
   _dc1dc[_qp] =
