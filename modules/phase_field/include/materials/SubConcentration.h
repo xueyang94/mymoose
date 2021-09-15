@@ -55,6 +55,9 @@ protected:
   MaterialBase & _f1;
   MaterialBase & _f2;
 
+  std::unique_ptr<MaterialBase> & _pf1;
+  std::unique_ptr<MaterialBase> & _pf2;
+
   const MaterialProperty<Real> & _first_df1;
   const MaterialProperty<Real> & _first_df2;
 
