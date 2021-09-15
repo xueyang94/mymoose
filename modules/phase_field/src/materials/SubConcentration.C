@@ -12,7 +12,7 @@
 #include "libmesh/utility.h"
 #include <cmath>
 #include "NestedSolve.h"
-// #include "libmesh/vector_value.h"
+#include "libmesh/vector_value.h"
 
 registerMooseObject("PhaseFieldApp", SubConcentration);
 
@@ -93,8 +93,6 @@ SubConcentration::computeQpProperties()
 {
   Real n = _eta[_qp];
 
-  FunctionMaterialBase<Real> f1_parser;
-
   // _f1.computePropertiesAtQp(_qp);
   // _f2.computePropertiesAtQp(_qp);
 
@@ -110,8 +108,8 @@ SubConcentration::computeQpProperties()
 
     // _f1.computePropertiesAtQp(_qp);
     // _f2.computePropertiesAtQp(_qp);
-    _f1->recomputeAtQp(_qp);
-    _f2->recomputeAtQp(_qp);
+    _pf1->recomputeAtQp(_qp);
+    _pf2->recomputeAtQp(_qp);
 
     residual(0) = _first_df1[_qp] - _first_df2[_qp];
     // residual(0) = 200 * (guess(0) - 0.3) - 200 * (guess(1) - 0.7);
