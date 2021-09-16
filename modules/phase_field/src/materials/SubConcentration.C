@@ -93,9 +93,6 @@ SubConcentration::computeQpProperties()
 {
   Real n = _eta[_qp];
 
-  // _f1.computePropertiesAtQp(_qp);
-  // _f2.computePropertiesAtQp(_qp);
-
   NestedSolve solver;
   NestedSolve::Value<2> solution{_c1_initial, _c2_initial};
   solver.setRelativeTolerance(1e-9);
@@ -106,19 +103,14 @@ SubConcentration::computeQpProperties()
     _c1[_qp] = guess(0);
     _c2[_qp] = guess(1);
 
-    // _f1.computePropertiesAtQp(_qp);
-    // _f2.computePropertiesAtQp(_qp);
-    _pf1->recomputeAtQp(_qp);
-    _pf2->recomputeAtQp(_qp);
+    _f1.computePropertiesAtQp(_qp);
+    _f2.computePropertiesAtQp(_qp);
 
     residual(0) = _first_df1[_qp] - _first_df2[_qp];
-    // residual(0) = 200 * (guess(0) - 0.3) - 200 * (guess(1) - 0.7);
     residual(1) = _c[_qp] - guess(1) * _h[_qp] + guess(0) * (_h[_qp] - 1);
 
     jacobian(0, 0) = _second_df1[_qp];
     jacobian(0, 1) = -_second_df2[_qp];
-    // jacobian(0, 0) = 200;
-    // jacobian(0, 1) = -200;
     jacobian(1, 0) = _h[_qp] - 1;
     jacobian(1, 1) = -_h[_qp];
   };
