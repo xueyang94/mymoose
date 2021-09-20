@@ -117,6 +117,11 @@ SubConcentration::computeQpProperties()
 
   solver.nonlinear(solution, compute);
 
+  if (solver.getState() == NestedSolve::State::NOT_CONVERGED)
+  {
+    std::cout << "Newton iteration did not converge." << std::endl;
+  }
+
   _c1[_qp] = solution[0];
   _c2[_qp] = solution[1];
 
