@@ -9,7 +9,6 @@
 
 #pragma once
 
-// #include "Kernel.h"
 #include "DerivativeMaterialInterface.h"
 
 // Forward Declarations
@@ -27,7 +26,6 @@
  * phase concentration \f$ c_a \f$
  */
 
-// class KKSSplitCHCRes : public Kernel
 class KKSSplitCHCRes : public DerivativeMaterialInterface<Kernel>
 {
 public:
