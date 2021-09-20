@@ -9,10 +9,8 @@
 
 #pragma once
 
-// #include "Material.h"
 #include "DerivativeMaterialInterface.h"
 
-// class SubConcentration : public Material
 class SubConcentration : public DerivativeMaterialInterface<Material>
 {
 public:
