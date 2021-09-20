@@ -14,7 +14,6 @@ registerMooseObject("PhaseFieldApp", KKSSplitCHCRes);
 InputParameters
 KKSSplitCHCRes::validParams()
 {
-  // InputParameters params = Kernel::validParams();
   InputParameters params = DerivativeMaterialInterface<Kernel>::validParams();
   params.addClassDescription(
       "KKS model kernel for the split Bulk Cahn-Hilliard term. This kernel operates on the "
@@ -29,7 +28,6 @@ KKSSplitCHCRes::validParams()
 }
 
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
-  // : Kernel(parameters),
   : DerivativeMaterialInterface<Kernel>(parameters),
     _dc1dc(getMaterialProperty<Real>("dc1dc_name")),
     _dc1deta(getMaterialProperty<Real>("dc1deta_name")),
@@ -53,6 +51,8 @@ Real
 KKSSplitCHCRes::computeQpJacobian()
 {
   return _second_df1[_qp] * _dc1dc[_qp] * _phi[_j][_qp] * _test[_i][_qp];
+
+  // return _second_df1[_qp] * _dc1dc[_qp] * _test[_i][_qp];
 }
 
 Real
@@ -63,5 +63,6 @@ KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
     return -_phi[_j][_qp] * _test[_i][_qp];
 
   // eta is the coupled variable
-  return _second_df1[_qp] * _dc1deta[_qp] * _phi[_j][_qp] * _test[_i][_qp];
+  // return _second_df1[_qp] * _dc1deta[_qp] * _phi[_j][_qp] * _test[_i][_qp];
+  return _second_df1[_qp] * _dc1deta[_qp] * _test[_i][_qp];
 }
