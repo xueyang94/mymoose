@@ -20,7 +20,6 @@ registerMooseObject("PhaseFieldApp", SubConcentration);
 InputParameters
 SubConcentration::validParams()
 {
-  // InputParameters params = Material::validParams();
   InputParameters params = DerivativeMaterialInterface<Material>::validParams();
   params.addClassDescription(
       "Computes the KKS sub-concentrations by using Newton iteration to solve the equal chemical "
