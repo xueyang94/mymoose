@@ -37,7 +37,6 @@ KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
     _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
     _w_var(coupled("w")),
     _w(coupledValue("w"))
-
 {
 }
 
@@ -63,6 +62,6 @@ KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
     return -_phi[_j][_qp] * _test[_i][_qp];
 
   // eta is the coupled variable
-  // return _second_df1[_qp] * _dc1deta[_qp] * _phi[_j][_qp] * _test[_i][_qp];
-  return _second_df1[_qp] * _dc1deta[_qp] * _test[_i][_qp];
+  return _second_df1[_qp] * _dc1deta[_qp] * _phi[_j][_qp] * _test[_i][_qp];
+  // return _second_df1[_qp] * _dc1deta[_qp] * _test[_i][_qp];
 }

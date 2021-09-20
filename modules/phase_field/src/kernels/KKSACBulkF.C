@@ -93,12 +93,13 @@ KKSACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
     return 0.0;
 
   // c is the coupled variable
-  // return _L[_qp] *
-  //        (-30.0 * n * n * (n * n - 2.0 * n + 1.0) *
-  //         (_first_df1[_qp] * _dc1dc[_qp] - _first_df2[_qp] * _dc2dc[_qp])) *
-  //        _phi[_j][_qp] * _test[_i][_qp];
   return _L[_qp] *
          (-30.0 * n * n * (n * n - 2.0 * n + 1.0) *
           (_first_df1[_qp] * _dc1dc[_qp] - _first_df2[_qp] * _dc2dc[_qp])) *
-         _test[_i][_qp];
+         _phi[_j][_qp] * _test[_i][_qp];
+
+  // return _L[_qp] *
+  //        (-30.0 * n * n * (n * n - 2.0 * n + 1.0) *
+  //         (_first_df1[_qp] * _dc1dc[_qp] - _first_df2[_qp] * _dc2dc[_qp])) *
+  //        _test[_i][_qp];
 }
