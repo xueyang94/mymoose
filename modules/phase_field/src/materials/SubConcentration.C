@@ -48,6 +48,7 @@ SubConcentration::validParams()
   params.addRequiredParam<MaterialName>("F2_material", "F2");
   params.addRequiredParam<MaterialPropertyName>("F1_name", "F1");
   params.addRequiredParam<MaterialPropertyName>("F2_name", "F2");
+  // params.addParam<Real>("num_iter", "The number of nested Newton iteration");
   return params;
 }
 
@@ -78,6 +79,7 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _first_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name)),
     _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
     _second_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name, _c2_name))
+// _num_iter(declareProperty<Real>("num_iter"))
 
 {
 }
@@ -94,23 +96,64 @@ SubConcentration::computeQpProperties()
 {
   Real n = _eta[_qp];
 
-  // NestedSolve solver;
-  // // NestedSolve::Value<2> solution{_c1_initial, _c2_initial};
-  // NestedSolve::Value<> solution(2); // dynamicly sized vector class from the Eigen library
-  // solution << _c1_initial, _c2_initial;
-  // solver.setRelativeTolerance(1e-9);
-  //
-  // auto compute = [&](const NestedSolve::Value<> & guess,
-  //                    NestedSolve::Value<> & residual,
-  //                    NestedSolve::Jacobian<> & jacobian) {
+  NestedSolve solver;
+  // NestedSolve::Value<2> solution{_c1_initial, _c2_initial};
+  NestedSolve::Value<> solution(2); // dynamicly sized vector class from the Eigen library
+  solution << _c1_initial, _c2_initial;
+  solver.setRelativeTolerance(1e-9);
+
+  auto compute = [&](const NestedSolve::Value<> & guess,
+                     NestedSolve::Value<> & residual,
+                     NestedSolve::Jacobian<> & jacobian) {
+    _c1[_qp] = guess(0);
+    _c2[_qp] = guess(1);
+    _f1.computePropertiesAtQp(_qp);
+    _f2.computePropertiesAtQp(_qp);
+
+    residual(0) = _first_df1[_qp] - _first_df2[_qp];
+    residual(1) = _c[_qp] - guess(1) * _h[_qp] + guess(0) * (_h[_qp] - 1);
+
+    jacobian(0, 0) = _second_df1[_qp];
+    jacobian(0, 1) = -_second_df2[_qp];
+    jacobian(1, 0) = _h[_qp] - 1;
+    jacobian(1, 1) = -_h[_qp];
+  };
+
+  solver.nonlinear(solution, compute);
+
+  if (solver.getState() == NestedSolve::State::NOT_CONVERGED)
+  {
+    std::cout << "Newton iteration did not converge." << std::endl;
+  }
+
+  // if (solver.getState() == NestedSolve::State::CONVERGED_REL)
+  // {
+  //   std::cout << "Newton iteration converged." << std::endl;
+  // }
+
+  _c1[_qp] = solution[0];
+  _c2[_qp] = solution[1];
+  _f1.computePropertiesAtQp(_qp);
+  _f2.computePropertiesAtQp(_qp);
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////// Powell's dogleg begin
+  // auto computeResidual = [&](const NestedSolve::Value<> & guess, NestedSolve::Value<> & residual)
+  // {
   //   _c1[_qp] = guess(0);
   //   _c2[_qp] = guess(1);
-  //
   //   _f1.computePropertiesAtQp(_qp);
   //   _f2.computePropertiesAtQp(_qp);
   //
   //   residual(0) = _first_df1[_qp] - _first_df2[_qp];
   //   residual(1) = _c[_qp] - guess(1) * _h[_qp] + guess(0) * (_h[_qp] - 1);
+  // };
+  //
+  // auto computeJacobian = [&](const NestedSolve::Value<> & guess,
+  //                            NestedSolve::Jacobian<> & jacobian) {
+  //   _c1[_qp] = guess(0);
+  //   _c2[_qp] = guess(1);
+  //   _f1.computePropertiesAtQp(_qp);
+  //   _f2.computePropertiesAtQp(_qp);
   //
   //   jacobian(0, 0) = _second_df1[_qp];
   //   jacobian(0, 1) = -_second_df2[_qp];
@@ -118,39 +161,18 @@ SubConcentration::computeQpProperties()
   //   jacobian(1, 1) = -_h[_qp];
   // };
   //
-  // solver.nonlinear(solution, compute);
-
+  // solver.nonlinear(solution, computeResidual, computeJacobian);
+  //
   // if (solver.getState() == NestedSolve::State::NOT_CONVERGED)
   // {
   //   std::cout << "Newton iteration did not converge." << std::endl;
   // }
-
-  /////////////////////////////////////////////////////////////////////////////////////// example
-  NestedSolve solver;
-  NestedSolve::Value<> solution(2);
-  solution << 1.98, 1.02;
-  solver.setRelativeTolerance(1e-10);
-  auto compute = [&](const NestedSolve::Value<> & guess,
-                     NestedSolve::Value<> & residual,
-                     NestedSolve::Jacobian<> & jacobian) {
-    residual(0) = guess(0) + guess(0) * guess(1) - 4;
-    residual(1) = guess(0) + guess(1) - 3;
-
-    jacobian(0, 0) = 1 + guess(1);
-    jacobian(0, 1) = guess(0);
-    jacobian(1, 0) = 1;
-    jacobian(1, 1) = 1;
-  };
-  solver.nonlinear(solution, compute);
-  if (solver.getState() == NestedSolve::State::NOT_CONVERGED)
-  {
-    // Take some action for the case of no convergence.
-  }
-
-  _c1[_qp] = solution[0];
-  _c2[_qp] = solution[1];
-  _f1.computePropertiesAtQp(_qp);
-  _f2.computePropertiesAtQp(_qp);
+  //
+  // _c1[_qp] = solution[0];
+  // _c2[_qp] = solution[1];
+  // _f1.computePropertiesAtQp(_qp);
+  // _f2.computePropertiesAtQp(_qp);
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////// Powell's dogleg end
 
   // compute dc1dc, dc2dc, dc1deta, and dc2deta
   _dc1dc[_qp] =
