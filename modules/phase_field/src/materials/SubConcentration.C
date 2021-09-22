@@ -92,11 +92,9 @@ SubConcentration::initQpStatefulProperties()
 void
 SubConcentration::computeQpProperties()
 {
-  Real n = _eta[_qp];
-
   NestedSolve solver;
   NestedSolve::Value<> solution(2); // dynamicly sized vector class from the Eigen library
-  solution << _c1_initial, _c2_initial;
+  solution << _c1_old[_qp], _c2_old[_qp];
   solver.setRelativeTolerance(1e-9);
 
   auto compute = [&](const NestedSolve::Value<> & guess,
@@ -123,55 +121,14 @@ SubConcentration::computeQpProperties()
     std::cout << "Newton iteration did not converge." << std::endl;
   }
 
-  // if (solver.getState() == NestedSolve::State::CONVERGED_REL)
-  // {
-  //   std::cout << "Newton iteration converged." << std::endl;
-  // }
-
   _c1[_qp] = solution[0];
   _c2[_qp] = solution[1];
   _f1.computePropertiesAtQp(_qp);
   _f2.computePropertiesAtQp(_qp);
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////// Powell's dogleg begin
-  // auto computeResidual = [&](const NestedSolve::Value<> & guess, NestedSolve::Value<> & residual)
-  // {
-  //   _c1[_qp] = guess(0);
-  //   _c2[_qp] = guess(1);
-  //   _f1.computePropertiesAtQp(_qp);
-  //   _f2.computePropertiesAtQp(_qp);
-  //
-  //   residual(0) = _first_df1[_qp] - _first_df2[_qp];
-  //   residual(1) = _c[_qp] - guess(1) * _h[_qp] + guess(0) * (_h[_qp] - 1);
-  // };
-  //
-  // auto computeJacobian = [&](const NestedSolve::Value<> & guess,
-  //                            NestedSolve::Jacobian<> & jacobian) {
-  //   _c1[_qp] = guess(0);
-  //   _c2[_qp] = guess(1);
-  //   _f1.computePropertiesAtQp(_qp);
-  //   _f2.computePropertiesAtQp(_qp);
-  //
-  //   jacobian(0, 0) = _second_df1[_qp];
-  //   jacobian(0, 1) = -_second_df2[_qp];
-  //   jacobian(1, 0) = _h[_qp] - 1;
-  //   jacobian(1, 1) = -_h[_qp];
-  // };
-  //
-  // solver.nonlinear(solution, computeResidual, computeJacobian);
-  //
-  // if (solver.getState() == NestedSolve::State::NOT_CONVERGED)
-  // {
-  //   std::cout << "Newton iteration did not converge." << std::endl;
-  // }
-  //
-  // _c1[_qp] = solution[0];
-  // _c2[_qp] = solution[1];
-  // _f1.computePropertiesAtQp(_qp);
-  // _f2.computePropertiesAtQp(_qp);
-  //////////////////////////////////////////////////////////////////////////////////////////////////////////// Powell's dogleg end
-
   // compute dc1dc, dc2dc, dc1deta, and dc2deta
+  Real n = _eta[_qp];
+
   _dc1dc[_qp] =
       _second_df2[_qp] / (_second_df2[_qp] + _h[_qp] * (_second_df1[_qp] - _second_df2[_qp]));
   _dc2dc[_qp] =
