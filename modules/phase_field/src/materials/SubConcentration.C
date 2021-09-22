@@ -169,6 +169,7 @@ SubConcentration::computeQpProperties()
   for (unsigned int nloop = 0; nloop < _maxiter; ++nloop)
   {
     _num_iter[_qp] += 1;
+
     // compute first_df1 in eqn1
     // params = old_ci_Newton[0];
     params = _c1[_qp];
@@ -214,18 +215,19 @@ SubConcentration::computeQpProperties()
     // _c1[_qp] = old_ci_Newton[0] - update[0];
     // _c2[_qp] = old_ci_Newton[1] - update[1];
 
+    // compute c1 and c2
     _c1[_qp] = _c1[_qp] - update[0];
     _c2[_qp] = _c2[_qp] - update[1];
 
-    // compute df1dc1_new and df2dc2_new for calculating the updated absolute error
+    // compute df1dc1 and df2dc2 again for calculating the updated absolute error
     params = _c1[_qp];
-    Real df1dc1_new = _fparser1->Eval(p);
+    _first_df1[_qp] = _fparser1->Eval(p);
 
     params = _c2[_qp];
-    Real df2dc2_new = _fparser2->Eval(p);
+    _first_df2[_qp] = _fparser2->Eval(p);
 
     // compute the updated absolute Newton error
-    abs_err[0] = df1dc1_new - df2dc2_new;
+    abs_err[0] = _first_df1[_qp] - _first_df2[_qp];
     abs_err[1] = _c[_qp] - _c2[_qp] * _h[_qp] + _c1[_qp] * (_h[_qp] - 1);
     abs_err_norm = std::sqrt(Utility::pow<2>(abs_err[0]) + Utility::pow<2>(abs_err[1]));
 
@@ -244,13 +246,13 @@ SubConcentration::computeQpProperties()
     // old_ci_Newton[1] = _c2[_qp];
   }
 
-  // compute the updated first and second derivatives in the kernel R and chain rule
+  // compute the updated second derivatives in the kernel R and chain rule
   // derivatives
-  params = _c1[_qp];
-  _first_df1[_qp] = _fparser1->Eval(p);
-
-  params = _c2[_qp];
-  _first_df2[_qp] = _fparser2->Eval(p);
+  // params = _c1[_qp];
+  // _first_df1[_qp] = _fparser1->Eval(p);
+  //
+  // params = _c2[_qp];
+  // _first_df2[_qp] = _fparser2->Eval(p);
 
   params = _c1[_qp];
   _second_df1[_qp] = _fparser3->Eval(p);
