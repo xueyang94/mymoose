@@ -59,4 +59,6 @@ protected:
   std::unique_ptr<FunctionParserADBase<Real>> _fparser3;
 
   std::unique_ptr<FunctionParserADBase<Real>> _fparser4;
+
+  MaterialProperty<Real> & _num_iter;
 };

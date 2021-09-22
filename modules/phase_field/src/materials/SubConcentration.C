@@ -50,6 +50,8 @@ SubConcentration::validParams()
                                                 "The second derivative of f2 w.r.t. c2");
   params.addRequiredParam<Real>(
       "plog_tol_value", "The maximum value to start using the Taylor expansion of log functions");
+  params.addParam<MaterialPropertyName>("num_iter_name",
+                                        "The number of Newton iteration in SubConcentration");
   return params;
 }
 
@@ -74,7 +76,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _first_df1(declareProperty<Real>("df1dc1_name")),
     _first_df2(declareProperty<Real>("df2dc2_name")),
     _second_df1(declareProperty<Real>("d2f1dc1_name")),
-    _second_df2(declareProperty<Real>("d2f2dc2_name"))
+    _second_df2(declareProperty<Real>("d2f2dc2_name")),
+    _num_iter(declareProperty<Real>("num_iter_name"))
 
 {
   _fparser1 = std::make_unique<FunctionParserADBase<Real>>();
@@ -160,9 +163,12 @@ SubConcentration::computeQpProperties()
   init_err[1] = _c[_qp] - _c2[_qp] * _h[_qp] + _c1[_qp] * (_h[_qp] - 1);
   init_err_norm = std::sqrt(Utility::pow<2>(init_err[0]) + Utility::pow<2>(init_err[1]));
 
+  _num_iter[_qp] = 0;
+
   // Newton iteration
   for (unsigned int nloop = 0; nloop < _maxiter; ++nloop)
   {
+    _num_iter[_qp] += 1;
     // compute first_df1 in eqn1
     // params = old_ci_Newton[0];
     params = _c1[_qp];
