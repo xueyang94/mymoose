@@ -48,7 +48,6 @@ SubConcentration::validParams()
   params.addRequiredParam<MaterialName>("F2_material", "F2");
   params.addRequiredParam<MaterialPropertyName>("F1_name", "F1");
   params.addRequiredParam<MaterialPropertyName>("F2_name", "F2");
-  // params.addParam<Real>("num_iter", "The number of nested Newton iteration");
   return params;
 }
 
@@ -60,8 +59,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _h(getMaterialProperty<Real>("h_name")),
     _c1(declareProperty<Real>("c1_name")),
     _c2(declareProperty<Real>("c2_name")),
-    // _c1_old(getMaterialPropertyOld<Real>("c1_name")), // old
-    // _c2_old(getMaterialPropertyOld<Real>("c2_name")), // old
+    _c1_old(getMaterialPropertyOld<Real>("c1_name")), // old
+    _c2_old(getMaterialPropertyOld<Real>("c2_name")), // old
     _c1_initial(getParam<Real>("c1_IC")),
     _c2_initial(getParam<Real>("c2_IC")),
     _abs_tol(getParam<Real>("absolute_tol_value")),
@@ -79,17 +78,16 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _first_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name)),
     _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
     _second_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name, _c2_name))
-// _num_iter(declareProperty<Real>("num_iter"))
 
 {
 }
 
-// void
-// SubConcentration::initQpStatefulProperties()
-// {
-//   _c1[_qp] = _c1_initial;
-//   _c2[_qp] = _c2_initial;
-// }
+void
+SubConcentration::initQpStatefulProperties()
+{
+  _c1[_qp] = _c1_initial;
+  _c2[_qp] = _c2_initial;
+}
 
 void
 SubConcentration::computeQpProperties()
@@ -97,7 +95,6 @@ SubConcentration::computeQpProperties()
   Real n = _eta[_qp];
 
   NestedSolve solver;
-  // NestedSolve::Value<2> solution{_c1_initial, _c2_initial};
   NestedSolve::Value<> solution(2); // dynamicly sized vector class from the Eigen library
   solution << _c1_initial, _c2_initial;
   solver.setRelativeTolerance(1e-9);
