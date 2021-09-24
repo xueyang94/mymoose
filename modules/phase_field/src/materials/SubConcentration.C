@@ -93,6 +93,7 @@ SubConcentration::computeQpProperties()
   NestedSolve solver;
   NestedSolve::Value<> solution(2); // dynamicly sized vector class from the Eigen library
   solution << _c1_old[_qp], _c2_old[_qp];
+  std::cout << "c1_old is " << _c1_old[_qp] << ", and c2_old is " << _c2_old[_qp] << std::endl;
   // solution << _c1_initial, _c2_initial;
   solver.setRelativeTolerance(1e-9);
 
