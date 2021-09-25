@@ -57,8 +57,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _h(getMaterialProperty<Real>("h_name")),
     _c1(declareProperty<Real>("c1_name")),
     _c2(declareProperty<Real>("c2_name")),
-    _c1_old(getMaterialPropertyOld<Real>("c1_name")), // old
-    _c2_old(getMaterialPropertyOld<Real>("c2_name")), // old
+    // _c1_old(getMaterialPropertyOld<Real>("c1_name")), // old
+    // _c2_old(getMaterialPropertyOld<Real>("c2_name")), // old
     _c1_initial(getParam<Real>("c1_IC")),
     _c2_initial(getParam<Real>("c2_IC")),
     _abs_tol(getParam<Real>("absolute_tol_value")),
@@ -80,21 +80,21 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 {
 }
 
-void
-SubConcentration::initQpStatefulProperties()
-{
-  _c1[_qp] = _c1_initial;
-  _c2[_qp] = _c2_initial;
-}
+// void
+// SubConcentration::initQpStatefulProperties()
+// {
+//   _c1[_qp] = _c1_initial;
+//   _c2[_qp] = _c2_initial;
+// }
 
 void
 SubConcentration::computeQpProperties()
 {
   NestedSolve solver;
   NestedSolve::Value<> solution(2); // dynamicly sized vector class from the Eigen library
-  solution << _c1_old[_qp], _c2_old[_qp];
-  std::cout << "c1_old is " << _c1_old[_qp] << ", and c2_old is " << _c2_old[_qp] << std::endl;
-  // solution << _c1_initial, _c2_initial;
+  // solution << _c1_old[_qp], _c2_old[_qp];
+  // std::cout << "c1_old is " << _c1_old[_qp] << ", and c2_old is " << _c2_old[_qp] << std::endl;
+  solution << _c1_initial, _c2_initial;
   solver.setRelativeTolerance(1e-9);
 
   auto compute = [&](const NestedSolve::Value<> & guess,
