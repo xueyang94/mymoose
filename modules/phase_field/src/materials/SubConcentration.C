@@ -95,8 +95,8 @@ SubConcentration::computeQpProperties()
   solution << _c1_old[_qp], _c2_old[_qp];
   // std::cout << "c1_old is " << _c1_old[_qp] << ", and c2_old is " << _c2_old[_qp] << std::endl;
   // solution << _c1_initial, _c2_initial;
-  solver.setRelativeTolerance(1e-9);
-  solver.setAbsoluteTolerance(1e-10);
+  solver.setRelativeTolerance(_rel_tol);
+  solver.setAbsoluteTolerance(_abs_tol);
 
   auto compute = [&](const NestedSolve::Value<> & guess,
                      NestedSolve::Value<> & residual,
