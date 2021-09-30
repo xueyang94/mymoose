@@ -19,43 +19,57 @@ public:
   SubConcentration(const InputParameters & parameters);
 
 protected:
-  // virtual void initQpStatefulProperties() override;
   virtual void computeQpProperties() override;
 
   const VariableValue & _c;
 
-  const VariableValue & _eta;
+  const unsigned int _num_eta;
+  const std::vector<VariableName> _eta_names;
 
-  const MaterialProperty<Real> & _h;
+  std::vector<MaterialPropertyName> _hj_names;
+  std::vector<const MaterialProperty<Real> *> _prop_hj;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dhjdetai;
 
-  MaterialProperty<Real> & _c1;
-  MaterialProperty<Real> & _c2;
-  // const MaterialProperty<Real> & _c1_old;
-  // const MaterialProperty<Real> & _c2_old;
+  // MaterialProperty<Real> & _c1;
+  // MaterialProperty<Real> & _c2;
+  // MaterialProperty<Real> & _c3;
 
-  const Real _c1_initial;
-  const Real _c2_initial;
+  std::vector<MaterialPropertyName> _ci_names;
+  std::vector<MaterialProperty<Real> *> _ci_prop;
 
-  const Real _abs_tol;
-
-  const Real _rel_tol;
-
-  const unsigned int _maxiter;
+  const std::vector<Real> _ci_IC;
 
   MaterialProperty<Real> & _dc1dc;
   MaterialProperty<Real> & _dc2dc;
-  MaterialProperty<Real> & _dc1deta;
-  MaterialProperty<Real> & _dc2deta;
+  MaterialProperty<Real> & _dc3dc;
+
+  MaterialProperty<Real> & _dc1deta1;
+  MaterialProperty<Real> & _dc1deta2;
+  MaterialProperty<Real> & _dc1deta3;
+  MaterialProperty<Real> & _dc2deta1;
+  MaterialProperty<Real> & _dc2deta2;
+  MaterialProperty<Real> & _dc2deta3;
+  MaterialProperty<Real> & _dc3deta1;
+  MaterialProperty<Real> & _dc3deta2;
+  MaterialProperty<Real> & _dc3deta3;
 
   const SymbolName _c1_name;
   const SymbolName _c2_name;
+  const SymbolName _c3_name;
 
   MaterialBase & _f1;
   MaterialBase & _f2;
+  MaterialBase & _f3;
 
   const MaterialProperty<Real> & _first_df1;
   const MaterialProperty<Real> & _first_df2;
+  const MaterialProperty<Real> & _first_df3;
 
   const MaterialProperty<Real> & _second_df1;
   const MaterialProperty<Real> & _second_df2;
+  const MaterialProperty<Real> & _second_df3;
+
+  const Real _abs_tol;
+  const Real _rel_tol;
+  const unsigned int _maxiter;
 };

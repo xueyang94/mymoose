@@ -31,12 +31,30 @@ protected:
   virtual Real computeDFDOP(PFFunctionType type);
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
+  std::vector<MaterialPropertyName> _ci_names;
+  std::vector<VariableName> _eta_names;
+  const JvarMap & _eta_map;
+
+  /// Position of the nonlinear variable in the list of cj's
+  int _k;
+
+  std::vector<const MaterialProperty<Real> *> _prop_dhjdetap;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_d2hjdetapdetai;
+
+  const MaterialProperty<Real> & _dc1dc;
+  const MaterialProperty<Real> & _dc2dc;
+  const MaterialProperty<Real> & _dc3dc;
+  std::vector<MaterialPropertyName> _dcidetaj_names;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dcidetaj;
+
+  std::vector<const MaterialProperty<Real> *> _prop_dFidci;
+
   /// double well height parameter
   Real _wi;
 
-  /// Derivative of the double well function \f$ \frac d{d\eta} g(\eta) \f$
+  MaterialPropertyName _gi_name;
   const MaterialProperty<Real> & _prop_dgi;
+  std::vector<const MaterialProperty<Real> *> _prop_d2gpdetapdetai;
 
-  /// Second derivative of the double well function \f$ \frac {d^2}{d\eta^2} g(\eta) \f$
-  const MaterialProperty<Real> & _prop_d2gi;
+  unsigned int _c_var;
 };
