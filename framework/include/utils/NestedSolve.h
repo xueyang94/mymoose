@@ -76,6 +76,8 @@ public:
   unsigned int _min_iterations;
   unsigned int _max_iterations;
 
+  std::size_t n_iterations;
+
   enum class State
   {
     NONE,
@@ -89,6 +91,8 @@ public:
    * Get the solver state
    */
   const State & getState() const { return _state; }
+
+  std::size_t & getIterations() { return n_iterations; };
 
 protected:
   /// current solver state
@@ -303,7 +307,8 @@ NestedSolve::nonlinear(V & guess, T compute)
   CorrespondingJacobian<V> jacobian;
   sizeItems(guess, residual, jacobian);
 
-  std::size_t n_iterations = 0;
+  // std::size_t n_iterations = 0;
+  n_iterations = 0;
   compute(guess, residual, jacobian);
 
   // compute first residual norm for relative convergence checks

@@ -47,6 +47,8 @@ SubConcentration::validParams()
   params.addRequiredParam<MaterialName>("F2_material", "F2");
   params.addRequiredParam<MaterialPropertyName>("F1_name", "F1");
   params.addRequiredParam<MaterialPropertyName>("F2_name", "F2");
+  params.addParam<MaterialPropertyName>(
+      "Nested_iterations", "The number of nested Newton iterations at each quadrature point");
   return params;
 }
 
@@ -75,7 +77,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _first_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name)),
     _first_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name)),
     _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
-    _second_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name, _c2_name))
+    _second_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name, _c2_name)),
+    _iter(declareProperty<Real>("Nested_iterations"))
 
 {
 }
@@ -116,6 +119,7 @@ SubConcentration::computeQpProperties()
   };
 
   solver.nonlinear(solution, compute);
+  _iter[_qp] = solver.getIterations();
 
   if (solver.getState() == NestedSolve::State::NOT_CONVERGED)
   {
