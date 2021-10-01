@@ -76,6 +76,8 @@ public:
   unsigned int _min_iterations;
   unsigned int _max_iterations;
 
+  std::size_t n_iterations;
+
   enum class State
   {
     NONE,
@@ -89,6 +91,8 @@ public:
   const State & getState() const { return _state; }
   /// Get the number of iterations from the last solve
   const std::size_t & getIterations() { return _n_iterations; };
+
+  std::size_t & getIterations() { return n_iterations; };
 
 protected:
   /// current solver state

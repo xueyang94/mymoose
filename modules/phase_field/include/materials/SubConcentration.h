@@ -58,4 +58,6 @@ protected:
 
   const MaterialProperty<Real> & _second_df1;
   const MaterialProperty<Real> & _second_df2;
+
+  MaterialProperty<Real> & _iter;
 };
