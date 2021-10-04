@@ -79,8 +79,6 @@ public:
   unsigned int _min_iterations;
   unsigned int _max_iterations;
 
-  std::size_t n_iterations;
-
   enum class State
   {
     NONE,
@@ -100,6 +98,9 @@ public:
 protected:
   /// current solver state
   State _state;
+
+  /// number of nested iterations
+  std::size_t n_iterations;
 
   ///@{ Deduce the Jacobian type from the solution type
   template <typename T>
