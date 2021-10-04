@@ -79,8 +79,6 @@ public:
   unsigned int _min_iterations;
   unsigned int _max_iterations;
 
-  std::size_t n_iterations;
-
   enum class State
   {
     NONE,
