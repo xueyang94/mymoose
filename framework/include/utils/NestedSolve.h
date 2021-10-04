@@ -64,13 +64,15 @@ public:
   ///@{ default values
   static Real relativeToleranceDefault() { return 1e-8; }
   static Real absoluteToleranceDefault() { return 1e-13; }
-  // static unsigned int minIterationsDefault() { return 10; }
-  static unsigned int minIterationsDefault() { return 1; }
+  static unsigned int minIterationsDefault() { return 10; }
+  // static unsigned int minIterationsDefault() { return 0; }
   static unsigned int maxIterationsDefault() { return 1000; }
   ///@}
 
   void setRelativeTolerance(Real rel) { _relative_tolerance_square = rel * rel; }
   void setAbsoluteTolerance(Real abs) { _absolute_tolerance_square = abs * abs; }
+  void setMinIterations(unsigned int min_iter) { _min_iterations = min_iter; }
+  void setMaxIterations(unsigned int max_iter) { _max_iterations = max_iter; }
 
   Real _relative_tolerance_square;
   Real _absolute_tolerance_square;

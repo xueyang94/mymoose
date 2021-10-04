@@ -34,7 +34,6 @@ SubConcentration::validParams()
   params.addRequiredParam<Real>("c2_IC", "The initial value of c2");
   params.addParam<Real>("absolute_tol_value", 1e-9, "Absolute tolerance of the Newton iteration");
   params.addParam<Real>("relative_tol_value", 1e-9, "Relative tolerance of the Newton iteration");
-  params.addParam<Real>("max_iteration", 100, "The maximum number of Newton iterations");
   params.addRequiredParam<MaterialPropertyName>("dc1dc_name",
                                                 "The first derivative of c1 w.r.t. c");
   params.addRequiredParam<MaterialPropertyName>("dc2dc_name",
@@ -49,6 +48,8 @@ SubConcentration::validParams()
   params.addRequiredParam<MaterialPropertyName>("F2_name", "F2");
   params.addParam<MaterialPropertyName>(
       "nested_iterations", "The number of nested Newton iterations at each quadrature point");
+  params.addParam<Real>("min_iterations", 1, "The minimum number of nested Newton iterations");
+  params.addParam<Real>("max_iterations", 100, "The maximum number of nested Newton iterations");
   return params;
 }
 
@@ -65,7 +66,6 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _c2_initial(getParam<Real>("c2_IC")),
     _abs_tol(getParam<Real>("absolute_tol_value")),
     _rel_tol(getParam<Real>("relative_tol_value")),
-    _maxiter(getParam<Real>("max_iteration")),
     _dc1dc(declareProperty<Real>("dc1dc_name")),
     _dc2dc(declareProperty<Real>("dc2dc_name")),
     _dc1deta(declareProperty<Real>("dc1deta_name")),
@@ -78,7 +78,9 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _first_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name)),
     _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
     _second_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name, _c2_name)),
-    _iter(declareProperty<Real>("nested_iterations"))
+    _iter(declareProperty<Real>("nested_iterations")),
+    _min_iter(getParam<Real>("min_iterations")),
+    _max_iter(getParam<Real>("max_iterations"))
 
 {
 }
@@ -100,6 +102,8 @@ SubConcentration::computeQpProperties()
   // solution << _c1_initial, _c2_initial;
   solver.setRelativeTolerance(_rel_tol);
   solver.setAbsoluteTolerance(_abs_tol);
+  solver.setMinIterations(_min_iter);
+  solver.setMaxIterations(_max_iter);
 
   auto compute = [&](const NestedSolve::Value<> & guess,
                      NestedSolve::Value<> & residual,
@@ -128,8 +132,8 @@ SubConcentration::computeQpProperties()
 
   _c1[_qp] = solution[0];
   _c2[_qp] = solution[1];
-  // _f1.computePropertiesAtQp(_qp);
-  // _f2.computePropertiesAtQp(_qp);
+  _f1.computePropertiesAtQp(_qp);
+  _f2.computePropertiesAtQp(_qp);
 
   // compute dc1dc, dc2dc, dc1deta, and dc2deta
   Real n = _eta[_qp];

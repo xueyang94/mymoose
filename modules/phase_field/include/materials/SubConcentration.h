@@ -37,10 +37,7 @@ protected:
   const Real _c2_initial;
 
   const Real _abs_tol;
-
   const Real _rel_tol;
-
-  const unsigned int _maxiter;
 
   MaterialProperty<Real> & _dc1dc;
   MaterialProperty<Real> & _dc2dc;
@@ -60,4 +57,6 @@ protected:
   const MaterialProperty<Real> & _second_df2;
 
   MaterialProperty<Real> & _iter;
+  const unsigned int _min_iter;
+  const unsigned int _max_iter;
 };
