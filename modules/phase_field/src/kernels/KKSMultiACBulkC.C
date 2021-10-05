@@ -58,6 +58,7 @@ KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
   for (unsigned int i = 0; i < _num_j; ++i)
   {
     _eta_names[i] = getVar("etas", i)->name();
+
     // Set _k to the position of the nonlinear variable in the list of etaj's
     if (coupled("etas", i) == _var.number())
       _k = i;
@@ -80,7 +81,7 @@ KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
   }
 
   // Get dcidetaj indexes by converting the vector of _dcidetaj_names to the matrix of
-  // _prop_dcidetaj, so that _prop_dcidetaj[m][n] is dci[m]/detaj[n]
+  // _prop_dcidetaj where _prop_dcidetaj[m][n] is dci[m]/detaj[n]
   for (unsigned int i = 0; i < _num_j * _num_j; ++i)
   {
     if (i >= 0 && i < _num_j)
@@ -109,14 +110,18 @@ KKSMultiACBulkC::computeDFDOP(PFFunctionType type)
                                 (*_prop_dhjdetap[2])[_qp] * (*_prop_ci[2])[_qp]);
 
     case Jacobian:
-      return _first_df1[_qp] *
-             ((*_prop_d2hjdetapdetai[0][0])[_qp] * (*_prop_ci[0])[_qp] +
-              (*_prop_dhjdetap[0])[_qp] * (*_prop_dcidetaj[0][_k])[_qp] +
-              (*_prop_d2hjdetapdetai[1][0])[_qp] * (*_prop_ci[1])[_qp] +
-              (*_prop_dhjdetap[1])[_qp] * (*_prop_dcidetaj[1][_k])[_qp] +
-              (*_prop_d2hjdetapdetai[2][0])[_qp] * (*_prop_ci[2])[_qp] +
-              (*_prop_dhjdetap[2])[_qp] * (*_prop_dcidetaj[2][_k])[_qp]) *
-             _phi[_j][_qp];
+      return _second_df1[_qp] * (*_prop_dcidetaj[0][_k])[_qp] *
+                 ((*_prop_dhjdetap[0])[_qp] * (*_prop_ci[0])[_qp] +
+                  (*_prop_dhjdetap[1])[_qp] * (*_prop_ci[1])[_qp] +
+                  (*_prop_dhjdetap[2])[_qp] * (*_prop_ci[2])[_qp]) +
+             _first_df1[_qp] *
+                 ((*_prop_d2hjdetapdetai[0][0])[_qp] * (*_prop_ci[0])[_qp] +
+                  (*_prop_dhjdetap[0])[_qp] * (*_prop_dcidetaj[0][_k])[_qp] +
+                  (*_prop_d2hjdetapdetai[1][0])[_qp] * (*_prop_ci[1])[_qp] +
+                  (*_prop_dhjdetap[1])[_qp] * (*_prop_dcidetaj[1][_k])[_qp] +
+                  (*_prop_d2hjdetapdetai[2][0])[_qp] * (*_prop_ci[2])[_qp] +
+                  (*_prop_dhjdetap[2])[_qp] * (*_prop_dcidetaj[2][_k])[_qp]) *
+                 _phi[_j][_qp];
   }
   mooseError("Invalid type passed in");
 }
@@ -131,6 +136,7 @@ KKSMultiACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
 
   // if c is the coupled variable
   if (jvar == _c_var)
+  {
     sum = _second_df1[_qp] * _dc1dc[_qp] *
               ((*_prop_dhjdetap[0])[_qp] * (*_prop_ci[0])[_qp] +
                (*_prop_dhjdetap[1])[_qp] * (*_prop_ci[1])[_qp] +
@@ -139,12 +145,19 @@ KKSMultiACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
               ((*_prop_dhjdetap[0])[_qp] * _dc1dc[_qp] + (*_prop_dhjdetap[1])[_qp] * _dc2dc[_qp] +
                (*_prop_dhjdetap[2])[_qp] * _dc3dc[_qp]);
 
-  // if other order parameters are the coupled variables
+    res += -_L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
+
+    return res;
+  }
+
+  // if order parameters are the coupled variables
   auto etavar = mapJvarToCvar(jvar, _eta_map);
   if (etavar >= 0)
   {
     for (unsigned int n = 0; n < _num_j; ++n)
-      sum += _first_df1[_qp] * ((*_prop_d2hjdetapdetai[n][etavar])[_qp] * (*_prop_ci[n])[_qp] +
+      sum += _second_df1[_qp] * (*_prop_dcidetaj[0][etavar])[_qp] * (*_prop_dhjdetap[n])[_qp] *
+                 (*_prop_ci[n])[_qp] +
+             _first_df1[_qp] * ((*_prop_d2hjdetapdetai[n][etavar])[_qp] * (*_prop_ci[n])[_qp] +
                                 (*_prop_dhjdetap[n])[_qp] * (*_prop_dcidetaj[n][etavar])[_qp]);
   }
 

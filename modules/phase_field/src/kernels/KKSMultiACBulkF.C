@@ -57,6 +57,7 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
   for (unsigned int i = 0; i < _num_j; ++i)
   {
     _eta_names[i] = getVar("etas", i)->name();
+
     // Set _k to the position of the nonlinear variable in the list of etaj's
     if (coupled("etas", i) == _var.number())
       _k = i;
@@ -114,13 +115,13 @@ KKSMultiACBulkF::computeDFDOP(PFFunctionType type)
              (*_prop_dhjdetap[2])[_qp] * (*_prop_Fj[2])[_qp] + _wi * _prop_dgi[_qp];
 
     case Jacobian:
-      return ((*_prop_d2hjdetapdetai[0][0])[_qp] * (*_prop_Fj[0])[_qp] +
-              (*_prop_dhjdetap[0])[_qp] * (*_prop_dFidci[0])[_qp] * (*_prop_dcidetaj[0][0])[_qp] +
-              (*_prop_d2hjdetapdetai[1][0])[_qp] * (*_prop_Fj[1])[_qp] +
-              (*_prop_dhjdetap[1])[_qp] * (*_prop_dFidci[1])[_qp] * (*_prop_dcidetaj[1][0])[_qp] +
-              (*_prop_d2hjdetapdetai[2][0])[_qp] * (*_prop_Fj[2])[_qp] +
-              (*_prop_dhjdetap[2])[_qp] * (*_prop_dFidci[2])[_qp] * (*_prop_dcidetaj[2][0])[_qp] +
-              _wi * (*_prop_d2gpdetapdetai[0])[_qp]) *
+      return ((*_prop_d2hjdetapdetai[0][_k])[_qp] * (*_prop_Fj[0])[_qp] +
+              (*_prop_dhjdetap[0])[_qp] * (*_prop_dFidci[0])[_qp] * (*_prop_dcidetaj[0][_k])[_qp] +
+              (*_prop_d2hjdetapdetai[1][_k])[_qp] * (*_prop_Fj[1])[_qp] +
+              (*_prop_dhjdetap[1])[_qp] * (*_prop_dFidci[1])[_qp] * (*_prop_dcidetaj[1][_k])[_qp] +
+              (*_prop_d2hjdetapdetai[2][_k])[_qp] * (*_prop_Fj[2])[_qp] +
+              (*_prop_dhjdetap[2])[_qp] * (*_prop_dFidci[2])[_qp] * (*_prop_dcidetaj[2][_k])[_qp] +
+              _wi * (*_prop_d2gpdetapdetai[_k])[_qp]) *
              _phi[_j][_qp];
   }
   mooseError("Invalid type passed in");
@@ -136,18 +137,28 @@ KKSMultiACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
 
   // if c is the coupled variable
   if (jvar == _c_var)
-    sum = (*_prop_d2hjdetapdetai[0][0])[_qp] * (*_prop_dFidci[0])[_qp] * _dc1dc[_qp] +
-          (*_prop_d2hjdetapdetai[1][0])[_qp] * (*_prop_dFidci[1])[_qp] * _dc2dc[_qp] +
-          (*_prop_d2hjdetapdetai[2][0])[_qp] * (*_prop_dFidci[2])[_qp] * _dc3dc[_qp];
+  {
+    sum += (*_prop_dhjdetap[0])[_qp] * (*_prop_dFidci[0])[_qp] * _dc1dc[_qp] +
+           (*_prop_dhjdetap[1])[_qp] * (*_prop_dFidci[1])[_qp] * _dc2dc[_qp] +
+           (*_prop_dhjdetap[2])[_qp] * (*_prop_dFidci[2])[_qp] * _dc3dc[_qp];
 
-  // if other order parameters are the coupled variables
+    res += -_L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
+
+    return res;
+  }
+
+  // if order parameters are the coupled variables
   auto etavar = mapJvarToCvar(jvar, _eta_map);
   if (etavar >= 0)
   {
     for (unsigned int n = 0; n < _num_j; ++n)
+    {
       sum +=
           (*_prop_d2hjdetapdetai[n][etavar])[_qp] * (*_prop_Fj[n])[_qp] +
           (*_prop_dhjdetap[n])[_qp] * (*_prop_dFidci[n])[_qp] * (*_prop_dcidetaj[n][etavar])[_qp];
+    }
+
+    sum += _wi * (*_prop_d2gpdetapdetai[etavar])[_qp];
   }
 
   res += -_L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];

@@ -53,13 +53,13 @@ protected:
   MaterialProperty<Real> & _dc3deta2;
   MaterialProperty<Real> & _dc3deta3;
 
-  const SymbolName _c1_name;
-  const SymbolName _c2_name;
-  const SymbolName _c3_name;
-
   MaterialBase & _f1;
   MaterialBase & _f2;
   MaterialBase & _f3;
+
+  const SymbolName _c1_name;
+  const SymbolName _c2_name;
+  const SymbolName _c3_name;
 
   const MaterialProperty<Real> & _first_df1;
   const MaterialProperty<Real> & _first_df2;

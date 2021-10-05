@@ -100,12 +100,13 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _dc3deta2(declareProperty<Real>("dc3deta2_name")),
     _dc3deta3(declareProperty<Real>("dc3deta3_name")),
 
-    _c1_name("c1"),
-    _c2_name("c2"),
-    _c3_name("c3"),
     _f1(getMaterial("F1_material")),
     _f2(getMaterial("F2_material")),
     _f3(getMaterial("F3_material")),
+
+    _c1_name("c1"),
+    _c2_name("c2"),
+    _c3_name("c3"),
     _first_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name)),
     _first_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name)),
     _first_df3(getMaterialPropertyDerivative<Real>("F3_name", _c3_name)),
@@ -138,18 +139,19 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
   for (unsigned int i = 0; i < _num_eta; i++)
     _ci_prop[i] = &declareProperty<Real>(_ci_names[i]);
 
-  // declare h and dh material properties
-  // _prop_dhjdetai[m][n] is the derivative of h_j w.r.t. eta_i
   for (unsigned int m = 0; m < _num_eta; ++m)
   {
+    // declare h and dh material properties
     _prop_hj[m] = &getMaterialPropertyByName<Real>(_hj_names[m]);
+
+    // _prop_dhjdetai[m][n] is the derivative of h_j w.r.t. eta_i
     _prop_dhjdetai[m].resize(_num_eta);
     for (unsigned int n = 0; n < _num_eta; ++n)
       _prop_dhjdetai[m][n] = &getMaterialPropertyDerivative<Real>(_hj_names[m], _eta_names[n]);
   }
 }
 
-// This function should be inherited from NestedSolve.C
+// This function is also defined in NestedSolve.C (protected)
 void
 linear(RankTwoTensor A, RealVectorValue & x, RealVectorValue b)
 {
@@ -206,7 +208,7 @@ SubConcentration::computeQpProperties()
   _f3.computePropertiesAtQp(_qp);
 
   //////////////////////////////////////////////////////////////////////////////////////////// compute dc1dc, dc2dc, and dc3dc
-  RankTwoTensor A; // The matrix used to compute dcidc and dcidetai are the same
+  RankTwoTensor A; // The matrix A used to compute dcidc and dcidetai are the same
   RealVectorValue x_dc;
   RealVectorValue b_dc{0, 0, 1};
 
