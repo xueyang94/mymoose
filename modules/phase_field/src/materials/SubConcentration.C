@@ -11,6 +11,7 @@
 // #include "libmesh/utility.h"
 // #include <cmath>
 #include "NestedSolve.h"
+// #include "NestedSolve.C"
 // #include "libmesh/vector_value.h"
 // #include "RankTwoTensor.h"
 // #include "gtest/gtest.h"
@@ -48,8 +49,9 @@ SubConcentration::validParams()
   params.addRequiredParam<MaterialPropertyName>("F2_name", "F2");
   params.addParam<MaterialPropertyName>(
       "nested_iterations", "The number of nested Newton iterations at each quadrature point");
-  params.addParam<Real>("min_iterations", 1, "The minimum number of nested Newton iterations");
-  params.addParam<Real>("max_iterations", 100, "The maximum number of nested Newton iterations");
+  params.addParam<Real>("user_min_iterations", 0, "The minimum number of nested Newton iterations");
+  params.addParam<Real>(
+      "user_max_iterations", 100, "The maximum number of nested Newton iterations");
   return params;
 }
 
@@ -79,8 +81,10 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
     _second_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name, _c2_name)),
     _iter(declareProperty<Real>("nested_iterations")),
-    _min_iter(getParam<Real>("min_iterations")),
-    _max_iter(getParam<Real>("max_iterations"))
+    _user_min(getParam<Real>("user_min_iterations")),
+    _user_max(getParam<Real>("user_max_iterations"))
+// _min_iter(getParam<Real>("min_iterations")),
+// _max_iter(getParam<Real>("max_iterations"))
 
 {
 }
@@ -102,8 +106,8 @@ SubConcentration::computeQpProperties()
   // solution << _c1_initial, _c2_initial;
   solver.setRelativeTolerance(_rel_tol);
   solver.setAbsoluteTolerance(_abs_tol);
-  solver.setMinIterations(_min_iter);
-  solver.setMaxIterations(_max_iter);
+  // solver.setMinIterations(_min_iter);
+  // solver.setMaxIterations(_max_iter);
 
   auto compute = [&](const NestedSolve::Value<> & guess,
                      NestedSolve::Value<> & residual,

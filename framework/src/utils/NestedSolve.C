@@ -15,6 +15,7 @@ InputParameters
 NestedSolve::validParams()
 {
   InputParameters params = emptyInputParameters();
+  // InputParameters params = SubConcentration::validParams();
 
   // Newton iteration control parameters
   params.addParam<Real>("relative_tolerance",
@@ -48,6 +49,7 @@ NestedSolve::NestedSolve(const InputParameters & params)
     _min_iterations(params.get<unsigned int>("min_iterations")),
     _max_iterations(params.get<unsigned int>("max_iterations")),
     _state(State::NONE)
+
 {
 }
 

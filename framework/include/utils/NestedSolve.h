@@ -19,6 +19,8 @@
 #include <Eigen/Dense>
 #include <unsupported/Eigen/NonLinearOptimization>
 
+#include "SubConcentration.h"
+
 class NestedSolve
 {
 public:
@@ -71,8 +73,8 @@ public:
 
   void setRelativeTolerance(Real rel) { _relative_tolerance_square = rel * rel; }
   void setAbsoluteTolerance(Real abs) { _absolute_tolerance_square = abs * abs; }
-  void setMinIterations(unsigned int min_iter) { _min_iterations = min_iter; }
-  void setMaxIterations(unsigned int max_iter) { _max_iterations = max_iter; }
+  // void setMinIterations(unsigned int min_iter) { _min_iterations = min_iter; }
+  // void setMaxIterations(unsigned int max_iter) { _max_iterations = max_iter; }
 
   Real _relative_tolerance_square;
   Real _absolute_tolerance_square;
@@ -341,9 +343,11 @@ NestedSolve::nonlinear(V & guess, T compute)
 
   // perform non-linear iterations
   while (n_iterations < _max_iterations)
+  // while (n_iterations < _user_max)
   {
     // check convergence
     if (n_iterations >= _min_iterations && is_converged())
+      // if (n_iterations >= _user_min && is_converged())
       return;
 
     // solve and apply next increment
