@@ -57,8 +57,8 @@ protected:
   const MaterialProperty<Real> & _second_df2;
 
   MaterialProperty<Real> & _iter;
-  const unsigned int _user_min;
-  const unsigned int _user_max;
+  // const unsigned int _user_min;
+  // const unsigned int _user_max;
   // const unsigned int _min_iter;
   // const unsigned int _max_iter;
 };

@@ -19,7 +19,7 @@
 #include <Eigen/Dense>
 #include <unsupported/Eigen/NonLinearOptimization>
 
-#include "SubConcentration.h"
+// #include "SubConcentration.h"
 
 class NestedSolve
 {
@@ -78,8 +78,11 @@ public:
 
   Real _relative_tolerance_square;
   Real _absolute_tolerance_square;
-  unsigned int _min_iterations;
-  unsigned int _max_iterations;
+  // unsigned int _min_iterations;
+  // unsigned int _max_iterations;
+
+  unsigned int _user_min;
+  unsigned int _user_max;
 
   enum class State
   {
@@ -95,7 +98,7 @@ public:
   /// Get the number of iterations from the last solve
   const std::size_t & getIterations() { return _n_iterations; };
 
-  std::size_t & getIterations() { return n_iterations; };
+  std::size_t & getIterations() { return _n_iterations; };
 
 protected:
   /// current solver state
