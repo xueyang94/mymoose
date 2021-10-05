@@ -49,9 +49,12 @@ SubConcentration::validParams()
   params.addRequiredParam<MaterialPropertyName>("F2_name", "F2");
   params.addParam<MaterialPropertyName>(
       "nested_iterations", "The number of nested Newton iterations at each quadrature point");
-  params.addParam<Real>("user_min_iterations", 0, "The minimum number of nested Newton iterations");
-  params.addParam<Real>(
-      "user_max_iterations", 100, "The maximum number of nested Newton iterations");
+  // params.addParam<unsigned int>(
+  //     "user_min_iterations", 0, "The minimum number of nested Newton iterations");
+  // params.addParam<unsigned int>(
+  //     "user_max_iterations", 100, "The maximum number of nested Newton iterations");
+  params.set<unsigned int>("user_min_iterations") = 0;
+  params.set<unsigned int>("user_max_iterations") = 100;
   return params;
 }
 
@@ -80,9 +83,9 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _first_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name)),
     _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
     _second_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name, _c2_name)),
-    _iter(declareProperty<Real>("nested_iterations")),
-    _user_min(getParam<Real>("user_min_iterations")),
-    _user_max(getParam<Real>("user_max_iterations"))
+    _iter(declareProperty<Real>("nested_iterations"))
+// _user_min(getParam<Real>("user_min_iterations")),
+// _user_max(getParam<Real>("user_max_iterations"))
 // _min_iter(getParam<Real>("min_iterations")),
 // _max_iter(getParam<Real>("max_iterations"))
 

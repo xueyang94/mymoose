@@ -19,7 +19,7 @@
 #include <Eigen/Dense>
 #include <unsupported/Eigen/NonLinearOptimization>
 
-#include "SubConcentration.h"
+// #include "SubConcentration.h"
 
 class NestedSolve
 {
@@ -78,8 +78,11 @@ public:
 
   Real _relative_tolerance_square;
   Real _absolute_tolerance_square;
-  unsigned int _min_iterations;
-  unsigned int _max_iterations;
+  // unsigned int _min_iterations;
+  // unsigned int _max_iterations;
+
+  unsigned int _user_min;
+  unsigned int _user_max;
 
   enum class State
   {
@@ -95,14 +98,14 @@ public:
    */
   const State & getState() const { return _state; }
 
-  std::size_t & getIterations() { return n_iterations; };
+  std::size_t & getIterations() { return _n_iterations; };
 
 protected:
   /// current solver state
   State _state;
 
   /// number of nested iterations
-  std::size_t n_iterations;
+  std::size_t _n_iterations;
 
   ///@{ Deduce the Jacobian type from the solution type
   template <typename T>
@@ -313,8 +316,8 @@ NestedSolve::nonlinear(V & guess, T compute)
   CorrespondingJacobian<V> jacobian;
   sizeItems(guess, residual, jacobian);
 
-  // std::size_t n_iterations = 0;
-  n_iterations = 0;
+  // std::size_t _n_iterations = 0;
+  _n_iterations = 0;
   compute(guess, residual, jacobian);
 
   // compute first residual norm for relative convergence checks
@@ -342,18 +345,18 @@ NestedSolve::nonlinear(V & guess, T compute)
   };
 
   // perform non-linear iterations
-  while (n_iterations < _max_iterations)
-  // while (n_iterations < _user_max)
+  // while (_n_iterations < _max_iterations)
+  while (_n_iterations < _user_max)
   {
     // check convergence
-    if (n_iterations >= _min_iterations && is_converged())
-      // if (n_iterations >= _user_min && is_converged())
+    // if (_n_iterations >= _min_iterations && is_converged())
+    if (_n_iterations >= _user_min && is_converged())
       return;
 
     // solve and apply next increment
     linear(jacobian, delta, residual);
     guess -= delta;
-    n_iterations++;
+    _n_iterations++;
 
     // compute residual and jacobian for the next iteration
     compute(guess, residual, jacobian);
