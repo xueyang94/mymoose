@@ -92,14 +92,17 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
     if (i >= 0 && i < _num_j)
     {
       _prop_dcidetaj[i][0] = &getMaterialPropertyByName<Real>(_dcidetaj_names[i]);
+      break;
     }
     if (i >= _num_j && i < 2 * _num_j)
     {
       _prop_dcidetaj[i - _num_j][1] = &getMaterialPropertyByName<Real>(_dcidetaj_names[i]);
+      break;
     }
     if (i >= 2 * _num_j && i < _num_j * _num_j)
     {
       _prop_dcidetaj[i - 2 * _num_j][2] = &getMaterialPropertyByName<Real>(_dcidetaj_names[i]);
+      break;
     }
   }
 }
