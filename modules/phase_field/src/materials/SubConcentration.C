@@ -53,8 +53,8 @@ SubConcentration::validParams()
   //     "user_min_iterations", 0, "The minimum number of nested Newton iterations");
   // params.addParam<unsigned int>(
   //     "user_max_iterations", 100, "The maximum number of nested Newton iterations");
-  params.set<unsigned int>("user_min_iterations") = 0;
-  params.set<unsigned int>("user_max_iterations") = 100;
+  params.set<unsigned int>("user_min_iterations") = 10;
+  params.set<unsigned int>("user_max_iterations") = 1000;
   return params;
 }
 

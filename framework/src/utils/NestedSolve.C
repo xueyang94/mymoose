@@ -47,8 +47,8 @@ NestedSolve::NestedSolve()
     _absolute_tolerance_square(Utility::pow<2>(absoluteToleranceDefault())),
     // _min_iterations(minIterationsDefault()),
     // _max_iterations(maxIterationsDefault()),
-    _user_min(0),
-    _user_max(100),
+    _user_min(),
+    _user_max(),
     _state(State::NONE)
 {
 }
