@@ -10,6 +10,7 @@
 #pragma once
 
 #include "DerivativeMaterialInterface.h"
+#include "NestedSolve.h"
 
 class SubConcentration : public DerivativeMaterialInterface<Material>
 {
@@ -58,4 +59,6 @@ protected:
 
   const MaterialProperty<Real> & _second_df1;
   const MaterialProperty<Real> & _second_df2;
+
+  NestedSolve * _nested_solve;
 };

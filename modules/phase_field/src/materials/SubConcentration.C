@@ -10,7 +10,6 @@
 #include "SubConcentration.h"
 #include "libmesh/utility.h"
 #include <cmath>
-#include "NestedSolve.h"
 #include "libmesh/vector_value.h"
 #include "RankTwoTensor.h"
 #include "gtest/gtest.h"
@@ -47,6 +46,10 @@ SubConcentration::validParams()
   params.addRequiredParam<MaterialName>("F2_material", "F2");
   params.addRequiredParam<MaterialPropertyName>("F1_name", "F1");
   params.addRequiredParam<MaterialPropertyName>("F2_name", "F2");
+  params.set<unsigned int>("min_iterations") = 0;
+  params.set<unsigned int>("max_iterations") = 100;
+  params.set<Real>("relative_tolerance") = 1e-9;
+  params.set<Real>("absolute_tolerance") = 1e-9;
   return params;
 }
 
@@ -75,8 +78,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _first_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name)),
     _first_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name)),
     _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
-    _second_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name, _c2_name))
-
+    _second_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name, _c2_name)),
+    _nested_solve(new NestedSolve(parameters))
 {
 }
 
@@ -90,11 +93,10 @@ SubConcentration::initQpStatefulProperties()
 void
 SubConcentration::computeQpProperties()
 {
-  NestedSolve solver;
   NestedSolve::Value<> solution(2); // dynamicly sized vector class from the Eigen library
   solution << _c1_old[_qp], _c2_old[_qp];
   // solution << _c1_initial, _c2_initial;
-  solver.setRelativeTolerance(1e-9);
+  // _nested_solve->setRelativeTolerance(1e-9);
 
   auto compute = [&](const NestedSolve::Value<> & guess,
                      NestedSolve::Value<> & residual,
@@ -113,9 +115,9 @@ SubConcentration::computeQpProperties()
     jacobian(1, 1) = -_h[_qp];
   };
 
-  solver.nonlinear(solution, compute);
+  _nested_solve->nonlinear(solution, compute);
 
-  if (solver.getState() == NestedSolve::State::NOT_CONVERGED)
+  if (_nested_solve->getState() == NestedSolve::State::NOT_CONVERGED)
   {
     std::cout << "Newton iteration did not converge." << std::endl;
   }
