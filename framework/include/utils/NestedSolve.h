@@ -90,7 +90,7 @@ public:
   /// Get the number of iterations from the last solve
   const std::size_t & getIterations() { return _n_iterations; };
 
-  std::size_t & getIterations() { return _n_iterations; };
+  const std::size_t & getIterations() { return _n_iterations; };
 
 protected:
   /// current solver state

@@ -8,12 +8,6 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "SubConcentration.h"
-// #include "libmesh/utility.h"
-// #include <cmath>
-// #include "NestedSolve.h"
-// #include "libmesh/vector_value.h"
-// #include "RankTwoTensor.h"
-// #include "gtest/gtest.h"
 
 registerMooseObject("PhaseFieldApp", SubConcentration);
 
@@ -32,6 +26,7 @@ SubConcentration::validParams()
                                                 "Name of the second phase concentration");
   params.addRequiredParam<Real>("c1_IC", "The initial value of c1");
   params.addRequiredParam<Real>("c2_IC", "The initial value of c2");
+
   params.addRequiredParam<MaterialPropertyName>("dc1dc_name",
                                                 "The first derivative of c1 w.r.t. c");
   params.addRequiredParam<MaterialPropertyName>("dc2dc_name",
@@ -67,6 +62,7 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 
     _c1_initial(getParam<Real>("c1_IC")),
     _c2_initial(getParam<Real>("c2_IC")),
+
     _dc1dc(declareProperty<Real>("dc1dc_name")),
     _dc2dc(declareProperty<Real>("dc2dc_name")),
     _dc1deta(declareProperty<Real>("dc1deta_name")),
@@ -82,7 +78,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _iter(declareProperty<Real>("nested_iterations")),
     _rel_tol(getParam<Real>("relative_tolerance")),
     _abs_tol(getParam<Real>("absolute_tolerance")),
-    _nested_solve(new NestedSolve(parameters)) // Wen
+    // _nested_solve(new NestedSolve(parameters)) // Wen
+    _nested_solve(NestedSolve(parameters)) // Wen
 
 {
 }
@@ -97,10 +94,13 @@ SubConcentration::initQpStatefulProperties()
 void
 SubConcentration::computeQpProperties()
 {
+
   NestedSolve::Value<> solution(2); // dynamicly sized vector class from the Eigen library
   solution << _c1_old[_qp], _c2_old[_qp];
-  _nested_solve->setRelativeTolerance(_rel_tol);
-  _nested_solve->setAbsoluteTolerance(_abs_tol);
+  // _nested_solve->setRelativeTolerance(_rel_tol);
+  // _nested_solve->setAbsoluteTolerance(_abs_tol);
+  _nested_solve.setRelativeTolerance(_rel_tol);
+  _nested_solve.setAbsoluteTolerance(_abs_tol);
 
   auto compute = [&](const NestedSolve::Value<> & guess,
                      NestedSolve::Value<> & residual,
@@ -119,10 +119,13 @@ SubConcentration::computeQpProperties()
     jacobian(1, 1) = -_h[_qp];
   };
 
-  _nested_solve->nonlinear(solution, compute);
-  _iter[_qp] = _nested_solve->getIterations();
+  // _nested_solve->nonlinear(solution, compute);
+  _nested_solve.nonlinear(solution, compute);
+  // _iter[_qp] = _nested_solve->getIterations();
+  _iter[_qp] = _nested_solve.getIterations();
 
-  if (_nested_solve->getState() == NestedSolve::State::NOT_CONVERGED)
+  // if (_nested_solve->getState() == NestedSolve::State::NOT_CONVERGED)
+  if (_nested_solve.getState() == NestedSolve::State::NOT_CONVERGED)
   {
     std::cout << "Newton iteration did not converge." << std::endl;
   }

@@ -59,5 +59,6 @@ protected:
   const Real _rel_tol;
   const Real _abs_tol;
 
-  NestedSolve * _nested_solve; // Wen
+  // NestedSolve * _nested_solve; // Wen
+  NestedSolve _nested_solve; // Wen
 };
