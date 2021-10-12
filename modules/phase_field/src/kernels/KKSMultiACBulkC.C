@@ -105,23 +105,22 @@ KKSMultiACBulkC::computeDFDOP(PFFunctionType type)
   switch (type)
   {
     case Residual:
-      return _first_df1[_qp] * ((*_prop_dhjdetap[0])[_qp] * (*_prop_ci[0])[_qp] +
-                                (*_prop_dhjdetap[1])[_qp] * (*_prop_ci[1])[_qp] +
-                                (*_prop_dhjdetap[2])[_qp] * (*_prop_ci[2])[_qp]);
+      return -_first_df1[_qp] * ((*_prop_dhjdetap[0])[_qp] * (*_prop_ci[0])[_qp] +
+                                 (*_prop_dhjdetap[1])[_qp] * (*_prop_ci[1])[_qp] +
+                                 (*_prop_dhjdetap[2])[_qp] * (*_prop_ci[2])[_qp]);
 
     case Jacobian:
-      return _second_df1[_qp] * (*_prop_dcidetaj[0][_k])[_qp] *
-                 ((*_prop_dhjdetap[0])[_qp] * (*_prop_ci[0])[_qp] +
-                  (*_prop_dhjdetap[1])[_qp] * (*_prop_ci[1])[_qp] +
-                  (*_prop_dhjdetap[2])[_qp] * (*_prop_ci[2])[_qp]) +
-             _first_df1[_qp] *
-                 ((*_prop_d2hjdetapdetai[0][0])[_qp] * (*_prop_ci[0])[_qp] +
-                  (*_prop_dhjdetap[0])[_qp] * (*_prop_dcidetaj[0][_k])[_qp] +
-                  (*_prop_d2hjdetapdetai[1][0])[_qp] * (*_prop_ci[1])[_qp] +
-                  (*_prop_dhjdetap[1])[_qp] * (*_prop_dcidetaj[1][_k])[_qp] +
-                  (*_prop_d2hjdetapdetai[2][0])[_qp] * (*_prop_ci[2])[_qp] +
-                  (*_prop_dhjdetap[2])[_qp] * (*_prop_dcidetaj[2][_k])[_qp]) *
-                 _phi[_j][_qp];
+      return -(_second_df1[_qp] * (*_prop_dcidetaj[0][_k])[_qp] *
+                   ((*_prop_dhjdetap[0])[_qp] * (*_prop_ci[0])[_qp] +
+                    (*_prop_dhjdetap[1])[_qp] * (*_prop_ci[1])[_qp] +
+                    (*_prop_dhjdetap[2])[_qp] * (*_prop_ci[2])[_qp]) +
+               _first_df1[_qp] * ((*_prop_d2hjdetapdetai[0][_k])[_qp] * (*_prop_ci[0])[_qp] +
+                                  (*_prop_dhjdetap[0])[_qp] * (*_prop_dcidetaj[0][_k])[_qp] +
+                                  (*_prop_d2hjdetapdetai[1][_k])[_qp] * (*_prop_ci[1])[_qp] +
+                                  (*_prop_dhjdetap[1])[_qp] * (*_prop_dcidetaj[1][_k])[_qp] +
+                                  (*_prop_d2hjdetapdetai[2][_k])[_qp] * (*_prop_ci[2])[_qp] +
+                                  (*_prop_dhjdetap[2])[_qp] * (*_prop_dcidetaj[2][_k])[_qp])) *
+             _phi[_j][_qp];
   }
   mooseError("Invalid type passed in");
 }

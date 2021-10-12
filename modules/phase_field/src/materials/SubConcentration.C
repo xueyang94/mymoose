@@ -8,14 +8,14 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "SubConcentration.h"
-#include "libmesh/utility.h"
-#include <cmath>
 #include "NestedSolve.h"
-#include "libmesh/vector_value.h"
-#include "RankTwoTensor.h"
-#include "gtest/gtest.h"
-#include "Conversion.h"
-#include "IndirectSort.h"
+// #include "libmesh/utility.h"
+// #include <cmath>
+// #include "libmesh/vector_value.h"
+// #include "RankTwoTensor.h"
+// #include "gtest/gtest.h"
+// #include "Conversion.h"
+// #include "IndirectSort.h"
 
 registerMooseObject("PhaseFieldApp", SubConcentration);
 
@@ -136,7 +136,7 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
                "ci material properties.");
 
   // declare ci material properties
-  for (unsigned int i = 0; i < _num_eta; i++)
+  for (unsigned int i = 0; i < _num_eta; ++i)
     _ci_prop[i] = &declareProperty<Real>(_ci_names[i]);
 
   for (unsigned int m = 0; m < _num_eta; ++m)
@@ -179,8 +179,8 @@ SubConcentration::computeQpProperties()
 
     residual(0) = _first_df1[_qp] - _first_df2[_qp];
     residual(1) = _first_df2[_qp] - _first_df3[_qp];
-    residual(2) = _c[_qp] - ((*_prop_hj[0])[_qp] * guess(0) + (*_prop_hj[1])[_qp] * guess(1) +
-                             (*_prop_hj[2])[_qp] * guess(2));
+    residual(2) = (*_prop_hj[0])[_qp] * guess(0) + (*_prop_hj[1])[_qp] * guess(1) +
+                  (*_prop_hj[2])[_qp] * guess(2) - _c[_qp];
 
     jacobian(0, 0) = _second_df1[_qp];
     jacobian(0, 1) = -_second_df2[_qp];
@@ -188,9 +188,9 @@ SubConcentration::computeQpProperties()
     jacobian(1, 0) = 0;
     jacobian(1, 1) = _second_df2[_qp];
     jacobian(1, 2) = -_second_df3[_qp];
-    jacobian(2, 0) = -(*_prop_hj[0])[_qp];
-    jacobian(2, 1) = -(*_prop_hj[1])[_qp];
-    jacobian(2, 2) = -(*_prop_hj[2])[_qp];
+    jacobian(2, 0) = (*_prop_hj[0])[_qp];
+    jacobian(2, 1) = (*_prop_hj[1])[_qp];
+    jacobian(2, 2) = (*_prop_hj[2])[_qp];
   };
 
   solver.nonlinear(solution, compute);
@@ -208,9 +208,10 @@ SubConcentration::computeQpProperties()
   _f3.computePropertiesAtQp(_qp);
 
   //////////////////////////////////////////////////////////////////////////////////////////// compute dc1dc, dc2dc, and dc3dc
-  RankTwoTensor A; // The matrix A used to compute dcidc and dcidetai are the same
-  RealVectorValue x_dc;
-  RealVectorValue b_dc{0, 0, 1};
+  // The matrix A used to compute dcidc and dcidetai are the same as the jacobian matrix
+  RankTwoTensor A;
+  RealVectorValue x_dcidc;
+  RealVectorValue b_dcidc{0, 0, 1};
 
   A(0, 0) = _second_df1[_qp];
   A(0, 1) = -_second_df2[_qp];
@@ -222,12 +223,12 @@ SubConcentration::computeQpProperties()
   A(2, 1) = (*_prop_hj[1])[_qp];
   A(2, 2) = (*_prop_hj[2])[_qp];
 
-  linear(A, x_dc, b_dc);
-  _dc1dc[_qp] = x_dc(0);
-  _dc2dc[_qp] = x_dc(1);
-  _dc3dc[_qp] = x_dc(2);
+  linear(A, x_dcidc, b_dcidc);
+  _dc1dc[_qp] = x_dcidc(0);
+  _dc2dc[_qp] = x_dcidc(1);
+  _dc3dc[_qp] = x_dcidc(2);
 
-  // compute dc1deta1, dc2deta1, and dc2deta1
+  //////////////////////////////////////////////////////////////////////////////////////////// compute dc1deta1, dc2deta1, and dc3deta1
   RealVectorValue x_cideta1;
   RealVectorValue b_cideta1{0,
                             0,
@@ -240,7 +241,7 @@ SubConcentration::computeQpProperties()
   _dc2deta1[_qp] = x_cideta1(1);
   _dc3deta1[_qp] = x_cideta1(2);
 
-  // compute dc1deta2, dc2deta2, and dc2deta2
+  //////////////////////////////////////////////////////////////////////////////////////////// compute dc1deta2, dc2deta2, and dc3deta2
   RealVectorValue x_cideta2;
   RealVectorValue b_cideta2{0,
                             0,
@@ -253,7 +254,7 @@ SubConcentration::computeQpProperties()
   _dc2deta2[_qp] = x_cideta2(1);
   _dc3deta2[_qp] = x_cideta2(2);
 
-  // compute dc1deta3, dc2deta3, and dc2deta3
+  //////////////////////////////////////////////////////////////////////////////////////////// compute dc1deta3, dc2deta3, and dc3deta3
   RealVectorValue x_cideta3;
   RealVectorValue b_cideta3{0,
                             0,
@@ -265,4 +266,6 @@ SubConcentration::computeQpProperties()
   _dc1deta3[_qp] = x_cideta3(0);
   _dc2deta3[_qp] = x_cideta3(1);
   _dc3deta3[_qp] = x_cideta3(2);
+
+  std::cout << "checkpoint" << std::endl;
 }
