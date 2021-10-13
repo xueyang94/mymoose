@@ -8,14 +8,13 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "SubConcentration.h"
-#include "NestedSolve.h"
-// #include "libmesh/utility.h"
-// #include <cmath>
-// #include "libmesh/vector_value.h"
-// #include "RankTwoTensor.h"
-// #include "gtest/gtest.h"
-// #include "Conversion.h"
-// #include "IndirectSort.h"
+#include "libmesh/utility.h"
+#include <cmath>
+#include "libmesh/vector_value.h"
+#include "RankTwoTensor.h"
+#include "gtest/gtest.h"
+#include "Conversion.h"
+#include "IndirectSort.h"
 
 registerMooseObject("PhaseFieldApp", SubConcentration);
 
@@ -146,6 +145,7 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 
     // _prop_dhjdetai[m][n] is the derivative of h_j w.r.t. eta_i
     _prop_dhjdetai[m].resize(_num_eta);
+
     for (unsigned int n = 0; n < _num_eta; ++n)
       _prop_dhjdetai[m][n] = &getMaterialPropertyDerivative<Real>(_hj_names[m], _eta_names[n]);
   }
@@ -207,7 +207,7 @@ SubConcentration::computeQpProperties()
   _f2.computePropertiesAtQp(_qp);
   _f3.computePropertiesAtQp(_qp);
 
-  //////////////////////////////////////////////////////////////////////////////////////////// compute dc1dc, dc2dc, and dc3dc
+  ////////////////////////////////////////////////////////////////////////////////////////// compute dc1dc, dc2dc, and dc3dc
   // The matrix A used to compute dcidc and dcidetai are the same as the jacobian matrix
   RankTwoTensor A;
   RealVectorValue x_dcidc;
@@ -266,6 +266,4 @@ SubConcentration::computeQpProperties()
   _dc1deta3[_qp] = x_cideta3(0);
   _dc2deta3[_qp] = x_cideta3(1);
   _dc3deta3[_qp] = x_cideta3(2);
-
-  std::cout << "checkpoint" << std::endl;
 }
