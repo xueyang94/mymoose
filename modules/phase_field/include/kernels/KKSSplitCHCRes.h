@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "SplitCHBase.h"
+#include "JvarMapInterface.h"
 #include "DerivativeMaterialInterface.h"
 
 // Forward Declarations
@@ -26,7 +28,8 @@
  * phase concentration \f$ c_a \f$
  */
 
-class KKSSplitCHCRes : public DerivativeMaterialInterface<Kernel>
+// class KKSSplitCHCRes : public DerivativeMaterialInterface<Kernel>
+class KKSSplitCHCRes : public DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>
 {
 public:
   static InputParameters validParams();
@@ -39,7 +42,6 @@ protected:
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
   const MaterialProperty<Real> & _dc1dc;
-  const MaterialProperty<Real> & _dc1deta;
 
   const SymbolName _c1_name;
   const SymbolName _c2_name;
@@ -49,4 +51,12 @@ protected:
   /// Chemical potential
   unsigned int _w_var;
   const VariableValue & _w;
+
+  std::vector<VariableName> _eta_names;
+  const JvarMap & _eta_map;
+  unsigned int _num_j;
+  std::vector<MaterialPropertyName> _dc1detaj_names;
+  std::vector<const MaterialProperty<Real> *> _prop_dc1detaj;
+
+  unsigned int _c_var;
 };

@@ -24,7 +24,7 @@ KKSMultiACBulkC::validParams()
   params.addRequiredParam<MaterialPropertyName>("dc3dc_name", "The name of dc3/dc");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "dcidetaj_names",
-      "The name of dci/detaj in the order of dc1deta1, dc2deta1, dc3deta1, dc1deta2, dc2deta2, "
+      "The names of dci/detaj in the order of dc1deta1, dc2deta1, dc3deta1, dc1deta2, dc2deta2, "
       "dc3deta2, etc");
   params.addRequiredParam<MaterialPropertyName>("F1_name",
                                                 "The name of the bulk energy of phase 1");
@@ -87,14 +87,17 @@ KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
     if (i >= 0 && i < _num_j)
     {
       _prop_dcidetaj[i][0] = &getMaterialPropertyByName<Real>(_dcidetaj_names[i]);
+      continue;
     }
     if (i >= _num_j && i < 2 * _num_j)
     {
       _prop_dcidetaj[i - _num_j][1] = &getMaterialPropertyByName<Real>(_dcidetaj_names[i]);
+      continue;
     }
     if (i >= 2 * _num_j && i < _num_j * _num_j)
     {
       _prop_dcidetaj[i - 2 * _num_j][2] = &getMaterialPropertyByName<Real>(_dcidetaj_names[i]);
+      continue;
     }
   }
 }

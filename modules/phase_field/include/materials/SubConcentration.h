@@ -10,6 +10,7 @@
 #pragma once
 
 #include "DerivativeMaterialInterface.h"
+#include "NestedSolve.h"
 
 class SubConcentration : public DerivativeMaterialInterface<Material>
 {
