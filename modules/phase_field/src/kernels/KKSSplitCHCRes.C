@@ -73,10 +73,6 @@ KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
   if (jvar == _w_var)
     return -_phi[_j][_qp] * _test[_i][_qp];
 
-  // if c is the coupled variable
-  if (jvar == _c_var)
-    return _phi[_j][_qp] * _test[_i][_qp] * _second_df1[_qp] * _dc1dc[_qp];
-
   // if order parameters are the coupled variables
   auto etavar = mapJvarToCvar(jvar, _eta_map);
   if (etavar >= 0)

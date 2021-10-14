@@ -37,7 +37,7 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
     _eta_names(coupledComponents("etas")),
     _eta_map(getParameterJvarMap("etas")),
     _k(-1),
-    _prop_dhjdetap(_num_j),
+    // _prop_dhjdetap(_num_j),
     _prop_d2hjdetapdetai(_num_j),
     _dcidc_names(getParam<std::vector<MaterialPropertyName>>("dcidc_names")),
     _prop_dcidc(_num_j),
@@ -70,8 +70,8 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
     // Get dFidci
     _prop_dFidci[m] = &getMaterialPropertyDerivative<Real>(_Fj_names[m], _ci_names[m]);
 
-    // Get the derivatives of switching functions wrt phase_eta
-    _prop_dhjdetap[m] = &getMaterialPropertyDerivative<Real>(_hj_names[m], _eta_names[_k]);
+    // // Get the derivatives of switching functions wrt phase_eta
+    // _prop_dhjdetap[m] = &getMaterialPropertyDerivative<Real>(_hj_names[m], _eta_names[_k]);
 
     // Get the derivative of dgidetap wrt all order parameters
     _prop_d2gpdetapdetai[m] =
@@ -116,17 +116,30 @@ KKSMultiACBulkF::computeDFDOP(PFFunctionType type)
   switch (type)
   {
     case Residual:
-      return (*_prop_dhjdetap[0])[_qp] * (*_prop_Fj[0])[_qp] +
-             (*_prop_dhjdetap[1])[_qp] * (*_prop_Fj[1])[_qp] +
-             (*_prop_dhjdetap[2])[_qp] * (*_prop_Fj[2])[_qp] + _wi * _prop_dgi[_qp];
+      // return (*_prop_dhjdetap[0])[_qp] * (*_prop_Fj[0])[_qp] +
+      //        (*_prop_dhjdetap[1])[_qp] * (*_prop_Fj[1])[_qp] +
+      //        (*_prop_dhjdetap[2])[_qp] * (*_prop_Fj[2])[_qp] + _wi * _prop_dgi[_qp];
+      return (*_prop_dhjdetai[0])[_qp] * (*_prop_Fj[0])[_qp] +
+             (*_prop_dhjdetai[1])[_qp] * (*_prop_Fj[1])[_qp] +
+             (*_prop_dhjdetai[2])[_qp] * (*_prop_Fj[2])[_qp] + _wi * _prop_dgi[_qp];
 
     case Jacobian:
+      // return ((*_prop_d2hjdetapdetai[0][_k])[_qp] * (*_prop_Fj[0])[_qp] +
+      //         (*_prop_dhjdetap[0])[_qp] * (*_prop_dFidci[0])[_qp] * (*_prop_dcidetaj[0][_k])[_qp]
+      //         +
+      //         (*_prop_d2hjdetapdetai[1][_k])[_qp] * (*_prop_Fj[1])[_qp] +
+      //         (*_prop_dhjdetap[1])[_qp] * (*_prop_dFidci[1])[_qp] * (*_prop_dcidetaj[1][_k])[_qp]
+      //         +
+      //         (*_prop_d2hjdetapdetai[2][_k])[_qp] * (*_prop_Fj[2])[_qp] +
+      //         (*_prop_dhjdetap[2])[_qp] * (*_prop_dFidci[2])[_qp] * (*_prop_dcidetaj[2][_k])[_qp]
+      //         + _wi * (*_prop_d2gpdetapdetai[_k])[_qp]) *
+      //        _phi[_j][_qp];
       return ((*_prop_d2hjdetapdetai[0][_k])[_qp] * (*_prop_Fj[0])[_qp] +
-              (*_prop_dhjdetap[0])[_qp] * (*_prop_dFidci[0])[_qp] * (*_prop_dcidetaj[0][_k])[_qp] +
+              (*_prop_dhjdetai[0])[_qp] * (*_prop_dFidci[0])[_qp] * (*_prop_dcidetaj[0][_k])[_qp] +
               (*_prop_d2hjdetapdetai[1][_k])[_qp] * (*_prop_Fj[1])[_qp] +
-              (*_prop_dhjdetap[1])[_qp] * (*_prop_dFidci[1])[_qp] * (*_prop_dcidetaj[1][_k])[_qp] +
+              (*_prop_dhjdetai[1])[_qp] * (*_prop_dFidci[1])[_qp] * (*_prop_dcidetaj[1][_k])[_qp] +
               (*_prop_d2hjdetapdetai[2][_k])[_qp] * (*_prop_Fj[2])[_qp] +
-              (*_prop_dhjdetap[2])[_qp] * (*_prop_dFidci[2])[_qp] * (*_prop_dcidetaj[2][_k])[_qp] +
+              (*_prop_dhjdetai[2])[_qp] * (*_prop_dFidci[2])[_qp] * (*_prop_dcidetaj[2][_k])[_qp] +
               _wi * (*_prop_d2gpdetapdetai[_k])[_qp]) *
              _phi[_j][_qp];
   }
@@ -145,7 +158,8 @@ KKSMultiACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
   if (jvar == _c_var)
   {
     for (unsigned int n = 0; n < _num_j; ++n)
-      sum += (*_prop_dhjdetap[n])[_qp] * (*_prop_dFidci[n])[_qp] * (*_prop_dcidc[n])[_qp];
+      // sum += (*_prop_dhjdetap[n])[_qp] * (*_prop_dFidci[n])[_qp] * (*_prop_dcidc[n])[_qp];
+      sum += (*_prop_dhjdetai[n])[_qp] * (*_prop_dFidci[n])[_qp] * (*_prop_dcidc[n])[_qp];
 
     res += _L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
 
@@ -158,13 +172,29 @@ KKSMultiACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
   {
     for (unsigned int n = 0; n < _num_j; ++n)
     {
+      // sum +=
+      //     (*_prop_d2hjdetapdetai[n][etavar])[_qp] * (*_prop_Fj[n])[_qp] +
+      //     (*_prop_dhjdetap[n])[_qp] * (*_prop_dFidci[n])[_qp] *
+      //     (*_prop_dcidetaj[n][etavar])[_qp];
       sum +=
           (*_prop_d2hjdetapdetai[n][etavar])[_qp] * (*_prop_Fj[n])[_qp] +
-          (*_prop_dhjdetap[n])[_qp] * (*_prop_dFidci[n])[_qp] * (*_prop_dcidetaj[n][etavar])[_qp];
+          (*_prop_dhjdetai[n])[_qp] * (*_prop_dFidci[n])[_qp] * (*_prop_dcidetaj[n][etavar])[_qp];
     }
 
-    sum += _wi * (*_prop_d2gpdetapdetai[etavar])[_qp];
+    // sum += _wi * (*_prop_d2gpdetapdetai[etavar])[_qp];
+    res += _L[_qp] * (sum + _wi * (*_prop_d2gpdetapdetai[etavar])[_qp]) * _phi[_j][_qp] *
+           _test[_i][_qp];
+
+    return res;
   }
+
+  // get the coupled variable jvar is referring to
+  const unsigned int cvar = mapJvarToCvar(jvar);
+
+  // add dependence of KKSMultiACBulkF on other variables
+  for (unsigned int n = 0; n < _num_j; ++n)
+    sum += (*_prop_d2hjdetaidarg[n][cvar])[_qp] * (*_prop_Fj[n])[_qp] +
+           (*_prop_dhjdetai[n])[_qp] * (*_prop_dFjdarg[n][cvar])[_qp];
 
   res += _L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
 
