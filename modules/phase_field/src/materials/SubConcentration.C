@@ -164,8 +164,8 @@ SubConcentration::computeQpProperties()
   NestedSolve solver;
   NestedSolve::Value<> solution(3); // dynamicly sized vector class from the Eigen library
   solution << _ci_IC[0], _ci_IC[1], _ci_IC[2];
-  solver.setRelativeTolerance(1e-9);
-  solver.setAbsoluteTolerance(1e-9);
+  solver.setAbsoluteTolerance(_abs_tol);
+  solver.setRelativeTolerance(_rel_tol);
 
   auto compute = [&](const NestedSolve::Value<> & guess,
                      NestedSolve::Value<> & residual,
