@@ -19,9 +19,7 @@ KKSMultiACBulkF::validParams()
                              "includes all terms NOT dependent on chemical potential.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>("ci_names", "Phase concentrations");
   params.addCoupledVar("etas", "Order parameters for all phases.");
-  params.addRequiredParam<MaterialPropertyName>("dc1dc_name", "The name of dc1/dc");
-  params.addRequiredParam<MaterialPropertyName>("dc2dc_name", "The name of dc2/dc");
-  params.addRequiredParam<MaterialPropertyName>("dc3dc_name", "The name of dc3/dc");
+  params.addRequiredParam<std::vector<MaterialPropertyName>>("dcidc_names", "The names of dci/dc");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "dcidetaj_names",
       "The names of dci/detaj in the order of dc1deta1, dc2deta1, dc3deta1, dc1deta2, dc2deta2, "
@@ -41,9 +39,9 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
     _k(-1),
     _prop_dhjdetap(_num_j),
     _prop_d2hjdetapdetai(_num_j),
-    _dc1dc(getMaterialProperty<Real>("dc1dc_name")),
-    _dc2dc(getMaterialProperty<Real>("dc2dc_name")),
-    _dc3dc(getMaterialProperty<Real>("dc3dc_name")),
+    _dcidc_names(getParam<std::vector<MaterialPropertyName>>("dcidc_names")),
+    _prop_dcidc(_num_j),
+
     _dcidetaj_names(getParam<std::vector<MaterialPropertyName>>("dcidetaj_names")),
     _prop_dcidetaj(_num_j),
     _prop_dFidci(_num_j),
@@ -53,20 +51,25 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
     _prop_d2gpdetapdetai(_num_j),
     _c_var(coupled("global_c"))
 {
-  // get order parameter names and variable indices
+
   for (unsigned int i = 0; i < _num_j; ++i)
   {
+    // get order parameter names and variable indices
     _eta_names[i] = getVar("etas", i)->name();
 
     // Set _k to the position of the nonlinear variable in the list of etaj's
     if (coupled("etas", i) == _var.number())
       _k = i;
 
-    _prop_dFidci[i] = &getMaterialPropertyDerivative<Real>(_Fj_names[i], _ci_names[i]);
+    // declare dcidc material properties
+    _prop_dcidc[i] = &getMaterialPropertyByName<Real>(_dcidc_names[i]);
   }
 
   for (unsigned int m = 0; m < _num_j; ++m)
   {
+    // Get dFidci
+    _prop_dFidci[m] = &getMaterialPropertyDerivative<Real>(_Fj_names[m], _ci_names[m]);
+
     // Get the derivatives of switching functions wrt phase_eta
     _prop_dhjdetap[m] = &getMaterialPropertyDerivative<Real>(_hj_names[m], _eta_names[_k]);
 
@@ -141,9 +144,8 @@ KKSMultiACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
   // if c is the coupled variable
   if (jvar == _c_var)
   {
-    sum += (*_prop_dhjdetap[0])[_qp] * (*_prop_dFidci[0])[_qp] * _dc1dc[_qp] +
-           (*_prop_dhjdetap[1])[_qp] * (*_prop_dFidci[1])[_qp] * _dc2dc[_qp] +
-           (*_prop_dhjdetap[2])[_qp] * (*_prop_dFidci[2])[_qp] * _dc3dc[_qp];
+    for (unsigned int n = 0; n < _num_j; ++n)
+      sum += (*_prop_dhjdetap[n])[_qp] * (*_prop_dFidci[n])[_qp] * (*_prop_dcidc[n])[_qp];
 
     res += _L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
 

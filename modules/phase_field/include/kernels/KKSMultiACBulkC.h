@@ -43,9 +43,8 @@ protected:
   std::vector<const MaterialProperty<Real> *> _prop_dhjdetap;
   std::vector<std::vector<const MaterialProperty<Real> *>> _prop_d2hjdetapdetai;
 
-  const MaterialProperty<Real> & _dc1dc;
-  const MaterialProperty<Real> & _dc2dc;
-  const MaterialProperty<Real> & _dc3dc;
+  std::vector<MaterialPropertyName> _dcidc_names;
+  std::vector<const MaterialProperty<Real> *> _prop_dcidc;
 
   std::vector<MaterialPropertyName> _dcidetaj_names;
   std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dcidetaj;
