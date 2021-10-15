@@ -37,7 +37,7 @@ KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
     _eta_names(coupledComponents("etas")),
     _eta_map(getParameterJvarMap("etas")),
     _k(-1),
-    _prop_dhjdetap(_num_j),
+
     _prop_d2hjdetapdetai(_num_j),
     _dcidc_names(getParam<std::vector<MaterialPropertyName>>("dcidc_names")),
     _prop_dcidc(_num_j),
@@ -68,9 +68,6 @@ KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
 
   for (unsigned int m = 0; m < _num_j; ++m)
   {
-    // Get the derivatives of switching functions wrt phase_eta
-    _prop_dhjdetap[m] = &getMaterialPropertyDerivative<Real>(_hj_names[m], _eta_names[_k]);
-
     _prop_d2hjdetapdetai[m].resize(_num_j);
     _prop_dcidetaj[m].resize(_num_j);
 
@@ -107,24 +104,27 @@ KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
 Real
 KKSMultiACBulkC::computeDFDOP(PFFunctionType type)
 {
+  Real sum = 0.0;
+  Real sum1 = 0.0;
+  Real sum2 = 0.0;
+
   switch (type)
   {
     case Residual:
-      return -_first_df1[_qp] * ((*_prop_dhjdetap[0])[_qp] * (*_prop_ci[0])[_qp] +
-                                 (*_prop_dhjdetap[1])[_qp] * (*_prop_ci[1])[_qp] +
-                                 (*_prop_dhjdetap[2])[_qp] * (*_prop_ci[2])[_qp]);
+      for (unsigned int n = 0; n < _num_j; ++n)
+        sum += (*_prop_dhjdetai[n])[_qp] * (*_prop_ci[n])[_qp];
+
+      return -_first_df1[_qp] * sum;
 
     case Jacobian:
-      return -(_second_df1[_qp] * (*_prop_dcidetaj[0][_k])[_qp] *
-                   ((*_prop_dhjdetap[0])[_qp] * (*_prop_ci[0])[_qp] +
-                    (*_prop_dhjdetap[1])[_qp] * (*_prop_ci[1])[_qp] +
-                    (*_prop_dhjdetap[2])[_qp] * (*_prop_ci[2])[_qp]) +
-               _first_df1[_qp] * ((*_prop_d2hjdetapdetai[0][_k])[_qp] * (*_prop_ci[0])[_qp] +
-                                  (*_prop_dhjdetap[0])[_qp] * (*_prop_dcidetaj[0][_k])[_qp] +
-                                  (*_prop_d2hjdetapdetai[1][_k])[_qp] * (*_prop_ci[1])[_qp] +
-                                  (*_prop_dhjdetap[1])[_qp] * (*_prop_dcidetaj[1][_k])[_qp] +
-                                  (*_prop_d2hjdetapdetai[2][_k])[_qp] * (*_prop_ci[2])[_qp] +
-                                  (*_prop_dhjdetap[2])[_qp] * (*_prop_dcidetaj[2][_k])[_qp])) *
+      for (unsigned int n = 0; n < _num_j; ++n)
+      {
+        sum1 += (*_prop_dhjdetai[n])[_qp] * (*_prop_ci[n])[_qp];
+        sum2 += (*_prop_d2hjdetapdetai[n][_k])[_qp] * (*_prop_ci[n])[_qp] +
+                (*_prop_dhjdetai[n])[_qp] * (*_prop_dcidetaj[n][_k])[_qp];
+      }
+
+      return -(_second_df1[_qp] * (*_prop_dcidetaj[0][_k])[_qp] * sum1 + _first_df1[_qp] * sum2) *
              _phi[_j][_qp];
   }
   mooseError("Invalid type passed in");
@@ -142,12 +142,12 @@ KKSMultiACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
   if (jvar == _c_var)
   {
     sum = _second_df1[_qp] * (*_prop_dcidc[0])[_qp] *
-              ((*_prop_dhjdetap[0])[_qp] * (*_prop_ci[0])[_qp] +
-               (*_prop_dhjdetap[1])[_qp] * (*_prop_ci[1])[_qp] +
-               (*_prop_dhjdetap[2])[_qp] * (*_prop_ci[2])[_qp]) +
-          _first_df1[_qp] * ((*_prop_dhjdetap[0])[_qp] * (*_prop_dcidc[0])[_qp] +
-                             (*_prop_dhjdetap[1])[_qp] * (*_prop_dcidc[1])[_qp] +
-                             (*_prop_dhjdetap[2])[_qp] * (*_prop_dcidc[2])[_qp]);
+              ((*_prop_dhjdetai[0])[_qp] * (*_prop_ci[0])[_qp] +
+               (*_prop_dhjdetai[1])[_qp] * (*_prop_ci[1])[_qp] +
+               (*_prop_dhjdetai[2])[_qp] * (*_prop_ci[2])[_qp]) +
+          _first_df1[_qp] * ((*_prop_dhjdetai[0])[_qp] * (*_prop_dcidc[0])[_qp] +
+                             (*_prop_dhjdetai[1])[_qp] * (*_prop_dcidc[1])[_qp] +
+                             (*_prop_dhjdetai[2])[_qp] * (*_prop_dcidc[2])[_qp]);
 
     res += -_L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
 
@@ -159,10 +159,10 @@ KKSMultiACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
   if (etavar >= 0)
   {
     for (unsigned int n = 0; n < _num_j; ++n)
-      sum += _second_df1[_qp] * (*_prop_dcidetaj[0][etavar])[_qp] * (*_prop_dhjdetap[n])[_qp] *
+      sum += _second_df1[_qp] * (*_prop_dcidetaj[0][etavar])[_qp] * (*_prop_dhjdetai[n])[_qp] *
                  (*_prop_ci[n])[_qp] +
              _first_df1[_qp] * ((*_prop_d2hjdetapdetai[n][etavar])[_qp] * (*_prop_ci[n])[_qp] +
-                                (*_prop_dhjdetap[n])[_qp] * (*_prop_dcidetaj[n][etavar])[_qp]);
+                                (*_prop_dhjdetai[n])[_qp] * (*_prop_dcidetaj[n][etavar])[_qp]);
   }
 
   res += -_L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
