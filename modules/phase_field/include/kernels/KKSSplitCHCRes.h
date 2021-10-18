@@ -9,7 +9,8 @@
 
 #pragma once
 
-#include "SplitCHBase.h"
+#include "Kernel.h"
+// #include "SplitCHBase.h"
 #include "JvarMapInterface.h"
 #include "DerivativeMaterialInterface.h"
 
@@ -28,8 +29,8 @@
  * phase concentration \f$ c_a \f$
  */
 
-// class KKSSplitCHCRes : public DerivativeMaterialInterface<Kernel>
-class KKSSplitCHCRes : public DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>
+class KKSSplitCHCRes : public DerivativeMaterialInterface<JvarMapKernelInterface<Kernel>>
+// class KKSSplitCHCRes : public DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>
 {
 public:
   static InputParameters validParams();
