@@ -111,6 +111,16 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
 Real
 KKSMultiACBulkF::computeDFDOP(PFFunctionType type)
 {
+  // std::cout << "dc1deta1 is " << (*_prop_dcidetaj[0][0])[_qp] << std::endl;
+  // std::cout << "dc1deta2 is " << (*_prop_dcidetaj[0][1])[_qp] << std::endl;
+  // std::cout << "dc1deta3 is " << (*_prop_dcidetaj[0][2])[_qp] << std::endl;
+  // std::cout << "dc2deta1 is " << (*_prop_dcidetaj[1][0])[_qp] << std::endl;
+  // std::cout << "dc2deta2 is " << (*_prop_dcidetaj[1][1])[_qp] << std::endl;
+  // std::cout << "dc2deta3 is " << (*_prop_dcidetaj[1][2])[_qp] << std::endl;
+  // std::cout << "dc3deta1 is " << (*_prop_dcidetaj[2][0])[_qp] << std::endl;
+  // std::cout << "dc3deta2 is " << (*_prop_dcidetaj[2][1])[_qp] << std::endl;
+  // std::cout << "dc3deta3 is " << (*_prop_dcidetaj[2][2])[_qp] << std::endl;
+
   switch (type)
   {
     case Residual:
@@ -134,16 +144,6 @@ KKSMultiACBulkF::computeDFDOP(PFFunctionType type)
 Real
 KKSMultiACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
 {
-  std::cout << "dc1deta1 is " << (*_prop_dcidetaj[0][0])[_qp] << std::endl;
-  std::cout << "dc1deta2 is " << (*_prop_dcidetaj[0][1])[_qp] << std::endl;
-  std::cout << "dc1deta3 is " << (*_prop_dcidetaj[0][2])[_qp] << std::endl;
-  // std::cout << "dc2deta1 is " << (*_prop_dcidetaj[1][0])[_qp] << std::endl;
-  // std::cout << "dc2deta2 is " << (*_prop_dcidetaj[1][1])[_qp] << std::endl;
-  // std::cout << "dc2deta3 is " << (*_prop_dcidetaj[1][2])[_qp] << std::endl;
-  // std::cout << "dc3deta1 is " << (*_prop_dcidetaj[2][0])[_qp] << std::endl;
-  // std::cout << "dc3deta2 is " << (*_prop_dcidetaj[2][1])[_qp] << std::endl;
-  // std::cout << "dc3deta3 is " << (*_prop_dcidetaj[2][2])[_qp] << std::endl;
-
   // first get dependence of mobility _L on other variables using parent class member function Real
   Real res = ACBulk<Real>::computeQpOffDiagJacobian(jvar);
 

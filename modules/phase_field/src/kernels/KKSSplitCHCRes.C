@@ -14,8 +14,8 @@ registerMooseObject("PhaseFieldApp", KKSSplitCHCRes);
 InputParameters
 KKSSplitCHCRes::validParams()
 {
-  // InputParameters params = DerivativeMaterialInterface<Kernel>::validParams();
-  InputParameters params = SplitCHBase::validParams();
+  InputParameters params = JvarMapKernelInterface<Kernel>::validParams();
+  // InputParameters params = SplitCHBase::validParams();
   params.addClassDescription(
       "KKS model kernel for the split Bulk Cahn-Hilliard term. This kernel operates on the "
       "physical concentration 'c' as the non-linear variable");
@@ -26,14 +26,14 @@ KKSSplitCHCRes::validParams()
   params.addCoupledVar("etas", "Order parameters for all phases.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "dc1detaj_names", "The names of dc1/detaj in the order of dc1deta1, dc2deta1, dc3deta1, etc");
-  params.addCoupledVar("args_a", "Vector of additional arguments to Fa");
+  // params.addCoupledVar("args_a", "Vector of additional arguments to Fa");
   params.addRequiredCoupledVar("global_c", "The interpolated concentration");
   return params;
 }
 
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
-  // : DerivativeMaterialInterface<Kernel>(parameters),
-  : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
+  : DerivativeMaterialInterface<JvarMapKernelInterface<Kernel>>(parameters),
+    // : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
     _dc1dc(getMaterialProperty<Real>("dc1dc_name")),
     _c1_name("c1"),
     _c2_name("c2"),
@@ -67,8 +67,6 @@ KKSSplitCHCRes::computeQpJacobian()
 Real
 KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
 {
-  Real res = 0;
-
   // treat w variable explicitly
   if (jvar == _w_var)
     return -_phi[_j][_qp] * _test[_i][_qp];
@@ -76,7 +74,7 @@ KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
   // if order parameters are the coupled variables
   auto etavar = mapJvarToCvar(jvar, _eta_map);
   if (etavar >= 0)
-    res = _phi[_j][_qp] * _test[_i][_qp] * _second_df1[_qp] * (*_prop_dc1detaj[etavar])[_qp];
+    return _second_df1[_qp] * (*_prop_dc1detaj[etavar])[_qp] * _phi[_j][_qp] * _test[_i][_qp];
 
-  return res;
+  return 0.0;
 }
