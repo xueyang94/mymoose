@@ -53,7 +53,8 @@ protected:
 
   MaterialPropertyName _gi_name;
   const MaterialProperty<Real> & _prop_dgi;
-  std::vector<const MaterialProperty<Real> *> _prop_d2gpdetapdetai;
+  // std::vector<const MaterialProperty<Real> *> _prop_d2gpdetapdetai;
+  const MaterialProperty<Real> & _prop_d2gi;
 
   unsigned int _c_var;
 };
