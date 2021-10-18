@@ -141,13 +141,16 @@ KKSMultiACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
   // if c is the coupled variable
   if (jvar == _c_var)
   {
-    sum = _second_df1[_qp] * (*_prop_dcidc[0])[_qp] *
-              ((*_prop_dhjdetai[0])[_qp] * (*_prop_ci[0])[_qp] +
-               (*_prop_dhjdetai[1])[_qp] * (*_prop_ci[1])[_qp] +
-               (*_prop_dhjdetai[2])[_qp] * (*_prop_ci[2])[_qp]) +
-          _first_df1[_qp] * ((*_prop_dhjdetai[0])[_qp] * (*_prop_dcidc[0])[_qp] +
-                             (*_prop_dhjdetai[1])[_qp] * (*_prop_dcidc[1])[_qp] +
-                             (*_prop_dhjdetai[2])[_qp] * (*_prop_dcidc[2])[_qp]);
+    Real sum1 = 0.0;
+    Real sum2 = 0.0;
+
+    for (unsigned int n = 0; n < _num_j; ++n)
+    {
+      sum1 += (*_prop_dhjdetai[n])[_qp] * (*_prop_ci[n])[_qp];
+      sum2 += (*_prop_dhjdetai[n])[_qp] * (*_prop_dcidc[n])[_qp];
+    }
+
+    sum = _second_df1[_qp] * (*_prop_dcidc[0])[_qp] * sum1 + _first_df1[_qp] * sum2;
 
     res += -_L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
 
@@ -158,11 +161,16 @@ KKSMultiACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
   auto etavar = mapJvarToCvar(jvar, _eta_map);
   if (etavar >= 0)
   {
+    Real sum1 = 0.0;
+    Real sum2 = 0.0;
+
     for (unsigned int n = 0; n < _num_j; ++n)
-      sum += _second_df1[_qp] * (*_prop_dcidetaj[0][etavar])[_qp] * (*_prop_dhjdetai[n])[_qp] *
-                 (*_prop_ci[n])[_qp] +
-             _first_df1[_qp] * ((*_prop_d2hjdetapdetai[n][etavar])[_qp] * (*_prop_ci[n])[_qp] +
-                                (*_prop_dhjdetai[n])[_qp] * (*_prop_dcidetaj[n][etavar])[_qp]);
+    {
+      sum1 += (*_prop_dhjdetai[n])[_qp] * (*_prop_ci[n])[_qp];
+      sum2 += (*_prop_d2hjdetapdetai[n][etavar])[_qp] * (*_prop_ci[n])[_qp] +
+              (*_prop_dhjdetai[n])[_qp] * (*_prop_dcidetaj[n][etavar])[_qp];
+    }
+    sum = _second_df1[_qp] * (*_prop_dcidetaj[0][etavar])[_qp] * sum1 + _first_df1[_qp] * sum2;
   }
 
   res += -_L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];

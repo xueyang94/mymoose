@@ -48,7 +48,8 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
     _wi(getParam<Real>("wi")),
     _gi_name(getParam<MaterialPropertyName>("gi_name")),
     _prop_dgi(getMaterialPropertyDerivative<Real>("gi_name", _etai_name)),
-    _prop_d2gpdetapdetai(_num_j),
+    _prop_d2gi(getMaterialPropertyDerivative<Real>("gi_name", _etai_name, _etai_name)),
+    // _prop_d2gpdetapdetai(_num_j),
     _c_var(coupled("global_c"))
 {
 
@@ -70,9 +71,9 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
     // Get dFidci
     _prop_dFidci[m] = &getMaterialPropertyDerivative<Real>(_Fj_names[m], _ci_names[m]);
 
-    // Get the derivative of dgidetap wrt all order parameters
-    _prop_d2gpdetapdetai[m] =
-        &getMaterialPropertyDerivative<Real>(_gi_name, _eta_names[_k], _eta_names[m]);
+    // // Get the derivative of dgidetap wrt all order parameters
+    // _prop_d2gpdetapdetai[m] =
+    //     &getMaterialPropertyDerivative<Real>(_gi_name, _eta_names[_k], _eta_names[m]);
 
     _prop_d2hjdetapdetai[m].resize(_num_j);
     _prop_dcidetaj[m].resize(_num_j);
@@ -124,7 +125,7 @@ KKSMultiACBulkF::computeDFDOP(PFFunctionType type)
               (*_prop_dhjdetai[1])[_qp] * (*_prop_dFidci[1])[_qp] * (*_prop_dcidetaj[1][_k])[_qp] +
               (*_prop_d2hjdetapdetai[2][_k])[_qp] * (*_prop_Fj[2])[_qp] +
               (*_prop_dhjdetai[2])[_qp] * (*_prop_dFidci[2])[_qp] * (*_prop_dcidetaj[2][_k])[_qp] +
-              _wi * (*_prop_d2gpdetapdetai[_k])[_qp]) *
+              _wi * _prop_d2gi[_qp]) *
              _phi[_j][_qp];
   }
   mooseError("Invalid type passed in");
@@ -133,6 +134,16 @@ KKSMultiACBulkF::computeDFDOP(PFFunctionType type)
 Real
 KKSMultiACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
 {
+  std::cout << "dc1deta1 is " << (*_prop_dcidetaj[0][0])[_qp] << std::endl;
+  std::cout << "dc1deta2 is " << (*_prop_dcidetaj[0][1])[_qp] << std::endl;
+  std::cout << "dc1deta3 is " << (*_prop_dcidetaj[0][2])[_qp] << std::endl;
+  // std::cout << "dc2deta1 is " << (*_prop_dcidetaj[1][0])[_qp] << std::endl;
+  // std::cout << "dc2deta2 is " << (*_prop_dcidetaj[1][1])[_qp] << std::endl;
+  // std::cout << "dc2deta3 is " << (*_prop_dcidetaj[1][2])[_qp] << std::endl;
+  // std::cout << "dc3deta1 is " << (*_prop_dcidetaj[2][0])[_qp] << std::endl;
+  // std::cout << "dc3deta2 is " << (*_prop_dcidetaj[2][1])[_qp] << std::endl;
+  // std::cout << "dc3deta3 is " << (*_prop_dcidetaj[2][2])[_qp] << std::endl;
+
   // first get dependence of mobility _L on other variables using parent class member function Real
   Real res = ACBulk<Real>::computeQpOffDiagJacobian(jvar);
 
@@ -160,11 +171,16 @@ KKSMultiACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
           (*_prop_dhjdetai[n])[_qp] * (*_prop_dFidci[n])[_qp] * (*_prop_dcidetaj[n][etavar])[_qp];
     }
 
-    res += _L[_qp] * (sum + _wi * (*_prop_d2gpdetapdetai[etavar])[_qp]) * _phi[_j][_qp] *
-           _test[_i][_qp];
+    res += _L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
 
     return res;
   }
+
+  // Handle the case when this kernel is used in the Lagrange multiplier equation
+  // In this case the second derivative of the barrier function contributes
+  // to the off-diagonal Jacobian
+  if (jvar == _etai_var)
+    sum += _wi * _prop_d2gi[_qp];
 
   // get the coupled variable jvar is referring to
   const unsigned int cvar = mapJvarToCvar(jvar);
