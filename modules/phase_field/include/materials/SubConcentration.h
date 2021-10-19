@@ -31,10 +31,6 @@ protected:
   std::vector<const MaterialProperty<Real> *> _prop_hj;
   std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dhjdetai;
 
-  // MaterialProperty<Real> & _c1;
-  // MaterialProperty<Real> & _c2;
-  // MaterialProperty<Real> & _c3;
-
   std::vector<MaterialPropertyName> _ci_names;
   std::vector<MaterialProperty<Real> *> _ci_prop;
 
@@ -70,7 +66,8 @@ protected:
   const MaterialProperty<Real> & _second_df2;
   const MaterialProperty<Real> & _second_df3;
 
+  MaterialProperty<Real> & _iter;
   const Real _abs_tol;
   const Real _rel_tol;
-  const unsigned int _maxiter;
+  NestedSolve _nested_solve;
 };

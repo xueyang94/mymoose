@@ -8,13 +8,13 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "SubConcentration.h"
-#include "libmesh/utility.h"
-#include <cmath>
-#include "libmesh/vector_value.h"
-#include "RankTwoTensor.h"
-#include "gtest/gtest.h"
-#include "Conversion.h"
-#include "IndirectSort.h"
+// #include "libmesh/utility.h"
+// #include <cmath>
+// #include "libmesh/vector_value.h"
+// #include "RankTwoTensor.h"
+// #include "gtest/gtest.h"
+// #include "Conversion.h"
+// #include "IndirectSort.h"
 
 registerMooseObject("PhaseFieldApp", SubConcentration);
 
@@ -65,9 +65,15 @@ SubConcentration::validParams()
   params.addRequiredParam<MaterialPropertyName>("F1_name", "F1");
   params.addRequiredParam<MaterialPropertyName>("F2_name", "F2");
   params.addRequiredParam<MaterialPropertyName>("F3_name", "F3");
-  params.addParam<Real>("absolute_tol_value", 1e-9, "Absolute tolerance of the Newton iteration");
-  params.addParam<Real>("relative_tol_value", 1e-9, "Relative tolerance of the Newton iteration");
-  params.addParam<Real>("max_iteration", 100, "The maximum number of Newton iterations");
+  // params.addParam<Real>("absolute_tol_value", 1e-9, "Absolute tolerance of the Newton
+  // iteration"); params.addParam<Real>("relative_tol_value", 1e-9, "Relative tolerance of the
+  // Newton iteration"); params.addParam<Real>("max_iteration", 100, "The maximum number of Newton
+  // iterations");
+
+  params.set<unsigned int>("min_iterations") = 10;
+  params.set<unsigned int>("max_iterations") = 1000;
+  params.set<Real>("absolute_tolerance") = 1e-13;
+  params.set<Real>("relative_tolerance") = 1e-8;
   return params;
 }
 
@@ -112,15 +118,11 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
     _second_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name, _c2_name)),
     _second_df3(getMaterialPropertyDerivative<Real>("F3_name", _c3_name, _c3_name)),
-    // _first_df1(getMaterialPropertyDerivative<Real>("F1_name", "c1")),
-    // _first_df2(getMaterialPropertyDerivative<Real>("F2_name", "c2")),
-    // _first_df3(getMaterialPropertyDerivative<Real>("F3_name", "c3")),
-    // _second_df1(getMaterialPropertyDerivative<Real>("F1_name", "c1", "c1")),
-    // _second_df2(getMaterialPropertyDerivative<Real>("F2_name", "c2", "c2")),
-    // _second_df3(getMaterialPropertyDerivative<Real>("F3_name", "c3", "c3")),
-    _abs_tol(getParam<Real>("absolute_tol_value")),
-    _rel_tol(getParam<Real>("relative_tol_value")),
-    _maxiter(getParam<Real>("max_iteration"))
+
+    _iter(declareProperty<Real>("nested_iterations")),
+    _abs_tol(getParam<Real>("absolute_tolerance")),
+    _rel_tol(getParam<Real>("relative_tolerance")),
+    _nested_solve(NestedSolve(parameters))
 
 {
   // error check parameters
@@ -161,11 +163,13 @@ linear(RankTwoTensor A, RealVectorValue & x, RealVectorValue b)
 void
 SubConcentration::computeQpProperties()
 {
-  NestedSolve solver;
+  // NestedSolve solver;
   NestedSolve::Value<> solution(3); // dynamicly sized vector class from the Eigen library
   solution << _ci_IC[0], _ci_IC[1], _ci_IC[2];
-  solver.setAbsoluteTolerance(_abs_tol);
-  solver.setRelativeTolerance(_rel_tol);
+  // solver.setAbsoluteTolerance(_abs_tol);
+  // solver.setRelativeTolerance(_rel_tol);
+  _nested_solve.setAbsoluteTolerance(_abs_tol);
+  _nested_solve.setRelativeTolerance(_rel_tol);
 
   auto compute = [&](const NestedSolve::Value<> & guess,
                      NestedSolve::Value<> & residual,
@@ -193,9 +197,12 @@ SubConcentration::computeQpProperties()
     jacobian(2, 2) = (*_prop_hj[2])[_qp];
   };
 
-  solver.nonlinear(solution, compute);
+  // solver.nonlinear(solution, compute);
+  _nested_solve.nonlinear(solution, compute);
+  _iter[_qp] = _nested_solve.getIterations();
 
-  if (solver.getState() == NestedSolve::State::NOT_CONVERGED)
+  // if (solver.getState() == NestedSolve::State::NOT_CONVERGED)
+  if (_nested_solve.getState() == NestedSolve::State::NOT_CONVERGED)
   {
     std::cout << "Newton iteration did not converge." << std::endl;
   }
