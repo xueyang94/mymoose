@@ -8,13 +8,6 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "SubConcentration.h"
-// #include "libmesh/utility.h"
-// #include <cmath>
-// #include "libmesh/vector_value.h"
-// #include "RankTwoTensor.h"
-// #include "gtest/gtest.h"
-// #include "Conversion.h"
-// #include "IndirectSort.h"
 
 registerMooseObject("PhaseFieldApp", SubConcentration);
 
@@ -39,6 +32,9 @@ SubConcentration::validParams()
                                                 "The first derivative of c2 w.r.t. c");
   params.addRequiredParam<MaterialPropertyName>("dc3dc_name",
                                                 "The first derivative of c3 w.r.t. c");
+
+  params.addParam<std::vector<MaterialPropertyName>>("dcidc_names",
+                                                     "The first derivative of c1 wrt c");
 
   params.addRequiredParam<MaterialPropertyName>("dc1deta1_name",
                                                 "The first derivative of c1 w.r.t. eta1");
@@ -65,11 +61,9 @@ SubConcentration::validParams()
   params.addRequiredParam<MaterialPropertyName>("F1_name", "F1");
   params.addRequiredParam<MaterialPropertyName>("F2_name", "F2");
   params.addRequiredParam<MaterialPropertyName>("F3_name", "F3");
-  // params.addParam<Real>("absolute_tol_value", 1e-9, "Absolute tolerance of the Newton
-  // iteration"); params.addParam<Real>("relative_tol_value", 1e-9, "Relative tolerance of the
-  // Newton iteration"); params.addParam<Real>("max_iteration", 100, "The maximum number of Newton
-  // iterations");
 
+  params.addParam<MaterialPropertyName>(
+      "nested_iterations", "The number of nested Newton iterations at each quadrature point");
   params.set<unsigned int>("min_iterations") = 10;
   params.set<unsigned int>("max_iterations") = 1000;
   params.set<Real>("absolute_tolerance") = 1e-13;
@@ -163,11 +157,8 @@ linear(RankTwoTensor A, RealVectorValue & x, RealVectorValue b)
 void
 SubConcentration::computeQpProperties()
 {
-  // NestedSolve solver;
   NestedSolve::Value<> solution(3); // dynamicly sized vector class from the Eigen library
   solution << _ci_IC[0], _ci_IC[1], _ci_IC[2];
-  // solver.setAbsoluteTolerance(_abs_tol);
-  // solver.setRelativeTolerance(_rel_tol);
   _nested_solve.setAbsoluteTolerance(_abs_tol);
   _nested_solve.setRelativeTolerance(_rel_tol);
 
@@ -197,11 +188,9 @@ SubConcentration::computeQpProperties()
     jacobian(2, 2) = (*_prop_hj[2])[_qp];
   };
 
-  // solver.nonlinear(solution, compute);
   _nested_solve.nonlinear(solution, compute);
   _iter[_qp] = _nested_solve.getIterations();
 
-  // if (solver.getState() == NestedSolve::State::NOT_CONVERGED)
   if (_nested_solve.getState() == NestedSolve::State::NOT_CONVERGED)
   {
     std::cout << "Newton iteration did not converge." << std::endl;
@@ -210,6 +199,8 @@ SubConcentration::computeQpProperties()
   (*_ci_prop[0])[_qp] = solution[0];
   (*_ci_prop[1])[_qp] = solution[1];
   (*_ci_prop[2])[_qp] = solution[2];
+
+  // update f after solving for ci
   _f1.computePropertiesAtQp(_qp);
   _f2.computePropertiesAtQp(_qp);
   _f3.computePropertiesAtQp(_qp);

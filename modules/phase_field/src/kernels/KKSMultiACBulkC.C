@@ -117,6 +117,11 @@ KKSMultiACBulkC::computeDFDOP(PFFunctionType type)
       return -_first_df1[_qp] * sum;
 
     case Jacobian:
+      // For when this kernel is used in the Lagrange multiplier equation
+      // In that case the Lagrange multiplier is the nonlinear variable
+      if (_etai_var != _var.number())
+        return 0.0;
+
       for (unsigned int n = 0; n < _num_j; ++n)
       {
         sum1 += (*_prop_dhjdetai[n])[_qp] * (*_prop_ci[n])[_qp];

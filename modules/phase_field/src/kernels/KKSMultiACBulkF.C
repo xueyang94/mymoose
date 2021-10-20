@@ -111,32 +111,28 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
 Real
 KKSMultiACBulkF::computeDFDOP(PFFunctionType type)
 {
-  // std::cout << "dc1deta1 is " << (*_prop_dcidetaj[0][0])[_qp] << std::endl;
-  // std::cout << "dc1deta2 is " << (*_prop_dcidetaj[0][1])[_qp] << std::endl;
-  // std::cout << "dc1deta3 is " << (*_prop_dcidetaj[0][2])[_qp] << std::endl;
-  // std::cout << "dc2deta1 is " << (*_prop_dcidetaj[1][0])[_qp] << std::endl;
-  // std::cout << "dc2deta2 is " << (*_prop_dcidetaj[1][1])[_qp] << std::endl;
-  // std::cout << "dc2deta3 is " << (*_prop_dcidetaj[1][2])[_qp] << std::endl;
-  // std::cout << "dc3deta1 is " << (*_prop_dcidetaj[2][0])[_qp] << std::endl;
-  // std::cout << "dc3deta2 is " << (*_prop_dcidetaj[2][1])[_qp] << std::endl;
-  // std::cout << "dc3deta3 is " << (*_prop_dcidetaj[2][2])[_qp] << std::endl;
+  Real sum = 0.0;
 
   switch (type)
   {
     case Residual:
-      return (*_prop_dhjdetai[0])[_qp] * (*_prop_Fj[0])[_qp] +
-             (*_prop_dhjdetai[1])[_qp] * (*_prop_Fj[1])[_qp] +
-             (*_prop_dhjdetai[2])[_qp] * (*_prop_Fj[2])[_qp] + _wi * _prop_dgi[_qp];
+      for (unsigned int n = 0; n < _num_j; ++n)
+        sum += (*_prop_dhjdetai[n])[_qp] * (*_prop_Fj[n])[_qp];
+
+      return sum + _wi * _prop_dgi[_qp];
 
     case Jacobian:
-      return ((*_prop_d2hjdetapdetai[0][_k])[_qp] * (*_prop_Fj[0])[_qp] +
-              (*_prop_dhjdetai[0])[_qp] * (*_prop_dFidci[0])[_qp] * (*_prop_dcidetaj[0][_k])[_qp] +
-              (*_prop_d2hjdetapdetai[1][_k])[_qp] * (*_prop_Fj[1])[_qp] +
-              (*_prop_dhjdetai[1])[_qp] * (*_prop_dFidci[1])[_qp] * (*_prop_dcidetaj[1][_k])[_qp] +
-              (*_prop_d2hjdetapdetai[2][_k])[_qp] * (*_prop_Fj[2])[_qp] +
-              (*_prop_dhjdetai[2])[_qp] * (*_prop_dFidci[2])[_qp] * (*_prop_dcidetaj[2][_k])[_qp] +
-              _wi * _prop_d2gi[_qp]) *
-             _phi[_j][_qp];
+      // For when this kernel is used in the Lagrange multiplier equation
+      // In that case the Lagrange multiplier is the nonlinear variable
+      if (_etai_var != _var.number())
+        return 0.0;
+
+      // For when eta_i is the nonlinear variable
+      for (unsigned int n = 0; n < _num_j; ++n)
+        sum += (*_prop_d2hjdetapdetai[n][_k])[_qp] * (*_prop_Fj[n])[_qp] +
+               (*_prop_dhjdetai[n])[_qp] * (*_prop_dFidci[n])[_qp] * (*_prop_dcidetaj[n][_k])[_qp];
+
+      return _phi[_j][_qp] * (sum + _wi * _prop_d2gi[_qp]);
   }
   mooseError("Invalid type passed in");
 }
