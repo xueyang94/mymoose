@@ -22,38 +22,17 @@ SubConcentration::validParams()
   params.addRequiredCoupledVar("all_etas", "Vector of all order parameters for all phases");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "hj_names", "Names of the switching functions in the same order of the all_etas");
-  params.addParam<std::vector<MaterialPropertyName>>("ci_names", "Phase concentrations");
+  params.addRequiredParam<std::vector<MaterialPropertyName>>("ci_names", "Phase concentrations");
   params.addRequiredParam<std::vector<Real>>("ci_IC",
                                              "Initial values of ci in the same order of ci_names");
 
-  params.addRequiredParam<MaterialPropertyName>("dc1dc_name",
-                                                "The first derivative of c1 w.r.t. c");
-  params.addRequiredParam<MaterialPropertyName>("dc2dc_name",
-                                                "The first derivative of c2 w.r.t. c");
-  params.addRequiredParam<MaterialPropertyName>("dc3dc_name",
-                                                "The first derivative of c3 w.r.t. c");
+  params.addRequiredParam<std::vector<MaterialPropertyName>>("dcidc_names",
+                                                             "The first derivative of ci wrt c");
 
-  params.addParam<std::vector<MaterialPropertyName>>("dcidc_names",
-                                                     "The first derivative of c1 wrt c");
-
-  params.addRequiredParam<MaterialPropertyName>("dc1deta1_name",
-                                                "The first derivative of c1 w.r.t. eta1");
-  params.addRequiredParam<MaterialPropertyName>("dc1deta2_name",
-                                                "The first derivative of c1 w.r.t. eta2");
-  params.addRequiredParam<MaterialPropertyName>("dc1deta3_name",
-                                                "The first derivative of c1 w.r.t. eta3");
-  params.addRequiredParam<MaterialPropertyName>("dc2deta1_name",
-                                                "The first derivative of c2 w.r.t. eta1");
-  params.addRequiredParam<MaterialPropertyName>("dc2deta2_name",
-                                                "The first derivative of c2 w.r.t. eta2");
-  params.addRequiredParam<MaterialPropertyName>("dc2deta3_name",
-                                                "The first derivative of c2 w.r.t. eta3");
-  params.addRequiredParam<MaterialPropertyName>("dc3deta1_name",
-                                                "The first derivative of c3 w.r.t. eta1");
-  params.addRequiredParam<MaterialPropertyName>("dc3deta2_name",
-                                                "The first derivative of c3 w.r.t. eta2");
-  params.addRequiredParam<MaterialPropertyName>("dc3deta3_name",
-                                                "The first derivative of c3 w.r.t. eta3");
+  params.addRequiredParam<std::vector<MaterialPropertyName>>(
+      "dcidetaj_names",
+      "The names of dci/detaj in the order of dc1deta1, dc2deta1, dc3deta1, dc1deta2, dc2deta2, "
+      "dc3deta2, etc");
 
   params.addRequiredParam<MaterialName>("F1_material", "F1");
   params.addRequiredParam<MaterialName>("F2_material", "F2");
@@ -85,19 +64,11 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 
     _ci_IC(getParam<std::vector<Real>>("ci_IC")),
 
-    _dc1dc(declareProperty<Real>("dc1dc_name")),
-    _dc2dc(declareProperty<Real>("dc2dc_name")),
-    _dc3dc(declareProperty<Real>("dc3dc_name")),
+    _dcidc_names(getParam<std::vector<MaterialPropertyName>>("dcidc_names")),
+    _prop_dcidc(_num_eta),
 
-    _dc1deta1(declareProperty<Real>("dc1deta1_name")),
-    _dc1deta2(declareProperty<Real>("dc1deta2_name")),
-    _dc1deta3(declareProperty<Real>("dc1deta3_name")),
-    _dc2deta1(declareProperty<Real>("dc2deta1_name")),
-    _dc2deta2(declareProperty<Real>("dc2deta2_name")),
-    _dc2deta3(declareProperty<Real>("dc2deta3_name")),
-    _dc3deta1(declareProperty<Real>("dc3deta1_name")),
-    _dc3deta2(declareProperty<Real>("dc3deta2_name")),
-    _dc3deta3(declareProperty<Real>("dc3deta3_name")),
+    _dcidetaj_names(getParam<std::vector<MaterialPropertyName>>("dcidetaj_names")),
+    _prop_dcidetaj(_num_eta),
 
     _f1(getMaterial("F1_material")),
     _f2(getMaterial("F2_material")),
@@ -134,16 +105,43 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
   for (unsigned int i = 0; i < _num_eta; ++i)
     _ci_prop[i] = &declareProperty<Real>(_ci_names[i]);
 
+  // declare dcidc material properties
+  for (unsigned int i = 0; i < _num_eta; ++i)
+    _prop_dcidc[i] = &declareProperty<Real>(_dcidc_names[i]);
+
   for (unsigned int m = 0; m < _num_eta; ++m)
   {
     // declare h and dh material properties
     _prop_hj[m] = &getMaterialPropertyByName<Real>(_hj_names[m]);
+
+    _prop_dcidetaj[m].resize(_num_eta);
 
     // _prop_dhjdetai[m][n] is the derivative of h_j w.r.t. eta_i
     _prop_dhjdetai[m].resize(_num_eta);
 
     for (unsigned int n = 0; n < _num_eta; ++n)
       _prop_dhjdetai[m][n] = &getMaterialPropertyDerivative<Real>(_hj_names[m], _eta_names[n]);
+  }
+
+  // Get dcidetaj indexes by converting the vector of _dcidetaj_names to the matrix of
+  // _prop_dcidetaj, so that _prop_dcidetaj[m][n] is dci[m]/detaj[n]
+  for (unsigned int i = 0; i < _num_eta * _num_eta; ++i)
+  {
+    if (i >= 0 && i < _num_eta)
+    {
+      _prop_dcidetaj[i][0] = &declareProperty<Real>(_dcidetaj_names[i]);
+      continue;
+    }
+    if (i >= _num_eta && i < 2 * _num_eta)
+    {
+      _prop_dcidetaj[i - _num_eta][1] = &declareProperty<Real>(_dcidetaj_names[i]);
+      continue;
+    }
+    if (i >= 2 * _num_eta && i < _num_eta * _num_eta)
+    {
+      _prop_dcidetaj[i - 2 * _num_eta][2] = &declareProperty<Real>(_dcidetaj_names[i]);
+      continue;
+    }
   }
 }
 
@@ -222,9 +220,9 @@ SubConcentration::computeQpProperties()
   A(2, 2) = (*_prop_hj[2])[_qp];
 
   linear(A, x_dcidc, b_dcidc);
-  _dc1dc[_qp] = x_dcidc(0);
-  _dc2dc[_qp] = x_dcidc(1);
-  _dc3dc[_qp] = x_dcidc(2);
+  (*_prop_dcidc[0])[_qp] = x_dcidc(0);
+  (*_prop_dcidc[1])[_qp] = x_dcidc(1);
+  (*_prop_dcidc[2])[_qp] = x_dcidc(2);
 
   //////////////////////////////////////////////////////////////////////////////////////////// compute dc1deta1, dc2deta1, and dc3deta1
   RealVectorValue x_cideta1;
@@ -235,9 +233,9 @@ SubConcentration::computeQpProperties()
                                 (*_prop_dhjdetai[2][0])[_qp] * (*_ci_prop[2])[_qp]};
 
   linear(A, x_cideta1, b_cideta1);
-  _dc1deta1[_qp] = x_cideta1(0);
-  _dc2deta1[_qp] = x_cideta1(1);
-  _dc3deta1[_qp] = x_cideta1(2);
+  (*_prop_dcidetaj[0][0])[_qp] = x_cideta1(0);
+  (*_prop_dcidetaj[1][0])[_qp] = x_cideta1(1);
+  (*_prop_dcidetaj[2][0])[_qp] = x_cideta1(2);
 
   //////////////////////////////////////////////////////////////////////////////////////////// compute dc1deta2, dc2deta2, and dc3deta2
   RealVectorValue x_cideta2;
@@ -248,9 +246,9 @@ SubConcentration::computeQpProperties()
                                 (*_prop_dhjdetai[2][1])[_qp] * (*_ci_prop[2])[_qp]};
 
   linear(A, x_cideta2, b_cideta2);
-  _dc1deta2[_qp] = x_cideta2(0);
-  _dc2deta2[_qp] = x_cideta2(1);
-  _dc3deta2[_qp] = x_cideta2(2);
+  (*_prop_dcidetaj[0][1])[_qp] = x_cideta2(0);
+  (*_prop_dcidetaj[1][1])[_qp] = x_cideta2(1);
+  (*_prop_dcidetaj[2][1])[_qp] = x_cideta2(2);
 
   //////////////////////////////////////////////////////////////////////////////////////////// compute dc1deta3, dc2deta3, and dc3deta3
   RealVectorValue x_cideta3;
@@ -261,7 +259,7 @@ SubConcentration::computeQpProperties()
                                 (*_prop_dhjdetai[2][2])[_qp] * (*_ci_prop[2])[_qp]};
 
   linear(A, x_cideta3, b_cideta3);
-  _dc1deta3[_qp] = x_cideta3(0);
-  _dc2deta3[_qp] = x_cideta3(1);
-  _dc3deta3[_qp] = x_cideta3(2);
+  (*_prop_dcidetaj[0][2])[_qp] = x_cideta3(0);
+  (*_prop_dcidetaj[1][2])[_qp] = x_cideta3(1);
+  (*_prop_dcidetaj[2][2])[_qp] = x_cideta3(2);
 }

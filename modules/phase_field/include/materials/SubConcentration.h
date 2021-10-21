@@ -36,19 +36,11 @@ protected:
 
   const std::vector<Real> _ci_IC;
 
-  MaterialProperty<Real> & _dc1dc;
-  MaterialProperty<Real> & _dc2dc;
-  MaterialProperty<Real> & _dc3dc;
+  std::vector<MaterialPropertyName> _dcidc_names;
+  std::vector<MaterialProperty<Real> *> _prop_dcidc;
 
-  MaterialProperty<Real> & _dc1deta1;
-  MaterialProperty<Real> & _dc1deta2;
-  MaterialProperty<Real> & _dc1deta3;
-  MaterialProperty<Real> & _dc2deta1;
-  MaterialProperty<Real> & _dc2deta2;
-  MaterialProperty<Real> & _dc2deta3;
-  MaterialProperty<Real> & _dc3deta1;
-  MaterialProperty<Real> & _dc3deta2;
-  MaterialProperty<Real> & _dc3deta3;
+  std::vector<MaterialPropertyName> _dcidetaj_names;
+  std::vector<std::vector<MaterialProperty<Real> *>> _prop_dcidetaj;
 
   MaterialBase & _f1;
   MaterialBase & _f2;
