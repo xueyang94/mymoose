@@ -24,6 +24,11 @@ SubConcentration::validParams()
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "hj_names", "Names of the switching functions in the same order of the all_etas");
   params.addRequiredParam<std::vector<MaterialPropertyName>>("ci_names", "Phase concentrations");
+
+  params.addRequiredParam<MaterialPropertyName>("c1_name", "c1 name");
+  params.addRequiredParam<MaterialPropertyName>("c2_name", "c2 name");
+  params.addRequiredParam<MaterialPropertyName>("c3_name", "c3 name");
+
   params.addRequiredParam<std::vector<Real>>("ci_IC",
                                              "Initial values of ci in the same order of ci_names");
 
@@ -62,6 +67,11 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 
     _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),
     _ci_prop(_num_eta),
+
+    _c1_old(getMaterialPropertyOld<Real>("c1_name")), // old
+    _c2_old(getMaterialPropertyOld<Real>("c2_name")), // old
+    _c3_old(getMaterialPropertyOld<Real>("c3_name")), // old
+    // _ci_old(_num_eta), // old
 
     _ci_IC(getParam<std::vector<Real>>("ci_IC")),
 
@@ -146,6 +156,14 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
   }
 }
 
+void
+SubConcentration::initQpStatefulProperties()
+{
+  (*_ci_prop[0])[_qp] = _ci_IC[0];
+  (*_ci_prop[1])[_qp] = _ci_IC[1];
+  (*_ci_prop[2])[_qp] = _ci_IC[2];
+}
+
 // // This function is also defined in NestedSolve.C (protected)
 // // And the inverse() method does not give the inverse of A, strange
 // void
@@ -158,7 +176,9 @@ void
 SubConcentration::computeQpProperties()
 {
   NestedSolve::Value<> solution(3); // dynamicly sized vector class from the Eigen library
-  solution << _ci_IC[0], _ci_IC[1], _ci_IC[2];
+  // solution << _ci_IC[0], _ci_IC[1], _ci_IC[2];
+  solution << _c1_old[_qp], _c2_old[_qp], _c3_old[_qp];
+
   _nested_solve.setAbsoluteTolerance(_abs_tol);
   _nested_solve.setRelativeTolerance(_rel_tol);
 
