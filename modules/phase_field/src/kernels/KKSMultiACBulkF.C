@@ -18,7 +18,7 @@ KKSMultiACBulkF::validParams()
   params.addClassDescription("KKS model kernel (part 1 of 2) for the Bulk Allen-Cahn. This "
                              "includes all terms NOT dependent on chemical potential.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>("ci_names", "Phase concentrations");
-  params.addCoupledVar("etas", "Order parameters for all phases.");
+  params.addRequiredCoupledVar("etas", "Order parameters for all phases.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>("dcidc_names", "The names of dci/dc");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "dcidetaj_names",
@@ -27,7 +27,7 @@ KKSMultiACBulkF::validParams()
   params.addRequiredParam<Real>("wi", "Double well height parameter");
   params.addRequiredParam<MaterialPropertyName>(
       "gi_name", "Base name for the double well function g_i(eta_i) for the given phase");
-  params.addCoupledVar("global_c", "Global concentration.");
+  params.addRequiredCoupledVar("global_c", "Global concentration.");
   return params;
 }
 
