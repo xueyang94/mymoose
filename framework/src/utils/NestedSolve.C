@@ -48,8 +48,13 @@ NestedSolve::NestedSolve(const InputParameters & params)
     _absolute_tolerance_square(Utility::pow<2>(params.get<Real>("absolute_tolerance"))),
     _min_iterations(params.get<unsigned int>("min_iterations")),
     _max_iterations(params.get<unsigned int>("max_iterations")),
+<<<<<<< HEAD
     _state(State::NONE),
     _n_iterations(0)
+=======
+    _state(State::NONE)
+
+>>>>>>> 0e63dbcbb5d7dc449bb2ee51823a1ed5b06b7be3
 {
 }
 
