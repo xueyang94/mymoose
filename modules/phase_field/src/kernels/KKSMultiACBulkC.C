@@ -81,23 +81,10 @@ KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
 
   // Get dcidetaj indexes by converting the vector of _dcidetaj_names to the matrix of
   // _prop_dcidetaj where _prop_dcidetaj[m][n] is dci[m]/detaj[n]
-  for (unsigned int i = 0; i < _num_j * _num_j; ++i)
+  for (unsigned int m = 0; m < _num_j; ++m)
   {
-    if (i >= 0 && i < _num_j)
-    {
-      _prop_dcidetaj[i][0] = &getMaterialPropertyByName<Real>(_dcidetaj_names[i]);
-      continue;
-    }
-    if (i >= _num_j && i < 2 * _num_j)
-    {
-      _prop_dcidetaj[i - _num_j][1] = &getMaterialPropertyByName<Real>(_dcidetaj_names[i]);
-      continue;
-    }
-    if (i >= 2 * _num_j && i < _num_j * _num_j)
-    {
-      _prop_dcidetaj[i - 2 * _num_j][2] = &getMaterialPropertyByName<Real>(_dcidetaj_names[i]);
-      continue;
-    }
+    for (unsigned int n = 0; n < _num_j; ++n)
+      _prop_dcidetaj[m][n] = &getMaterialPropertyByName<Real>(_dcidetaj_names[m * _num_j + n]);
   }
 }
 

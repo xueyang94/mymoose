@@ -38,9 +38,8 @@ protected:
   const MaterialProperty<Real> & _c1_old;
   const MaterialProperty<Real> & _c2_old;
   const MaterialProperty<Real> & _c3_old;
-  // const std::vector<MaterialProperty<Real> *> _ci_old;
-  // const MaterialProperty<std::vector<Real>> & _ci_old; // old
-  // const std::vector<MaterialProperty<Real> *> _ci_old_prop;  // old
+  // const std::vector<MaterialPropertyName> _ci_old;
+  // const std::vector<MaterialProperty<Real> *> _ci_old_prop;
 
   const std::vector<Real> _ci_IC;
 
@@ -53,18 +52,11 @@ protected:
   MaterialBase & _f1;
   MaterialBase & _f2;
   MaterialBase & _f3;
+  // std::vector<MaterialBase> & _fi;
 
-  const SymbolName _c1_name;
-  const SymbolName _c2_name;
-  const SymbolName _c3_name;
-
-  const MaterialProperty<Real> & _first_df1;
-  const MaterialProperty<Real> & _first_df2;
-  const MaterialProperty<Real> & _first_df3;
-
-  const MaterialProperty<Real> & _second_df1;
-  const MaterialProperty<Real> & _second_df2;
-  const MaterialProperty<Real> & _second_df3;
+  std::vector<MaterialPropertyName> _Fi_names;
+  std::vector<const MaterialProperty<Real> *> _first_dFi;
+  std::vector<const MaterialProperty<Real> *> _second_dFi;
 
   MaterialProperty<Real> & _iter;
   const Real _abs_tol;
