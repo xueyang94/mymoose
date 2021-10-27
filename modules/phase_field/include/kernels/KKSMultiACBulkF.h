@@ -41,20 +41,21 @@ protected:
   std::vector<std::vector<const MaterialProperty<Real> *>> _prop_d2hjdetapdetai;
 
   std::vector<MaterialPropertyName> _dcidc_names;
-  std::vector<const MaterialProperty<Real> *> _prop_dcidc;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dcidc;
 
   std::vector<MaterialPropertyName> _dcidetaj_names;
   std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dcidetaj;
 
-  std::vector<const MaterialProperty<Real> *> _prop_dFidci;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dFidci;
 
   /// double well height parameter
   Real _wi;
 
   MaterialPropertyName _gi_name;
   const MaterialProperty<Real> & _prop_dgi;
-  // std::vector<const MaterialProperty<Real> *> _prop_d2gpdetapdetai;
   const MaterialProperty<Real> & _prop_d2gi;
 
-  unsigned int _c_var;
+  std::vector<VariableName> _c_names; //
+  const JvarMap & _c_map;             //
+  unsigned int _num_c;                //
 };

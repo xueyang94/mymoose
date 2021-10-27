@@ -36,7 +36,7 @@ SubConcentration::validParams()
   params.addRequiredParam<std::vector<MaterialPropertyName>>("dcidc_names",
                                                              "The first derivative of ci wrt c");
 
-  params.addRequiredParam<std::vector<MaterialPropertyName>>(
+  params.addParam<std::vector<MaterialPropertyName>>(
       "dcidetaj_names",
       "The names of dci/detaj in the order of dc1deta1, dc2deta1, dc3deta1, dc1deta2, dc2deta2, "
       "dc3deta2, etc");
@@ -44,9 +44,11 @@ SubConcentration::validParams()
   params.addRequiredParam<MaterialName>("F1_material", "F1");
   params.addRequiredParam<MaterialName>("F2_material", "F2");
   params.addRequiredParam<MaterialName>("F3_material", "F3");
-  params.addRequiredParam<MaterialPropertyName>("F1_name", "F1");
-  params.addRequiredParam<MaterialPropertyName>("F2_name", "F2");
-  params.addRequiredParam<MaterialPropertyName>("F3_name", "F3");
+  // params.addRequiredParam<MaterialPropertyName>("F1_name", "F1");
+  // params.addRequiredParam<MaterialPropertyName>("F2_name", "F2");
+  // params.addRequiredParam<MaterialPropertyName>("F3_name", "F3");
+
+  params.addRequiredParam<std::vector<MaterialPropertyName>>("Fi_names", "Fi");
 
   params.addParam<MaterialPropertyName>(
       "nested_iterations", "The number of nested Newton iterations at each quadrature point");
@@ -67,13 +69,15 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _prop_dhjdetai(_num_eta),
 
     _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),
+    // _ci_names(getMaterialProperty<std::vector<MaterialPropertyName>>("ci_names")),
     _ci_prop(_num_eta),
 
     _c1_old(getMaterialPropertyOld<Real>("c1_name")), // old
     _c2_old(getMaterialPropertyOld<Real>("c2_name")), // old
     _c3_old(getMaterialPropertyOld<Real>("c3_name")), // old
-    // _ci_old(getMaterialPropertyOld<Real>(getParam<std::vector<MaterialPropertyName>>))("ci_names")),
-    // _ci_old(getMaterialPropertyOld<std::vector<Real>>("test")),
+
+    // _ci_old(getMaterialPropertyOld<std::vector<MaterialPropertyName>>("ci_names")),
+    // _ci_old_prop(_num_eta),
 
     _ci_IC(getParam<std::vector<Real>>("ci_IC")),
 
@@ -86,16 +90,11 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _f1(getMaterial("F1_material")),
     _f2(getMaterial("F2_material")),
     _f3(getMaterial("F3_material")),
+    // _fi(getMaterial<std::vector>("F1_material")),
 
-    _c1_name("c1"),
-    _c2_name("c2"),
-    _c3_name("c3"),
-    _first_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name)),
-    _first_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name)),
-    _first_df3(getMaterialPropertyDerivative<Real>("F3_name", _c3_name)),
-    _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
-    _second_df2(getMaterialPropertyDerivative<Real>("F2_name", _c2_name, _c2_name)),
-    _second_df3(getMaterialPropertyDerivative<Real>("F3_name", _c3_name, _c3_name)),
+    _Fi_names(getParam<std::vector<MaterialPropertyName>>("Fi_names")),
+    _first_dFi(_num_eta),
+    _second_dFi(_num_eta),
 
     _iter(declareProperty<Real>("nested_iterations")),
     _abs_tol(getParam<Real>("absolute_tolerance")),
@@ -103,6 +102,21 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _nested_solve(NestedSolve(parameters))
 
 {
+  // declare the first and second derivative of phase energy wrt phase concentrations
+  for (unsigned int n = 0; n < _num_eta; ++n)
+  {
+    _first_dFi[n] = &getMaterialPropertyDerivative<Real>(_Fi_names[n], _ci_names[n]);
+    _second_dFi[n] = &getMaterialPropertyDerivative<Real>(_Fi_names[n], _ci_names[n], _ci_names[n]);
+  }
+
+  // _first_dFi[0] = &getMaterialPropertyDerivative<Real>(_Fi_names[0], _ci_names[0]);
+  // _first_dFi[1] = &getMaterialPropertyDerivative<Real>(_Fi_names[1], _ci_names[1]);
+  // _first_dFi[2] = &getMaterialPropertyDerivative<Real>(_Fi_names[2], _ci_names[2]);
+  // _second_dFi[0] = &getMaterialPropertyDerivative<Real>(_Fi_names[0], _ci_names[0],
+  // _ci_names[0]); _second_dFi[1] = &getMaterialPropertyDerivative<Real>(_Fi_names[1],
+  // _ci_names[1], _ci_names[1]); _second_dFi[2] =
+  // &getMaterialPropertyDerivative<Real>(_Fi_names[2], _ci_names[2], _ci_names[2]);
+
   // error check parameters
   if (_hj_names.size() != 0 && _hj_names.size() != _num_eta)
     paramError("hj_names",
@@ -140,24 +154,29 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 
   // Get dcidetaj indexes by converting the vector of _dcidetaj_names to the matrix of
   // _prop_dcidetaj, so that _prop_dcidetaj[m][n] is dci[m]/detaj[n]
-  for (unsigned int i = 0; i < _num_eta * _num_eta; ++i)
+  for (unsigned int m = 0; m < _num_eta; ++m)
   {
-    if (i >= 0 && i < _num_eta)
-    {
-      _prop_dcidetaj[i][0] = &declareProperty<Real>(_dcidetaj_names[i]);
-      continue;
-    }
-    if (i >= _num_eta && i < 2 * _num_eta)
-    {
-      _prop_dcidetaj[i - _num_eta][1] = &declareProperty<Real>(_dcidetaj_names[i]);
-      continue;
-    }
-    if (i >= 2 * _num_eta && i < _num_eta * _num_eta)
-    {
-      _prop_dcidetaj[i - 2 * _num_eta][2] = &declareProperty<Real>(_dcidetaj_names[i]);
-      continue;
-    }
+    for (unsigned int n = 0; n < _num_eta; ++n)
+      _prop_dcidetaj[m][n] = &declareProperty<Real>(_dcidetaj_names[m * _num_eta + n]);
   }
+  // for (unsigned int i = 0; i < _num_eta * _num_eta; ++i)
+  // {
+  //   if (i >= 0 && i < _num_eta)
+  //   {
+  //     _prop_dcidetaj[i][0] = &declareProperty<Real>(_dcidetaj_names[i]);
+  //     continue;
+  //   }
+  //   if (i >= _num_eta && i < 2 * _num_eta)
+  //   {
+  //     _prop_dcidetaj[i - _num_eta][1] = &declareProperty<Real>(_dcidetaj_names[i]);
+  //     continue;
+  //   }
+  //   if (i >= 2 * _num_eta && i < _num_eta * _num_eta)
+  //   {
+  //     _prop_dcidetaj[i - 2 * _num_eta][2] = &declareProperty<Real>(_dcidetaj_names[i]);
+  //     continue;
+  //   }
+  // }
 }
 
 void
@@ -198,17 +217,23 @@ SubConcentration::computeQpProperties()
     _f2.computePropertiesAtQp(_qp);
     _f3.computePropertiesAtQp(_qp);
 
-    residual(0) = _first_df1[_qp] - _first_df2[_qp];
-    residual(1) = _first_df2[_qp] - _first_df3[_qp];
+    // residual(0) = _first_df1[_qp] - _first_df2[_qp];
+    residual(0) = (*_first_dFi[0])[_qp] - (*_first_dFi[1])[_qp];
+    // residual(1) = _first_df2[_qp] - _first_df3[_qp];
+    residual(1) = (*_first_dFi[1])[_qp] - (*_first_dFi[2])[_qp];
     residual(2) = (*_prop_hj[0])[_qp] * guess(0) + (*_prop_hj[1])[_qp] * guess(1) +
                   (*_prop_hj[2])[_qp] * guess(2) - _c[_qp];
 
-    jacobian(0, 0) = _second_df1[_qp];
-    jacobian(0, 1) = -_second_df2[_qp];
+    // jacobian(0, 0) = _second_df1[_qp];
+    jacobian(0, 0) = (*_second_dFi[0])[_qp];
+    // jacobian(0, 1) = -_second_df2[_qp];
+    jacobian(0, 1) = -(*_second_dFi[1])[_qp];
     jacobian(0, 2) = 0;
     jacobian(1, 0) = 0;
-    jacobian(1, 1) = _second_df2[_qp];
-    jacobian(1, 2) = -_second_df3[_qp];
+    // jacobian(1, 1) = _second_df2[_qp];
+    jacobian(1, 1) = (*_second_dFi[1])[_qp];
+    // jacobian(1, 2) = -_second_df3[_qp];
+    jacobian(1, 2) = -(*_second_dFi[2])[_qp];
     jacobian(2, 0) = (*_prop_hj[0])[_qp];
     jacobian(2, 1) = (*_prop_hj[1])[_qp];
     jacobian(2, 2) = (*_prop_hj[2])[_qp];
@@ -240,12 +265,16 @@ SubConcentration::computeQpProperties()
   for (auto & row : A)
     row.resize(3);
 
-  A[0][0] = _second_df1[_qp];
-  A[0][1] = -_second_df2[_qp];
+  // A[0][0] = _second_df1[_qp];
+  A[0][0] = (*_second_dFi[0])[_qp];
+  // A[0][1] = -_second_df2[_qp];
+  A[0][1] = -(*_second_dFi[1])[_qp];
   A[0][2] = 0;
   A[1][0] = 0;
-  A[1][1] = _second_df2[_qp];
-  A[1][2] = -_second_df3[_qp];
+  // A[1][1] = _second_df2[_qp];
+  A[1][1] = (*_second_dFi[1])[_qp];
+  // A[1][2] = -_second_df3[_qp];
+  A[1][2] = -(*_second_dFi[2])[_qp];
   A[2][0] = (*_prop_hj[0])[_qp];
   A[2][1] = (*_prop_hj[1])[_qp];
   A[2][2] = (*_prop_hj[2])[_qp];
