@@ -26,7 +26,10 @@ KKSMultiACBulkC::validParams()
       "dc3deta2, etc");
   params.addRequiredParam<MaterialPropertyName>("F1_name",
                                                 "The name of the bulk energy of phase 1");
-  params.addRequiredCoupledVar("global_c", "Global concentration.");
+  params.addRequiredCoupledVar(
+      "global_c", "The global concentration of the component corresponding to ci_names.");
+  params.addRequiredParam<MaterialPropertyName>("db1db_name", "db1db");
+  params.addRequiredCoupledVar("other_global_c", "The other coupled global concentrations.");
   return params;
 }
 
@@ -45,9 +48,14 @@ KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
     _dcidetaj_names(getParam<std::vector<MaterialPropertyName>>("dcidetaj_names")),
     _prop_dcidetaj(_num_j),
     _c1_name("c1"),
+    _b1_name("b1"),
     _first_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name)),
     _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
-    _c_var(coupled("global_c"))
+    _d2F1dc1db1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _b1_name)),
+    _c_var(coupled("global_c")),
+
+    _db1db(getMaterialProperty<Real>("db1db_name")),
+    _b_var(coupled("other_global_c"))
 {
   // get ci values
   for (unsigned int i = 0; i < _num_j; ++i)
@@ -145,6 +153,17 @@ KKSMultiACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
     sum = _second_df1[_qp] * (*_prop_dcidc[0])[_qp] * sum1 + _first_df1[_qp] * sum2;
 
     res += -_L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
+
+    return res;
+  }
+
+  // if b is the coupled variable
+  if (jvar == _b_var)
+  {
+    for (unsigned int n = 0; n < _num_j; ++n)
+      sum += (*_prop_dhjdetai[n])[_qp] * (*_prop_ci[n])[_qp];
+
+    res += -_L[_qp] * _d2F1dc1db1[_qp] * _db1db[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
 
     return res;
   }

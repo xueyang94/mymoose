@@ -49,8 +49,13 @@ protected:
   std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dcidetaj;
 
   const SymbolName _c1_name;
+  const SymbolName _b1_name; //////////////////////
   const MaterialProperty<Real> & _first_df1;
   const MaterialProperty<Real> & _second_df1;
+  const MaterialProperty<Real> & _d2F1dc1db1;
 
   unsigned int _c_var;
+
+  const MaterialProperty<Real> & _db1db;
+  unsigned int _b_var;
 };
