@@ -26,7 +26,9 @@ KKSSplitCHCRes::validParams()
                                "Chemical potential non-linear helper variable for the split solve");
   params.addCoupledVar("etas", "Order parameters for all phases.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
-      "dc1detaj_names", "The names of dc1/detaj in the order of dc1deta1, dc2deta1, dc3deta1, etc");
+      "dc1detaj_names",
+      "The names of dc1/detaj must be in the same order as etas, for exemple, dc1deta1, dc2deta1, "
+      "dc3deta1, etc");
   params.addParam<MaterialPropertyName>(
       "dc1db_name",
       "The derivative of the phase concentration c1 (corresponding to the kernel global c) wrt a "
