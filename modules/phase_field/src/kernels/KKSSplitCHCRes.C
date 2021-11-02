@@ -66,6 +66,9 @@ KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
 Real
 KKSSplitCHCRes::computeQpResidual()
 {
+  // std::cout << "_first_df1 is " << _first_df1[_qp] << std::endl;
+  // std::cout << "_second_df1 is " << _second_df1[_qp] << std::endl;
+
   return (_first_df1[_qp] - _w[_qp]) * _test[_i][_qp];
 }
 
@@ -79,8 +82,6 @@ Real
 KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
 {
   // std::cout << "KKSSplitCHCRes dc1db or db1dc is " << _dc1db[_qp] << std::endl;
-  // std::cout << "_first_df1 is " << _first_df1[_qp] << std::endl;
-  // std::cout << "_second_df1 is " << _second_df1[_qp] << std::endl;
 
   // treat w variable explicitly
   if (jvar == _w_var)
