@@ -17,18 +17,20 @@ KKSMultiACBulkC::validParams()
   InputParameters params = KKSMultiACBulkBase::validParams();
   params.addClassDescription("Multi-phase KKS model kernel (part 2 of 2) for the Bulk Allen-Cahn. "
                              "This includes all terms dependent on chemical potential.");
-  params.addRequiredParam<std::vector<MaterialPropertyName>>("ci_names", "Phase concentrations");
+  params.addRequiredParam<std::vector<MaterialPropertyName>>(
+      "ci_names", "Phase concentrations. These must have the same order as Fj_names.");
   params.addRequiredCoupledVar("etas", "Order parameters for all phases.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>("dcidc_names", "The names of dci/dc");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "dcidetaj_names",
       "The names of dci/detaj in the order of dc1deta1, dc2deta1, dc3deta1, dc1deta2, dc2deta2, "
       "dc3deta2, etc");
-  params.addRequiredParam<MaterialPropertyName>("F1_name",
-                                                "The name of the bulk energy of phase 1");
+  params.addParam<std::vector<MaterialPropertyName>>(
+      "coupled_dcidb_names",
+      "Coupled dcidb in the order of dc1db, dc2db, dc3db, etc. These must have the same order as "
+      "Fj_names");
   params.addRequiredCoupledVar(
       "global_c", "The global concentration of the component corresponding to ci_names.");
-  params.addRequiredParam<MaterialPropertyName>("db1db_name", "db1db");
   params.addRequiredCoupledVar("other_global_c", "The other coupled global concentrations.");
   return params;
 }
@@ -47,16 +49,20 @@ KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
 
     _dcidetaj_names(getParam<std::vector<MaterialPropertyName>>("dcidetaj_names")),
     _prop_dcidetaj(_num_j),
-    _c1_name("c1"),
-    _b1_name("b1"),
-    _first_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name)),
-    _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
-    _d2F1dc1db1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _b1_name)),
-    _c_var(coupled("global_c")),
 
-    _db1db(getMaterialProperty<Real>("db1db_name")),
+    _coupled_dcidb_names(getParam<std::vector<MaterialPropertyName>>("coupled_dcidb_names")),
+    _prop_coupled_dcidb(_num_j),
+
+    _first_df1(getMaterialPropertyDerivative<Real>(_Fj_names[0], _ci_names[0])),
+    _second_df1(getMaterialPropertyDerivative<Real>(_Fj_names[0], _ci_names[0], _ci_names[0])),
+    _c_var(coupled("global_c")),
     _b_var(coupled("other_global_c"))
 {
+
+  // initialize coupled dcidb
+  for (unsigned int i = 0; i < _num_j; ++i)
+    _prop_coupled_dcidb[i] = &getMaterialPropertyByName<Real>(_coupled_dcidb_names[i]);
+
   // get ci values
   for (unsigned int i = 0; i < _num_j; ++i)
     _prop_ci[i] = &getMaterialPropertyByName<Real>(_ci_names[i]);
@@ -137,13 +143,12 @@ KKSMultiACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
   Real res = ACBulk<Real>::computeQpOffDiagJacobian(jvar);
 
   Real sum = 0.0;
+  Real sum1 = 0.0;
+  Real sum2 = 0.0;
 
   // if c is the coupled variable
   if (jvar == _c_var)
   {
-    Real sum1 = 0.0;
-    Real sum2 = 0.0;
-
     for (unsigned int n = 0; n < _num_j; ++n)
     {
       sum1 += (*_prop_dhjdetai[n])[_qp] * (*_prop_ci[n])[_qp];
@@ -161,9 +166,14 @@ KKSMultiACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
   if (jvar == _b_var)
   {
     for (unsigned int n = 0; n < _num_j; ++n)
-      sum += (*_prop_dhjdetai[n])[_qp] * (*_prop_ci[n])[_qp];
+    {
+      sum1 += (*_prop_dhjdetai[n])[_qp] * (*_prop_ci[n])[_qp];
+      sum2 += (*_prop_dhjdetai[n])[_qp] * (*_prop_coupled_dcidb[n])[_qp];
+    }
 
-    res += -_L[_qp] * _d2F1dc1db1[_qp] * _db1db[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
+    res += -_L[_qp] *
+           (_second_df1[_qp] * (*_prop_coupled_dcidb[0])[_qp] * sum1 + _first_df1[_qp] * sum2) *
+           _phi[_j][_qp] * _test[_i][_qp];
 
     return res;
   }
@@ -172,9 +182,6 @@ KKSMultiACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
   auto etavar = mapJvarToCvar(jvar, _eta_map);
   if (etavar >= 0)
   {
-    Real sum1 = 0.0;
-    Real sum2 = 0.0;
-
     for (unsigned int n = 0; n < _num_j; ++n)
     {
       sum1 += (*_prop_dhjdetai[n])[_qp] * (*_prop_ci[n])[_qp];

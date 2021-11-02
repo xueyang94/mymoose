@@ -44,7 +44,7 @@ protected:
 
   const MaterialProperty<Real> & _dc1dc;
 
-  const SymbolName _c1_name;
+  const MaterialPropertyName _c1_name;
 
   const MaterialProperty<Real> & _first_df1;
   const MaterialProperty<Real> & _second_df1;
@@ -59,5 +59,8 @@ protected:
   std::vector<MaterialPropertyName> _dc1detaj_names;
   std::vector<const MaterialProperty<Real> *> _prop_dc1detaj;
 
-  unsigned int _c_var;
+  const MaterialProperty<Real> & _dc1db;
+  std::vector<VariableName> _coupled_c_names; //
+  const JvarMap & _coupled_c_map;             //
+  unsigned int _num_coupled_c;                //
 };

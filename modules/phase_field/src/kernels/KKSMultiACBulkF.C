@@ -29,7 +29,7 @@ KKSMultiACBulkF::validParams()
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "dcidetaj_names",
       "The names of dci/detaj in the order of dc1deta1, dc2deta1, dc3deta1, dc1deta2, dc2deta2, "
-      "dc3deta2, etc.");
+      "dc3deta2, etc. It must match the order of ci_names and etas.");
   params.addRequiredParam<Real>("wi", "Double well height parameter.");
   params.addRequiredParam<MaterialPropertyName>(
       "gi_name", "Base name for the double well function g_i(eta_i) for the given phase");
@@ -138,7 +138,7 @@ KKSMultiACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
 
   Real sum = 0.0;
 
-  // if c is the coupled variables
+  // if concentrations are the coupled variables
   auto compvar = mapJvarToCvar(jvar, _c_map);
   if (compvar >= 0)
   {
