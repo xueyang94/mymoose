@@ -45,14 +45,17 @@ protected:
 
   std::vector<MaterialPropertyName> _dcidc_names;
   std::vector<MaterialProperty<Real> *> _prop_dcidc;
+  std::vector<MaterialPropertyName> _coupled_dcidb_names;
+  std::vector<MaterialProperty<Real> *> _prop_coupled_dcidb;
 
   std::vector<MaterialPropertyName> _dcidetaj_names;
   std::vector<std::vector<MaterialProperty<Real> *>> _prop_dcidetaj;
 
+  std::vector<MaterialName> _Fi_material;
+  // std::vector<MaterialBase *> _fi_material;
   MaterialBase & _f1;
   MaterialBase & _f2;
   MaterialBase & _f3;
-  // std::vector<MaterialBase> & _fi;
 
   std::vector<MaterialPropertyName> _Fi_names;
   std::vector<const MaterialProperty<Real> *> _first_dFi;
