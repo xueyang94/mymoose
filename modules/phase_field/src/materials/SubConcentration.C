@@ -273,6 +273,13 @@ SubConcentration::computeQpProperties()
   (*_prop_dcidc[1])[_qp] = x_dcidc(1);
   (*_prop_dcidc[2])[_qp] = x_dcidc(2);
 
+  // std::cout << "dc1dc is " << (*_prop_dcidc[0])[_qp] << std::endl; // 1
+  // std::cout << "dc2dc is " << (*_prop_dcidc[1])[_qp] << std::endl; // 1
+  // std::cout << "dc3dc is " << (*_prop_dcidc[2])[_qp] << std::endl; // 1
+  // std::cout << "_second_dFi[0] is " << (*_second_dFi[0])[_qp] << std::endl; // 2
+  // std::cout << "_second_dFi[1] is " << (*_second_dFi[1])[_qp] << std::endl; // 2
+  // std::cout << "_second_dFi[2] is " << (*_second_dFi[2])[_qp] << std::endl; // 2
+
   ////////////////////////////////////////////////////////////////////////////////////////// compute coupled dcidb
   RealVectorValue x_dcidb;
   RealVectorValue b_dcidb{0, 0, 0};
@@ -285,9 +292,6 @@ SubConcentration::computeQpProperties()
   (*_prop_coupled_dcidb[0])[_qp] = x_dcidb(0);
   (*_prop_coupled_dcidb[1])[_qp] = x_dcidb(1);
   (*_prop_coupled_dcidb[2])[_qp] = x_dcidb(2);
-
-  // std::cout << "SubConcentration dc1db or db1dc is " << (*_prop_coupled_dcidb[0])[_qp] <<
-  // std::endl;
 
   //////////////////////////////////////////////////////////////////////////////////////////// compute dc1deta1, dc2deta1, and dc3deta1
   RealVectorValue x_dcideta1;
