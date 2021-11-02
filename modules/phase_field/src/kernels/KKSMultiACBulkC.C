@@ -58,7 +58,6 @@ KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
     _c_var(coupled("global_c")),
     _b_var(coupled("other_global_c"))
 {
-
   // initialize coupled dcidb
   for (unsigned int i = 0; i < _num_j; ++i)
     _prop_coupled_dcidb[i] = &getMaterialPropertyByName<Real>(_coupled_dcidb_names[i]);
