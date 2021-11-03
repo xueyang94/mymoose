@@ -36,7 +36,6 @@ KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
     // : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
     _dc1dc(getMaterialProperty<Real>("dc1dc_name")),
     _c1_name("c1"),
-    _c2_name("c2"),
     _first_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name)),
     _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
     _w_var(coupled("w")),

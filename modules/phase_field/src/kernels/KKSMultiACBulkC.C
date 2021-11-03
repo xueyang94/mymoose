@@ -18,7 +18,7 @@ KKSMultiACBulkC::validParams()
   params.addClassDescription("Multi-phase KKS model kernel (part 2 of 2) for the Bulk Allen-Cahn. "
                              "This includes all terms dependent on chemical potential.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>("ci_names", "Phase concentrations");
-  params.addCoupledVar("etas", "Order parameters for all phases.");
+  params.addRequiredCoupledVar("etas", "Order parameters for all phases.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>("dcidc_names", "The names of dci/dc");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "dcidetaj_names",
@@ -26,7 +26,7 @@ KKSMultiACBulkC::validParams()
       "dc3deta2, etc");
   params.addRequiredParam<MaterialPropertyName>("F1_name",
                                                 "The name of the bulk energy of phase 1");
-  params.addCoupledVar("global_c", "Global concentration.");
+  params.addRequiredCoupledVar("global_c", "Global concentration.");
   return params;
 }
 
@@ -81,23 +81,28 @@ KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
 
   // Get dcidetaj indexes by converting the vector of _dcidetaj_names to the matrix of
   // _prop_dcidetaj where _prop_dcidetaj[m][n] is dci[m]/detaj[n]
-  for (unsigned int i = 0; i < _num_j * _num_j; ++i)
+  // for (unsigned int i = 0; i < _num_j * _num_j; ++i)
+  // {
+  //   if (i >= 0 && i < _num_j)
+  //   {
+  //     _prop_dcidetaj[i][0] = &getMaterialPropertyByName<Real>(_dcidetaj_names[i]);
+  //     continue;
+  //   }
+  //   if (i >= _num_j && i < 2 * _num_j)
+  //   {
+  //     _prop_dcidetaj[i - _num_j][1] = &getMaterialPropertyByName<Real>(_dcidetaj_names[i]);
+  //     continue;
+  //   }
+  //   if (i >= 2 * _num_j && i < _num_j * _num_j)
+  //   {
+  //     _prop_dcidetaj[i - 2 * _num_j][2] = &getMaterialPropertyByName<Real>(_dcidetaj_names[i]);
+  //     continue;
+  //   }
+  // }
+  for (unsigned int m = 0; m < _num_j; ++m)
   {
-    if (i >= 0 && i < _num_j)
-    {
-      _prop_dcidetaj[i][0] = &getMaterialPropertyByName<Real>(_dcidetaj_names[i]);
-      continue;
-    }
-    if (i >= _num_j && i < 2 * _num_j)
-    {
-      _prop_dcidetaj[i - _num_j][1] = &getMaterialPropertyByName<Real>(_dcidetaj_names[i]);
-      continue;
-    }
-    if (i >= 2 * _num_j && i < _num_j * _num_j)
-    {
-      _prop_dcidetaj[i - 2 * _num_j][2] = &getMaterialPropertyByName<Real>(_dcidetaj_names[i]);
-      continue;
-    }
+    for (unsigned int n = 0; n < _num_j; ++n)
+      _prop_dcidetaj[m][n] = &getMaterialPropertyByName<Real>(_dcidetaj_names[m * _num_j + n]);
   }
 }
 
