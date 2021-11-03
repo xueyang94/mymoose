@@ -18,9 +18,9 @@ KKSMultiACBulkF::validParams()
   params.addClassDescription("KKS model kernel (part 1 of 2) for the Bulk Allen-Cahn. This "
                              "includes all terms NOT dependent on chemical potential.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
-      "ci_names",
-      "Phase concentrations in the order of s1, s2, s3, l1, l2, l3, etc. The order of the "
-      "component species must match that in the global_c.");
+      "c1_names",
+      "Phase concentration names in the first phase of Fj_names. It must match the order in "
+      "global_c, for example, s1, l1, etc.");
   params.addRequiredCoupledVar("etas", "Order parameters for all phases.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "dcidc_names",
@@ -29,7 +29,8 @@ KKSMultiACBulkF::validParams()
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "dcidetaj_names",
       "The names of dci/detaj in the order of dc1deta1, dc2deta1, dc3deta1, dc1deta2, dc2deta2, "
-      "dc3deta2, etc. It must match the order of ci_names and etas.");
+      "dc3deta2, etc. The component c must be the first component in global_c. It must match the "
+      "order of etas.");
   params.addRequiredParam<Real>("wi", "Double well height parameter.");
   params.addRequiredParam<MaterialPropertyName>(
       "gi_name", "Base name for the double well function g_i(eta_i) for the given phase");
@@ -39,7 +40,7 @@ KKSMultiACBulkF::validParams()
 
 KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
   : KKSMultiACBulkBase(parameters),
-    _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),
+    _c1_names(getParam<std::vector<MaterialPropertyName>>("c1_names")),
     _eta_names(coupledComponents("etas")),
     _eta_map(getParameterJvarMap("etas")),
     _k(-1),
@@ -49,7 +50,7 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
 
     _dcidetaj_names(getParam<std::vector<MaterialPropertyName>>("dcidetaj_names")),
     _prop_dcidetaj(_num_j),
-    _prop_dFidci(_num_j),
+    // _prop_dFidci(_num_j),
     _wi(getParam<Real>("wi")),
     _gi_name(getParam<MaterialPropertyName>("gi_name")),
     _prop_dgi(getMaterialPropertyDerivative<Real>("gi_name", _etai_name)),
@@ -57,8 +58,13 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
 
     _c_names(coupledComponents("global_c")),
     _c_map(getParameterJvarMap("global_c")),
-    _num_c(_c_names.size())
+    _num_c(_c_names.size()),
+    _prop_dF1dc1(_num_c)
 {
+  for (unsigned int i = 0; i < _num_c; ++i)
+  {
+    _prop_dF1dc1[i] = &getMaterialPropertyDerivative<Real>(_Fj_names[0], _c1_names[i]);
+  }
 
   for (unsigned int i = 0; i < _num_j; ++i)
   {
@@ -71,7 +77,7 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
 
     _prop_d2hjdetapdetai[i].resize(_num_j);
     _prop_dcidetaj[i].resize(_num_j);
-    _prop_dFidci[i].resize(_num_c);
+    // _prop_dFidci[i].resize(_num_c);
     _prop_dcidc[i].resize(_num_c);
   }
 
@@ -79,8 +85,9 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
   {
     for (unsigned int n = 0; n < _num_c; ++n) // loop through components
     {
-      _prop_dFidci[m][n] =
-          &getMaterialPropertyDerivative<Real>(_Fj_names[m], _ci_names[n * _num_j + m]);
+      // // thus index m is phase, index n is component
+      // _prop_dFidci[m][n] =
+      //     &getMaterialPropertyDerivative<Real>(_Fj_names[m], _ci_names[n * _num_j + m]);
 
       _prop_dcidc[m][n] = &getMaterialPropertyByName<Real>(_dcidc_names[n * _num_j + m]);
     }
@@ -119,11 +126,24 @@ KKSMultiACBulkF::computeDFDOP(PFFunctionType type)
       if (_etai_var != _var.number())
         return 0.0;
 
+      // std::cout << "df1dc1 is " << (*_prop_dFidci[0][0])[_qp] << std::endl;
+      // std::cout << "df2dc2 is " << (*_prop_dFidci[1][0])[_qp] << std::endl;
+      // std::cout << "df3dc3 is " << (*_prop_dFidci[2][0])[_qp] << std::endl;
+      // std::cout << "df1db1 is " << (*_prop_dFidci[0][1])[_qp] << std::endl;
+      // std::cout << "df2db2 is " << (*_prop_dFidci[1][1])[_qp] << std::endl;
+      // std::cout << "df3db3 is " << (*_prop_dFidci[2][1])[_qp] << std::endl;
+      // std::cout << "df1dc1 is " << (*_prop_dF1dc1[0])[_qp] << std::endl;
+      // std::cout << "df1db1 is " << (*_prop_dF1dc1[1])[_qp] << std::endl;
+
       // For when eta_i is the nonlinear variable
       for (unsigned int n = 0; n < _num_j; ++n)
-        sum +=
-            (*_prop_d2hjdetapdetai[n][_k])[_qp] * (*_prop_Fj[n])[_qp] +
-            (*_prop_dhjdetai[n])[_qp] * (*_prop_dFidci[n][0])[_qp] * (*_prop_dcidetaj[n][_k])[_qp];
+        // sum +=
+        //     (*_prop_d2hjdetapdetai[n][_k])[_qp] * (*_prop_Fj[n])[_qp] +
+        //     (*_prop_dhjdetai[n])[_qp] * (*_prop_dFidci[0][0])[_qp] *
+        //     (*_prop_dcidetaj[n][_k])[_qp];
+
+        sum += (*_prop_d2hjdetapdetai[n][_k])[_qp] * (*_prop_Fj[n])[_qp] +
+               (*_prop_dhjdetai[n])[_qp] * (*_prop_dF1dc1[0])[_qp] * (*_prop_dcidetaj[n][_k])[_qp];
 
       return _phi[_j][_qp] * (sum + _wi * _prop_d2gi[_qp]);
   }
@@ -143,7 +163,9 @@ KKSMultiACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
   if (compvar >= 0)
   {
     for (unsigned int n = 0; n < _num_j; ++n)
-      sum += (*_prop_dhjdetai[n])[_qp] * (*_prop_dFidci[n][compvar])[_qp] *
+      // sum += (*_prop_dhjdetai[n])[_qp] * (*_prop_dFidci[n][compvar])[_qp] *
+      //        (*_prop_dcidc[n][compvar])[_qp];
+      sum += (*_prop_dhjdetai[n])[_qp] * (*_prop_dF1dc1[compvar])[_qp] *
              (*_prop_dcidc[n][compvar])[_qp];
 
     res += _L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
@@ -157,9 +179,12 @@ KKSMultiACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
   {
     for (unsigned int n = 0; n < _num_j; ++n)
     {
-      sum += (*_prop_d2hjdetapdetai[n][etavar])[_qp] * (*_prop_Fj[n])[_qp] +
-             (*_prop_dhjdetai[n])[_qp] * (*_prop_dFidci[n][0])[_qp] *
-                 (*_prop_dcidetaj[n][etavar])[_qp];
+      // sum += (*_prop_d2hjdetapdetai[n][etavar])[_qp] * (*_prop_Fj[n])[_qp] +
+      //        (*_prop_dhjdetai[n])[_qp] * (*_prop_dFidci[0][0])[_qp] *
+      //            (*_prop_dcidetaj[n][etavar])[_qp];
+      sum +=
+          (*_prop_d2hjdetapdetai[n][etavar])[_qp] * (*_prop_Fj[n])[_qp] +
+          (*_prop_dhjdetai[n])[_qp] * (*_prop_dF1dc1[0])[_qp] * (*_prop_dcidetaj[n][etavar])[_qp];
     }
 
     res += _L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
