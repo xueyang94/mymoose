@@ -25,6 +25,12 @@ protected:
 
   const VariableValue & _c;
 
+  const std::vector<VariableName> _other_b1_names;
+  const unsigned int _num_other_b1;
+  std::vector<MaterialPropertyName> _other_db1db;
+  std::vector<const MaterialProperty<Real> *> _prop_db1db;
+  std::vector<const MaterialProperty<Real> *> _prop_dF1dc1db1;
+
   const unsigned int _num_eta;
   const std::vector<VariableName> _eta_names;
 
@@ -46,7 +52,8 @@ protected:
   std::vector<MaterialPropertyName> _dcidc_names;
   std::vector<MaterialProperty<Real> *> _prop_dcidc;
   std::vector<MaterialPropertyName> _coupled_dcidb_names;
-  std::vector<MaterialProperty<Real> *> _prop_coupled_dcidb;
+  // std::vector<MaterialProperty<Real> *> _prop_coupled_dcidb;
+  std::vector<std::vector<MaterialProperty<Real> *>> _prop_coupled_dcidb;
 
   std::vector<MaterialPropertyName> _dcidetaj_names;
   std::vector<std::vector<MaterialProperty<Real> *>> _prop_dcidetaj;
