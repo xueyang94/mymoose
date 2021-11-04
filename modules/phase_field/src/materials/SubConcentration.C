@@ -20,10 +20,19 @@ SubConcentration::validParams()
       "Computes the KKS sub-concentrations by using Newton iteration to solve the equal chemical "
       "potential and concentration conservation equations");
   params.addRequiredCoupledVar("global_c", "The interpolated concentration");
+  params.addCoupledVar(
+      "other_b1", "The phase concentration of other components in the first phase of Fi_names.");
+  params.addParam<std::vector<MaterialPropertyName>>(
+      "other_db1db",
+      "The derivative of the first phase concentration b1 (in the first phase of "
+      "Fi_names) wrt global concentration of other components like b. The order must match "
+      "other_b1");
+
   params.addRequiredCoupledVar("all_etas", "Vector of all order parameters for all phases");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "hj_names", "Names of the switching functions in the same order of the all_etas");
-  params.addRequiredParam<std::vector<MaterialPropertyName>>("ci_names", "Phase concentrations");
+  params.addRequiredParam<std::vector<MaterialPropertyName>>(
+      "ci_names", "Phase concentrations. The phase order must match Fi_names");
 
   params.addRequiredParam<MaterialPropertyName>("c1_name", "c1 name");
   params.addRequiredParam<MaterialPropertyName>("c2_name", "c2 name");
@@ -35,7 +44,9 @@ SubConcentration::validParams()
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "dcidc_names", "The first derivative of ci wrt c in the order of dc1dc, dc2dc, dc3dc");
   params.addParam<std::vector<MaterialPropertyName>>(
-      "coupled_dcidb_names", "Coupled dcidb in the order of dc1db, dc2db, dc3db, etc");
+      "coupled_dcidb_names",
+      "Coupled dcidb in the order of dc1db, dc2db, dc3db, dc1da, dc2da, dc3da, etc. The order of "
+      "phases must match Fi_names. The order of components must match other_b1.");
 
   params.addParam<std::vector<MaterialPropertyName>>(
       "dcidetaj_names",
@@ -61,6 +72,13 @@ SubConcentration::validParams()
 SubConcentration::SubConcentration(const InputParameters & parameters)
   : DerivativeMaterialInterface<Material>(parameters),
     _c(coupledValue("global_c")),
+
+    _other_b1_names(coupledNames("other_b1")),
+    _num_other_b1(coupledComponents("other_b1")),
+    _other_db1db(getParam<std::vector<MaterialPropertyName>>("other_db1db")),
+    _prop_db1db(_num_other_b1),
+    _prop_dF1dc1db1(_num_other_b1),
+
     _num_eta(coupledComponents("all_etas")),
     _eta_names(coupledNames("all_etas")),
     _hj_names(getParam<std::vector<MaterialPropertyName>>("hj_names")),
@@ -108,6 +126,14 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _nested_solve(NestedSolve(parameters))
 
 {
+
+  for (unsigned int n = 0; n < _num_other_b1; ++n)
+  {
+    _prop_db1db[n] = &getMaterialPropertyByName<Real>(_other_db1db[n]);
+    _prop_dF1dc1db1[n] =
+        &getMaterialPropertyDerivative<Real>(_Fi_names[0], _ci_names[0], _other_b1_names[n]);
+  }
+
   // declare the first and second derivative of phase energy wrt phase concentrations
   for (unsigned int n = 0; n < _num_eta; ++n)
   {
@@ -135,8 +161,13 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _prop_dcidc[i] = &declareProperty<Real>(_dcidc_names[i]);
 
   // declare coupled dcidb
-  for (unsigned int i = 0; i < _num_eta; ++i)
-    _prop_coupled_dcidb[i] = &declareProperty<Real>(_coupled_dcidb_names[i]);
+  for (unsigned int m = 0; m < _num_eta; ++m)
+  {
+    _prop_coupled_dcidb[m].resize(_num_other_b1);
+
+    for (unsigned int n = 0; n < _num_other_b1; ++n)
+      _prop_coupled_dcidb[m][n] = &declareProperty<Real>(_coupled_dcidb_names[n * _num_eta + m]);
+  }
 
   for (unsigned int m = 0; m < _num_eta; ++m)
   {
@@ -273,25 +304,35 @@ SubConcentration::computeQpProperties()
   (*_prop_dcidc[1])[_qp] = x_dcidc(1);
   (*_prop_dcidc[2])[_qp] = x_dcidc(2);
 
-  // std::cout << "dc1dc is " << (*_prop_dcidc[0])[_qp] << std::endl; // 1
-  // std::cout << "dc2dc is " << (*_prop_dcidc[1])[_qp] << std::endl; // 1
-  // std::cout << "dc3dc is " << (*_prop_dcidc[2])[_qp] << std::endl; // 1
-  // std::cout << "_second_dFi[0] is " << (*_second_dFi[0])[_qp] << std::endl; // 2
-  // std::cout << "_second_dFi[1] is " << (*_second_dFi[1])[_qp] << std::endl; // 2
-  // std::cout << "_second_dFi[2] is " << (*_second_dFi[2])[_qp] << std::endl; // 2
-
   ////////////////////////////////////////////////////////////////////////////////////////// compute coupled dcidb
-  RealVectorValue x_dcidb;
-  RealVectorValue b_dcidb{0, 0, 0};
-
-  for (unsigned int i = 0; i < _num_eta; ++i)
+  for (unsigned int n = 0; n < _num_other_b1; ++n) // loop through other components
   {
-    x_dcidb(i) = A[i][0] * b_dcidb(0) + A[i][1] * b_dcidb(1) + A[i][2] * b_dcidb(2);
+    RealVectorValue x_dcidb;
+    RealVectorValue b_dcidb{0,
+                            0,
+                            ((*_prop_dF1dc1db1[n])[_qp] * (*_prop_db1db[n])[_qp]) /
+                                ((*_second_dFi[0])[_qp] * (*_prop_dcidc[0])[_qp])};
+
+    for (unsigned int i = 0; i < _num_eta; ++i) // loop through phases
+    {
+      x_dcidb(i) = A[i][0] * b_dcidb(0) + A[i][1] * b_dcidb(1) + A[i][2] * b_dcidb(2);
+    }
+
+    (*_prop_coupled_dcidb[0][n])[_qp] = x_dcidb(0);
+    (*_prop_coupled_dcidb[1][n])[_qp] = x_dcidb(1);
+    (*_prop_coupled_dcidb[2][n])[_qp] = x_dcidb(2);
   }
 
-  (*_prop_coupled_dcidb[0])[_qp] = x_dcidb(0);
-  (*_prop_coupled_dcidb[1])[_qp] = x_dcidb(1);
-  (*_prop_coupled_dcidb[2])[_qp] = x_dcidb(2);
+  // RealVectorValue x_dcidb;
+  // RealVectorValue b_dcidb{0, 0, 0};
+  // for (unsigned int i = 0; i < _num_eta; ++i)
+  // {
+  //   x_dcidb(i) = A[i][0] * b_dcidb(0) + A[i][1] * b_dcidb(1) + A[i][2] * b_dcidb(2);
+  // }
+  //
+  // (*_prop_coupled_dcidb[0])[_qp] = x_dcidb(0);
+  // (*_prop_coupled_dcidb[1])[_qp] = x_dcidb(1);
+  // (*_prop_coupled_dcidb[2])[_qp] = x_dcidb(2);
 
   //////////////////////////////////////////////////////////////////////////////////////////// compute dc1deta1, dc2deta1, and dc3deta1
   RealVectorValue x_dcideta1;
