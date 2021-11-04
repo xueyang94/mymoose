@@ -99,11 +99,11 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
   }
 
   // Get dcidetaj indexes by converting the vector of _dcidetaj_names to the matrix of
-  // _prop_dcidetaj, so that _prop_dcidetaj[m][n] is dci[m]/detaj[n]
+  // _prop_dcidetaj, so that _prop_dcidetaj[m][n] is dci[n]/detaj[m]
   for (unsigned int m = 0; m < _num_j; ++m)
   {
     for (unsigned int n = 0; n < _num_j; ++n)
-      _prop_dcidetaj[m][n] = &getMaterialPropertyByName<Real>(_dcidetaj_names[m * _num_j + n]);
+      _prop_dcidetaj[m][n] = &getMaterialPropertyByName<Real>(_dcidetaj_names[m + n * _num_j]);
   }
 }
 
@@ -143,7 +143,7 @@ KKSMultiACBulkF::computeDFDOP(PFFunctionType type)
         //     (*_prop_dcidetaj[n][_k])[_qp];
 
         sum += (*_prop_d2hjdetapdetai[n][_k])[_qp] * (*_prop_Fj[n])[_qp] +
-               (*_prop_dhjdetai[n])[_qp] * (*_prop_dF1dc1[0])[_qp] * (*_prop_dcidetaj[n][_k])[_qp];
+               (*_prop_dhjdetai[n])[_qp] * (*_prop_dF1dc1[0])[_qp] * (*_prop_dcidetaj[_k][n])[_qp];
 
       return _phi[_j][_qp] * (sum + _wi * _prop_d2gi[_qp]);
   }
@@ -184,7 +184,7 @@ KKSMultiACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
       //            (*_prop_dcidetaj[n][etavar])[_qp];
       sum +=
           (*_prop_d2hjdetapdetai[n][etavar])[_qp] * (*_prop_Fj[n])[_qp] +
-          (*_prop_dhjdetai[n])[_qp] * (*_prop_dF1dc1[0])[_qp] * (*_prop_dcidetaj[n][etavar])[_qp];
+          (*_prop_dhjdetai[n])[_qp] * (*_prop_dF1dc1[0])[_qp] * (*_prop_dcidetaj[etavar][n])[_qp];
     }
 
     res += _L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
