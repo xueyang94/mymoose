@@ -332,7 +332,7 @@ SubConcentration::computeQpProperties()
   //   (*_prop_coupled_dcidb[2][n])[_qp] = x_dcidb(2);
   // }
 
-  (*_prop_coupled_dcidb[0])[_qp] = 0;
+  (*_prop_coupled_dcidb[0])[_qp] = 0; /// for decoupled ci and bi in energies
   (*_prop_coupled_dcidb[1])[_qp] = 0;
   (*_prop_coupled_dcidb[2])[_qp] = 0;
 
