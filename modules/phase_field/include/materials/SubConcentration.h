@@ -49,12 +49,11 @@ protected:
 
   const std::vector<Real> _ci_IC;
 
-  std::vector<MaterialPropertyName> _dcidc_names;
-  std::vector<MaterialProperty<Real> *> _prop_dcidc;
-  std::vector<MaterialPropertyName> _coupled_dcidb_names;
+  // std::vector<MaterialPropertyName> _dcidc_names;
+  // std::vector<MaterialProperty<Real> *> _prop_dcidc;
+  // std::vector<MaterialPropertyName> _coupled_dcidb_names;
 
-  // std::vector<std::vector<MaterialProperty<Real> *>> _prop_coupled_dcidb;
-  std::vector<MaterialProperty<Real> *> _prop_coupled_dcidb;
+  // std::vector<MaterialProperty<Real> *> _prop_coupled_dcidb;
 
   std::vector<MaterialPropertyName> _dcidetaj_names;
   std::vector<std::vector<MaterialProperty<Real> *>> _prop_dcidetaj;
