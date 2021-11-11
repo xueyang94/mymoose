@@ -53,11 +53,21 @@ KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
     _coupled_dcidb_names(getParam<std::vector<MaterialPropertyName>>("coupled_dcidb_names")),
     _prop_coupled_dcidb(_num_j),
 
+    _c_var(coupled("global_c")),
+    // _other_c_var(coupled("other_global_c")),
+    _other_c_map(getParameterJvarMap("other_global_c")),
+    _other_c_names(coupledComponents("other_global_c")),
+    _num_other_c(coupledComponents("other_global_c")),
+
     _first_df1(getMaterialPropertyDerivative<Real>(_Fj_names[0], _ci_names[0])),
     _second_df1(getMaterialPropertyDerivative<Real>(_Fj_names[0], _ci_names[0], _ci_names[0])),
-    _c_var(coupled("global_c")),
-    _b_var(coupled("other_global_c"))
+    _d2F1dc1db1(_num_other_c)
 {
+  // initialize _d2F1dc1db1
+  for (unsigned int i = 0; i < _num_other_c; ++i)
+    _d2F1dc1db1[i] =
+        &getMaterialPropertyDerivative<Real>(_Fj_names[0], _ci_names[0], _other_c_names[i]);
+
   // initialize coupled dcidb
   for (unsigned int i = 0; i < _num_j; ++i)
     _prop_coupled_dcidb[i] = &getMaterialPropertyByName<Real>(_coupled_dcidb_names[i]);
@@ -161,19 +171,39 @@ KKSMultiACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
     return res;
   }
 
-  // if b is the coupled variable
-  if (jvar == _b_var)
+  // // if b is the coupled variable
+  // if (jvar == _b_var)
+  // {
+  //   for (unsigned int n = 0; n < _num_j; ++n)
+  //   {
+  //     sum1 += (*_prop_dhjdetai[n])[_qp] * (*_prop_ci[n])[_qp];
+  //     sum2 += (*_prop_dhjdetai[n])[_qp] * (*_prop_coupled_dcidb[n])[_qp];
+  //   }
+  //
+  //   res += -_L[_qp] *
+  //          (_second_df1[_qp] * (*_prop_coupled_dcidb[0])[_qp] * sum1 + _first_df1[_qp] * sum2) *
+  //          _phi[_j][_qp] * _test[_i][_qp];
+  //
+  //   return res;
+  // }
+
+  // if other cs are the coupled variables
+  auto other_c_var = mapJvarToCvar(jvar, _other_c_map);
+  if (other_c_var >= 0)
   {
-    for (unsigned int n = 0; n < _num_j; ++n)
+    for (unsigned int n = 0; n < _num_other_c; ++n)
     {
-      sum1 += (*_prop_dhjdetai[n])[_qp] * (*_prop_ci[n])[_qp];
-      sum2 += (*_prop_dhjdetai[n])[_qp] * (*_prop_coupled_dcidb[n])[_qp];
+      for (unsigned int n = 0; n < _num_j; ++n)
+      {
+        sum1 += (*_prop_dhjdetai[n])[_qp] * (*_prop_ci[n])[_qp];
+        sum2 += (*_prop_dhjdetai[n])[_qp] * (*_prop_coupled_dcidb[n])[_qp];
+      }
+
+      res += -_L[_qp] *
+             ((*_d2F1dc1db1[n])[_qp] * (*_prop_coupled_dcidb[0])[_qp] * sum1 +
+              _first_df1[_qp] * sum2) *
+             _phi[_j][_qp] * _test[_i][_qp];
     }
-
-    res += -_L[_qp] *
-           (_second_df1[_qp] * (*_prop_coupled_dcidb[0])[_qp] * sum1 + _first_df1[_qp] * sum2) *
-           _phi[_j][_qp] * _test[_i][_qp];
-
     return res;
   }
 

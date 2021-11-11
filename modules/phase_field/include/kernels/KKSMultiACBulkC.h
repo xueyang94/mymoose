@@ -51,9 +51,12 @@ protected:
   std::vector<MaterialPropertyName> _coupled_dcidb_names;
   std::vector<const MaterialProperty<Real> *> _prop_coupled_dcidb;
 
+  unsigned int _c_var;
+  const JvarMap & _other_c_map;
+  std::vector<MaterialPropertyName> _other_c_names;
+  const unsigned int _num_other_c;
+
   const MaterialProperty<Real> & _first_df1;
   const MaterialProperty<Real> & _second_df1;
-
-  unsigned int _c_var;
-  unsigned int _b_var;
+  std::vector<const MaterialProperty<Real> *> _d2F1dc1db1;
 };
