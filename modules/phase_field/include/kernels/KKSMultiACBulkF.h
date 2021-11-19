@@ -31,36 +31,24 @@ protected:
   virtual Real computeDFDOP(PFFunctionType type);
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-  // std::vector<MaterialPropertyName> _ci_names;
-  std::vector<MaterialPropertyName> _c1_names;
-  // const MaterialProperty<Real> & _first_df1;
-
+  std::vector<VariableName> _c_names;
+  const JvarMap & _c_map;
+  unsigned int _num_c;
   std::vector<VariableName> _eta_names;
   const JvarMap & _eta_map;
-
   /// Position of the nonlinear variable in the list of cj's
   int _k;
+  std::vector<MaterialPropertyName> _c1_names;
 
-  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_d2hjdetapdetai;
-
-  std::vector<MaterialPropertyName> _dcidc_names;
-  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dcidc;
-
+  std::vector<MaterialPropertyName> _dcidb_names;
+  std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _prop_dcidb;
   std::vector<MaterialPropertyName> _dcidetaj_names;
-  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dcidetaj;
-
-  // std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dFidci;
-
+  std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _prop_dcidetaj;
   /// double well height parameter
   Real _wi;
-
   MaterialPropertyName _gi_name;
-  const MaterialProperty<Real> & _prop_dgi;
-  const MaterialProperty<Real> & _prop_d2gi;
-
-  std::vector<VariableName> _c_names; //
-  const JvarMap & _c_map;             //
-  unsigned int _num_c;                //
-
-  std::vector<const MaterialProperty<Real> *> _prop_dF1dc1;
+  const MaterialProperty<Real> & _dgi;
+  const MaterialProperty<Real> & _d2gi;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _d2hjdetaidetap;
+  std::vector<const MaterialProperty<Real> *> _dF1dc1;
 };

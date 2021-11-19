@@ -50,19 +50,18 @@ PhaseConcentrationDerivatives::PhaseConcentrationDerivatives(const InputParamete
     _eta_names(coupledNames("all_etas")),
     _num_eta(coupledComponents("all_etas")),
     _Fj_names(getParam<std::vector<MaterialPropertyName>>("Fj_names")),
-    _prop_d2Fjdcjdbj(_num_eta),
+    _d2Fjdcjdbj(_num_eta),
     _hj_names(getParam<std::vector<MaterialPropertyName>>("hj_names")),
     _prop_hj(_num_eta),
-    _prop_dhjdetai(_num_eta),
+    _dhjdetap(_num_eta),
     _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),
     _ci_name_matrix(_num_c),
     _dcidb_names(getParam<std::vector<MaterialPropertyName>>("dcidb_names")),
     _prop_dcidb(_num_c),
     _dcidetaj_names(getParam<std::vector<MaterialPropertyName>>("dcidetaj_names")),
     _prop_dcidetaj(_num_c)
-
 {
-  // declare _ci_name_matrix
+  // initialize _ci_name_matrix
   for (unsigned int m = 0; m < _num_c; ++m)
   {
     _ci_name_matrix[m].resize(_num_eta);
@@ -73,7 +72,7 @@ PhaseConcentrationDerivatives::PhaseConcentrationDerivatives(const InputParamete
     }
   }
 
-  // declare _prop_ci
+  // initialize _prop_ci
   for (unsigned int m = 0; m < _num_c; ++m)
   {
     _prop_ci[m].resize(_num_eta);
@@ -86,55 +85,56 @@ PhaseConcentrationDerivatives::PhaseConcentrationDerivatives(const InputParamete
 
   for (unsigned int m = 0; m < _num_eta; ++m)
   {
-    // declare _prop_hj
+    // initialize _prop_hj
     _prop_hj[m] = &getMaterialPropertyByName<Real>(_hj_names[m]);
 
-    _prop_dhjdetai[m].resize(_num_eta);
+    _dhjdetap[m].resize(_num_eta);
 
-    // declare _prop_dhjetai
+    // initialize _prop_dhjetai
     for (unsigned int n = 0; n < _num_eta; ++n)
     {
-      _prop_dhjdetai[m][n] = &getMaterialPropertyDerivative<Real>(_hj_names[m], _eta_names[n]);
+      _dhjdetap[m][n] = &getMaterialPropertyDerivative<Real>(_hj_names[m], _eta_names[n]);
     }
   }
 
-  // declare _prop_d2Fjdcjdbj, m is phase, n is the first phase concentration species in phase m
-  // (cm), l is the second phase concentration species in phase m (bm)
+  // initialize _d2Fjdcjdbj[m][n][l], m is phase, n is the first phase concentration species in
+  // phase m, l is the second phase concentration species in phase m
   for (unsigned int m = 0; m < _num_eta; ++m)
   {
-    _prop_d2Fjdcjdbj[m].resize(_num_c);
+    _d2Fjdcjdbj[m].resize(_num_c);
 
     for (unsigned int n = 0; n < _num_c; ++n)
     {
-      _prop_d2Fjdcjdbj[m][n].resize(_num_c);
+      _d2Fjdcjdbj[m][n].resize(_num_c);
 
       for (unsigned int l = 0; l < _num_c; ++l)
       {
-        _prop_d2Fjdcjdbj[m][n][l] = &getMaterialPropertyDerivative<Real>(
+        _d2Fjdcjdbj[m][n][l] = &getMaterialPropertyDerivative<Real>(
             _Fj_names[m], _ci_name_matrix[n][m], _ci_name_matrix[l][m]);
       }
     }
   }
 
-  // declare _prop_dcidb. m is the numerator species (ci or bi), n is the denominator species (c or
-  // b), l is the phase of the numerator
+  // declare _prop_dcidb. m is the numerator species (ci or bi), n is the phase of the numerator i,
+  // l is the denominator species (c or b)
   for (unsigned int m = 0; m < _num_c; ++m)
   {
-    _prop_dcidb[m].resize(_num_c);
+    _prop_dcidb[m].resize(_num_eta);
 
-    for (unsigned int n = 0; n < _num_c; ++n)
+    for (unsigned int n = 0; n < _num_eta; ++n)
     {
-      _prop_dcidb[m][n].resize(_num_eta);
+      _prop_dcidb[m][n].resize(_num_c);
 
-      for (unsigned int l = 0; l < _num_eta; ++l)
+      for (unsigned int l = 0; l < _num_c; ++l)
       {
         _prop_dcidb[m][n][l] =
-            &declareProperty<Real>(_dcidb_names[m * (_num_c * _num_eta) + n * _num_eta + l]);
+            &declareProperty<Real>(_dcidb_names[m * _num_eta * _num_c + n + l * _num_eta]);
       }
     }
   }
 
-  // declare _prop_dcidetaj
+  // declare _prop_dcidetaj. m is te numerator species (ci or bi), n is the phase of the numerator
+  // i, l is the phase of denominator j
   for (unsigned int m = 0; m < _num_c; ++m)
   {
     _prop_dcidetaj[m].resize(_num_eta);
@@ -146,7 +146,7 @@ PhaseConcentrationDerivatives::PhaseConcentrationDerivatives(const InputParamete
       for (unsigned int l = 0; l < _num_eta; ++l)
       {
         _prop_dcidetaj[m][n][l] =
-            &declareProperty<Real>(_dcidetaj_names[m * (_num_eta * _num_eta) + n + l * _num_eta]);
+            &declareProperty<Real>(_dcidetaj_names[m * _num_eta * _num_eta + n + l * _num_eta]);
       }
     }
   }
@@ -160,18 +160,18 @@ PhaseConcentrationDerivatives::computeQpProperties()
   for (auto & row : A_c)
     row.resize(6);
 
-  A_c[0][0] = (*_prop_d2Fjdcjdbj[0][0][0])[_qp];
-  A_c[0][1] = -(*_prop_d2Fjdcjdbj[1][1][1])[_qp];
+  A_c[0][0] = (*_d2Fjdcjdbj[0][0][0])[_qp];
+  A_c[0][1] = -(*_d2Fjdcjdbj[1][0][0])[_qp];
   A_c[0][2] = 0;
-  A_c[0][3] = (*_prop_d2Fjdcjdbj[0][0][1])[_qp];
-  A_c[0][4] = -(*_prop_d2Fjdcjdbj[1][0][1])[_qp];
+  A_c[0][3] = (*_d2Fjdcjdbj[0][0][1])[_qp];
+  A_c[0][4] = -(*_d2Fjdcjdbj[1][0][1])[_qp];
   A_c[0][5] = 0;
   A_c[1][0] = 0;
-  A_c[1][1] = (*_prop_d2Fjdcjdbj[1][0][0])[_qp];
-  A_c[1][2] = -(*_prop_d2Fjdcjdbj[2][0][0])[_qp];
+  A_c[1][1] = (*_d2Fjdcjdbj[1][0][0])[_qp];
+  A_c[1][2] = -(*_d2Fjdcjdbj[2][0][0])[_qp];
   A_c[1][3] = 0;
-  A_c[1][4] = (*_prop_d2Fjdcjdbj[1][0][1])[_qp];
-  A_c[1][5] = -(*_prop_d2Fjdcjdbj[2][0][1])[_qp];
+  A_c[1][4] = (*_d2Fjdcjdbj[1][0][1])[_qp];
+  A_c[1][5] = -(*_d2Fjdcjdbj[2][0][1])[_qp];
   A_c[2][0] = (*_prop_hj[0])[_qp];
   A_c[2][1] = (*_prop_hj[1])[_qp];
   A_c[2][2] = (*_prop_hj[2])[_qp];
@@ -179,18 +179,18 @@ PhaseConcentrationDerivatives::computeQpProperties()
   A_c[2][4] = 0;
   A_c[2][5] = 0;
 
-  A_c[3][0] = (*_prop_d2Fjdcjdbj[0][1][0])[_qp];
-  A_c[3][1] = -(*_prop_d2Fjdcjdbj[1][1][0])[_qp];
+  A_c[3][0] = (*_d2Fjdcjdbj[0][1][0])[_qp];
+  A_c[3][1] = -(*_d2Fjdcjdbj[1][1][0])[_qp];
   A_c[3][2] = 0;
-  A_c[3][3] = (*_prop_d2Fjdcjdbj[0][1][1])[_qp];
-  A_c[3][4] = -(*_prop_d2Fjdcjdbj[1][1][1])[_qp];
+  A_c[3][3] = (*_d2Fjdcjdbj[0][1][1])[_qp];
+  A_c[3][4] = -(*_d2Fjdcjdbj[1][1][1])[_qp];
   A_c[3][5] = 0;
   A_c[4][0] = 0;
-  A_c[4][1] = (*_prop_d2Fjdcjdbj[1][1][0])[_qp];
-  A_c[4][2] = -(*_prop_d2Fjdcjdbj[2][1][0])[_qp];
+  A_c[4][1] = (*_d2Fjdcjdbj[1][1][0])[_qp];
+  A_c[4][2] = -(*_d2Fjdcjdbj[2][1][0])[_qp];
   A_c[4][3] = 0;
-  A_c[4][4] = (*_prop_d2Fjdcjdbj[1][1][1])[_qp];
-  A_c[4][5] = -(*_prop_d2Fjdcjdbj[2][1][1])[_qp];
+  A_c[4][4] = (*_d2Fjdcjdbj[1][1][1])[_qp];
+  A_c[4][5] = -(*_d2Fjdcjdbj[2][1][1])[_qp];
   A_c[5][0] = 0;
   A_c[5][1] = 0;
   A_c[5][2] = 0;
@@ -211,29 +211,29 @@ PhaseConcentrationDerivatives::computeQpProperties()
   }
 
   (*_prop_dcidb[0][0][0])[_qp] = x_dcondc[0];
-  (*_prop_dcidb[0][0][1])[_qp] = x_dcondc[1];
-  (*_prop_dcidb[0][0][2])[_qp] = x_dcondc[2];
+  (*_prop_dcidb[0][1][0])[_qp] = x_dcondc[1];
+  (*_prop_dcidb[0][2][0])[_qp] = x_dcondc[2];
   (*_prop_dcidb[1][0][0])[_qp] = x_dcondc[3];
-  (*_prop_dcidb[1][0][1])[_qp] = x_dcondc[4];
-  (*_prop_dcidb[1][0][2])[_qp] = x_dcondc[5];
+  (*_prop_dcidb[1][1][0])[_qp] = x_dcondc[4];
+  (*_prop_dcidb[1][2][0])[_qp] = x_dcondc[5];
 
   ////////////////////////////////////////////////// solve linear system of constraint derivatives wrt b for computing dcidb and dbidb
   std::vector<std::vector<Real>> A_b(6);
   for (auto & row : A_b)
     row.resize(6);
 
-  A_b[0][0] = (*_prop_d2Fjdcjdbj[0][1][0])[_qp];
-  A_b[0][1] = -(*_prop_d2Fjdcjdbj[1][1][0])[_qp];
+  A_b[0][0] = (*_d2Fjdcjdbj[0][1][0])[_qp];
+  A_b[0][1] = -(*_d2Fjdcjdbj[1][1][0])[_qp];
   A_b[0][2] = 0;
-  A_b[0][3] = (*_prop_d2Fjdcjdbj[0][1][1])[_qp];
-  A_b[0][4] = -(*_prop_d2Fjdcjdbj[1][1][1])[_qp];
+  A_b[0][3] = (*_d2Fjdcjdbj[0][1][1])[_qp];
+  A_b[0][4] = -(*_d2Fjdcjdbj[1][1][1])[_qp];
   A_b[0][5] = 0;
   A_b[1][0] = 0;
-  A_b[1][1] = (*_prop_d2Fjdcjdbj[1][1][0])[_qp];
-  A_b[1][2] = -(*_prop_d2Fjdcjdbj[2][1][0])[_qp];
+  A_b[1][1] = (*_d2Fjdcjdbj[1][1][0])[_qp];
+  A_b[1][2] = -(*_d2Fjdcjdbj[2][1][0])[_qp];
   A_b[1][3] = 0;
-  A_b[1][4] = (*_prop_d2Fjdcjdbj[1][1][1])[_qp];
-  A_b[1][5] = -(*_prop_d2Fjdcjdbj[2][1][1])[_qp];
+  A_b[1][4] = (*_d2Fjdcjdbj[1][1][1])[_qp];
+  A_b[1][5] = -(*_d2Fjdcjdbj[2][1][1])[_qp];
   A_b[2][0] = 0;
   A_b[2][1] = 0;
   A_b[2][2] = 0;
@@ -241,18 +241,18 @@ PhaseConcentrationDerivatives::computeQpProperties()
   A_b[2][4] = (*_prop_hj[1])[_qp];
   A_b[2][5] = (*_prop_hj[2])[_qp];
 
-  A_b[3][0] = (*_prop_d2Fjdcjdbj[0][0][0])[_qp];
-  A_b[3][1] = -(*_prop_d2Fjdcjdbj[1][0][0])[_qp];
+  A_b[3][0] = (*_d2Fjdcjdbj[0][0][0])[_qp];
+  A_b[3][1] = -(*_d2Fjdcjdbj[1][0][0])[_qp];
   A_b[3][2] = 0;
-  A_b[3][3] = (*_prop_d2Fjdcjdbj[0][0][1])[_qp];
-  A_b[3][4] = -(*_prop_d2Fjdcjdbj[1][0][1])[_qp];
+  A_b[3][3] = (*_d2Fjdcjdbj[0][0][1])[_qp];
+  A_b[3][4] = -(*_d2Fjdcjdbj[1][0][1])[_qp];
   A_b[3][5] = 0;
   A_b[4][0] = 0;
-  A_b[4][1] = (*_prop_d2Fjdcjdbj[1][0][0])[_qp];
-  A_b[4][2] = -(*_prop_d2Fjdcjdbj[2][0][0])[_qp];
+  A_b[4][1] = (*_d2Fjdcjdbj[1][0][0])[_qp];
+  A_b[4][2] = -(*_d2Fjdcjdbj[2][0][0])[_qp];
   A_b[4][3] = 0;
-  A_b[4][4] = (*_prop_d2Fjdcjdbj[1][0][1])[_qp];
-  A_b[4][5] = -(*_prop_d2Fjdcjdbj[2][0][1])[_qp];
+  A_b[4][4] = (*_d2Fjdcjdbj[1][0][1])[_qp];
+  A_b[4][5] = -(*_d2Fjdcjdbj[2][0][1])[_qp];
   A_b[5][0] = (*_prop_hj[0])[_qp];
   A_b[5][1] = (*_prop_hj[1])[_qp];
   A_b[5][2] = (*_prop_hj[2])[_qp];
@@ -272,30 +272,30 @@ PhaseConcentrationDerivatives::computeQpProperties()
                   A_b[i][3] * k_dcondb[3] + A_b[i][4] * k_dcondb[4] + A_b[i][5] * k_dcondb[5];
   }
 
-  (*_prop_dcidb[0][1][0])[_qp] = x_dcondb[0];
+  (*_prop_dcidb[0][0][1])[_qp] = x_dcondb[0];
   (*_prop_dcidb[0][1][1])[_qp] = x_dcondb[1];
-  (*_prop_dcidb[0][1][2])[_qp] = x_dcondb[2];
-  (*_prop_dcidb[1][1][0])[_qp] = x_dcondb[3];
+  (*_prop_dcidb[0][2][1])[_qp] = x_dcondb[2];
+  (*_prop_dcidb[1][0][1])[_qp] = x_dcondb[3];
   (*_prop_dcidb[1][1][1])[_qp] = x_dcondb[4];
-  (*_prop_dcidb[1][1][2])[_qp] = x_dcondb[5];
+  (*_prop_dcidb[1][2][1])[_qp] = x_dcondb[5];
 
   ////////////////////////////////////////////////// solve linear system of constraint derivatives wrt etaj for computing dcidetaj
   std::vector<std::vector<Real>> A_eta(6);
   for (auto & row : A_eta)
     row.resize(6);
 
-  A_eta[0][0] = (*_prop_d2Fjdcjdbj[0][0][0])[_qp];
-  A_eta[0][1] = -(*_prop_d2Fjdcjdbj[1][0][0])[_qp];
+  A_eta[0][0] = (*_d2Fjdcjdbj[0][0][0])[_qp];
+  A_eta[0][1] = -(*_d2Fjdcjdbj[1][0][0])[_qp];
   A_eta[0][2] = 0;
-  A_eta[0][3] = (*_prop_d2Fjdcjdbj[0][0][1])[_qp];
-  A_eta[0][4] = -(*_prop_d2Fjdcjdbj[1][0][1])[_qp];
+  A_eta[0][3] = (*_d2Fjdcjdbj[0][0][1])[_qp];
+  A_eta[0][4] = -(*_d2Fjdcjdbj[1][0][1])[_qp];
   A_eta[0][5] = 0;
   A_eta[1][0] = 0;
-  A_eta[1][1] = (*_prop_d2Fjdcjdbj[1][0][0])[_qp];
-  A_eta[1][2] = -(*_prop_d2Fjdcjdbj[2][0][0])[_qp];
+  A_eta[1][1] = (*_d2Fjdcjdbj[1][0][0])[_qp];
+  A_eta[1][2] = -(*_d2Fjdcjdbj[2][0][0])[_qp];
   A_eta[1][3] = 0;
-  A_eta[1][4] = (*_prop_d2Fjdcjdbj[1][0][1])[_qp];
-  A_eta[1][5] = -(*_prop_d2Fjdcjdbj[2][0][1])[_qp];
+  A_eta[1][4] = (*_d2Fjdcjdbj[1][0][1])[_qp];
+  A_eta[1][5] = -(*_d2Fjdcjdbj[2][0][1])[_qp];
   A_eta[2][0] = (*_prop_hj[0])[_qp];
   A_eta[2][1] = (*_prop_hj[1])[_qp];
   A_eta[2][2] = (*_prop_hj[2])[_qp];
@@ -303,18 +303,18 @@ PhaseConcentrationDerivatives::computeQpProperties()
   A_eta[2][4] = 0;
   A_eta[2][5] = 0;
 
-  A_eta[3][0] = (*_prop_d2Fjdcjdbj[0][1][0])[_qp];
-  A_eta[3][1] = -(*_prop_d2Fjdcjdbj[1][1][0])[_qp];
+  A_eta[3][0] = (*_d2Fjdcjdbj[0][1][0])[_qp];
+  A_eta[3][1] = -(*_d2Fjdcjdbj[1][1][0])[_qp];
   A_eta[3][2] = 0;
-  A_eta[3][3] = (*_prop_d2Fjdcjdbj[0][1][1])[_qp];
-  A_eta[3][4] = -(*_prop_d2Fjdcjdbj[1][1][1])[_qp];
+  A_eta[3][3] = (*_d2Fjdcjdbj[0][1][1])[_qp];
+  A_eta[3][4] = -(*_d2Fjdcjdbj[1][1][1])[_qp];
   A_eta[3][5] = 0;
   A_eta[4][0] = 0;
-  A_eta[4][1] = (*_prop_d2Fjdcjdbj[1][1][0])[_qp];
-  A_eta[4][2] = -(*_prop_d2Fjdcjdbj[2][1][0])[_qp];
+  A_eta[4][1] = (*_d2Fjdcjdbj[1][1][0])[_qp];
+  A_eta[4][2] = -(*_d2Fjdcjdbj[2][1][0])[_qp];
   A_eta[4][3] = 0;
-  A_eta[4][4] = (*_prop_d2Fjdcjdbj[1][1][1])[_qp];
-  A_eta[4][5] = -(*_prop_d2Fjdcjdbj[2][1][1])[_qp];
+  A_eta[4][4] = (*_d2Fjdcjdbj[1][1][1])[_qp];
+  A_eta[4][5] = -(*_d2Fjdcjdbj[2][1][1])[_qp];
   A_eta[5][0] = 0;
   A_eta[5][1] = 0;
   A_eta[5][2] = 0;
@@ -330,14 +330,14 @@ PhaseConcentrationDerivatives::computeQpProperties()
     std::vector<Real> x_dcidetaj(6);
     std::vector<Real> k_dcidetaj{0,
                                  0,
-                                 -((*_prop_dhjdetai[0][m])[_qp] * (*_prop_ci[0][m])[_qp] +
-                                   (*_prop_dhjdetai[1][m])[_qp] * (*_prop_ci[0][m])[_qp] +
-                                   (*_prop_dhjdetai[2][m])[_qp] * (*_prop_ci[0][m])[_qp]),
+                                 -((*_dhjdetap[0][m])[_qp] * (*_prop_ci[0][m])[_qp] +
+                                   (*_dhjdetap[1][m])[_qp] * (*_prop_ci[0][m])[_qp] +
+                                   (*_dhjdetap[2][m])[_qp] * (*_prop_ci[0][m])[_qp]),
                                  0,
                                  0,
-                                 -((*_prop_dhjdetai[0][m])[_qp] * (*_prop_ci[1][m])[_qp] +
-                                   (*_prop_dhjdetai[1][m])[_qp] * (*_prop_ci[1][m])[_qp] +
-                                   (*_prop_dhjdetai[2][m])[_qp] * (*_prop_ci[1][m])[_qp])};
+                                 -((*_dhjdetap[0][m])[_qp] * (*_prop_ci[1][m])[_qp] +
+                                   (*_dhjdetap[1][m])[_qp] * (*_prop_ci[1][m])[_qp] +
+                                   (*_dhjdetap[2][m])[_qp] * (*_prop_ci[1][m])[_qp])};
 
     for (unsigned int i = 0; i < 6; ++i)
     {

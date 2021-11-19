@@ -42,25 +42,31 @@ protected:
   virtual Real computeQpJacobian();
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-  const MaterialProperty<Real> & _dc1dc;
-
-  const MaterialPropertyName _c1_name;
-
-  const MaterialProperty<Real> & _first_df1;
-  const MaterialProperty<Real> & _second_df1;
-
-  /// Chemical potential
-  unsigned int _w_var;
-  const VariableValue & _w;
-
   std::vector<VariableName> _eta_names;
   const JvarMap & _eta_map;
   unsigned int _num_j;
+  const JvarMap & _coupled_b_map;
+  unsigned int _num_coupled_b;
+  /// Chemical potential
+  unsigned int _w_var;
+  const VariableValue & _w;
+  const MaterialPropertyName _c1_name;
+  std::vector<MaterialPropertyName> _coupled_b1_names;
+
+  const MaterialProperty<Real> & _dc1dc;
+  std::vector<MaterialPropertyName> _dc1db_names;
+  std::vector<const MaterialProperty<Real> *> _prop_dc1db;
+  std::vector<MaterialPropertyName> _db1dc_names;
+  std::vector<const MaterialProperty<Real> *> _prop_db1dc;
+  std::vector<MaterialPropertyName> _db1db_names;
+  std::vector<const MaterialProperty<Real> *> _prop_db1db;
   std::vector<MaterialPropertyName> _dc1detaj_names;
   std::vector<const MaterialProperty<Real> *> _prop_dc1detaj;
+  std::vector<MaterialPropertyName> _db1detaj_names;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_db1detaj;
 
-  const MaterialProperty<Real> & _dc1db;
-  std::vector<VariableName> _coupled_c_names; //
-  const JvarMap & _coupled_c_map;             //
-  unsigned int _num_coupled_c;                //
+  const MaterialPropertyName _F1_name;
+  const MaterialProperty<Real> & _first_df1;
+  const MaterialProperty<Real> & _second_df1;
+  std::vector<const MaterialProperty<Real> *> _prop_d2F1dc1db1;
 };
