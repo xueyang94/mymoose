@@ -28,10 +28,10 @@ protected:
   const std::vector<VariableName> _eta_names;
   const unsigned int _num_eta;
   std::vector<MaterialPropertyName> _Fj_names;
-  std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _prop_d2Fjdcjdbj;
+  std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _d2Fjdcjdbj;
   std::vector<MaterialPropertyName> _hj_names;
   std::vector<const MaterialProperty<Real> *> _prop_hj;
-  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dhjdetai;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _dhjdetap;
   std::vector<MaterialPropertyName> _ci_names;
 
   std::vector<std::vector<MaterialPropertyName>> _ci_name_matrix;

@@ -17,18 +17,9 @@ SubConcentration::validParams()
 {
   InputParameters params = DerivativeMaterialInterface<Material>::validParams();
   params.addClassDescription(
-      "Computes the KKS sub-concentrations by using Newton iteration to solve the equal chemical "
+      "Computes the KKS phase concentrations by using Newton iteration to solve the equal chemical "
       "potential and concentration conservation equations");
   params.addRequiredCoupledVar("global_c", "The interpolated concentration");
-
-  // params.addCoupledVar("other_global_b", "The other global concentrations");
-  // params.addParam<std::vector<MaterialPropertyName>>(
-  //     "other_b1", "The phase concentration of other components in the first phase of Fi_names.");
-  // params.addParam<std::vector<MaterialPropertyName>>(
-  //     "other_db1db",
-  //     "The derivative of the first phase concentration b1 (in the first phase of "
-  //     "Fi_names) wrt global concentration of other components like b. The order must match "
-  //     "other_b1");
 
   params.addRequiredCoupledVar("all_etas", "Vector of all order parameters for all phases");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
@@ -39,23 +30,9 @@ SubConcentration::validParams()
   params.addRequiredParam<MaterialPropertyName>("c1_name", "c1 name");
   params.addRequiredParam<MaterialPropertyName>("c2_name", "c2 name");
   params.addRequiredParam<MaterialPropertyName>("c3_name", "c3 name");
-
   params.addRequiredParam<std::vector<Real>>("ci_IC",
                                              "Initial values of ci in the same order of ci_names");
 
-  // params.addParam<std::vector<MaterialPropertyName>>(
-  //     "dcidc_names", "The first derivative of ci wrt c in the order of dc1dc, dc2dc, dc3dc");
-  // params.addParam<std::vector<MaterialPropertyName>>(
-  //     "coupled_dcidb_names",
-  //     "Coupled dcidb in the order of dc1db, dc2db, dc3db, dc1da, dc2da, dc3da, etc. The order of
-  //     " "phases must match Fi_names. The order of components must match other_b1.");
-
-  // params.addParam<std::vector<MaterialPropertyName>>(
-  //     "dcidetaj_names",
-  //     "The names of dci/detaj in the order of dc1deta1, dc2deta1, dc3deta1, dc1deta2, dc2deta2, "
-  //     "dc3deta2, etc");
-
-  // params.addRequiredParam<std::vector<MaterialName>>("Fi_material_names", "Fi_material_names");
   params.addRequiredParam<MaterialName>("F1_material", "F1");
   params.addRequiredParam<MaterialName>("F2_material", "F2");
   params.addRequiredParam<MaterialName>("F3_material", "F3");
@@ -74,13 +51,6 @@ SubConcentration::validParams()
 SubConcentration::SubConcentration(const InputParameters & parameters)
   : DerivativeMaterialInterface<Material>(parameters),
     _c(coupledValue("global_c")),
-
-    // _num_other_b(coupledComponents("other_global_b")),
-    // _other_b1_names(getParam<std::vector<MaterialPropertyName>>("other_b1")),
-    // _other_db1db(getParam<std::vector<MaterialPropertyName>>("other_db1db")),
-    // _prop_db1db(_num_other_b),
-    // _prop_dF1dc1db1(_num_other_b),
-
     _num_eta(coupledComponents("all_etas")),
     _eta_names(coupledNames("all_etas")),
     _hj_names(getParam<std::vector<MaterialPropertyName>>("hj_names")),
@@ -88,25 +58,12 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _prop_dhjdetai(_num_eta),
 
     _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),
-    // _ci_names(getMaterialProperty<std::vector<MaterialPropertyName>>("ci_names")),
     _ci_prop(_num_eta),
 
     _c1_old(getMaterialPropertyOld<Real>("c1_name")), // old
     _c2_old(getMaterialPropertyOld<Real>("c2_name")), // old
     _c3_old(getMaterialPropertyOld<Real>("c3_name")), // old
-
-    // _ci_old(getMaterialPropertyOld<std::vector<MaterialPropertyName>>("ci_names")),
-    // _ci_old_prop(_num_eta),
-
     _ci_IC(getParam<std::vector<Real>>("ci_IC")),
-
-    // _dcidc_names(getParam<std::vector<MaterialPropertyName>>("dcidc_names")),
-    // _prop_dcidc(_num_eta),
-    // _coupled_dcidb_names(getParam<std::vector<MaterialPropertyName>>("coupled_dcidb_names")),
-    // _prop_coupled_dcidb(_num_eta),
-
-    // _dcidetaj_names(getParam<std::vector<MaterialPropertyName>>("dcidetaj_names")),
-    // _prop_dcidetaj(_num_eta),
 
     // _Fi_material(getParam<std::vector<MaterialName>>("Fi_material_names")),
     // _fi_material(_num_eta),
@@ -128,17 +85,6 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _nested_solve(NestedSolve(parameters))
 
 {
-
-  // for (unsigned int n = 0; n < _num_other_b; ++n)
-  // {
-  // _prop_db1db[n] = &getMaterialPropertyByName<Real>(_other_db1db[n]);
-  // _prop_dF1dc1db1[n] =
-  //     &getMaterialPropertyDerivative<Real>(_Fi_names[0], _ci_names[0], _other_b1_names[n]);
-
-  // _prop_db1db[n] = 0;
-  // _prop_dF1dc1db1[n] = 0;
-  // }
-
   // declare the first and second derivative of phase energy wrt phase concentrations
   for (unsigned int n = 0; n < _num_eta; ++n)
   {
@@ -161,16 +107,6 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
   for (unsigned int i = 0; i < _num_eta; ++i)
     _ci_prop[i] = &declareProperty<Real>(_ci_names[i]);
 
-  // // declare dcidc material properties
-  // for (unsigned int i = 0; i < _num_eta; ++i)
-  //   _prop_dcidc[i] = &declareProperty<Real>(_dcidc_names[i]);
-
-  // declare coupled dcidb
-  // for (unsigned int m = 0; m < _num_eta; ++m)
-  // {
-  //   _prop_coupled_dcidb[m] = &declareProperty<Real>(_coupled_dcidb_names[m]);
-  // }
-
   for (unsigned int m = 0; m < _num_eta; ++m)
   {
     // _ci_old_prop[m] = &declareProperty<Real>(_ci_old[i]);
@@ -183,27 +119,13 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     for (unsigned int n = 0; n < _num_eta; ++n)
       _prop_dhjdetai[m][n] = &getMaterialPropertyDerivative<Real>(_hj_names[m], _eta_names[n]);
   }
-
-  // Get dcidetaj indexes by converting the vector of _dcidetaj_names to the matrix of
-  // _prop_dcidetaj, so that _prop_dcidetaj[m][n] is dci[n]/detaj[m]
-  // for (unsigned int m = 0; m < _num_eta; ++m)
-  // {
-  //   _prop_dcidetaj[m].resize(_num_eta);
-  //   for (unsigned int n = 0; n < _num_eta; ++n)
-  //     _prop_dcidetaj[m][n] = &declareProperty<Real>(_dcidetaj_names[m + n * _num_eta]);
-  // }
-
-  // // declare fi material
-  // for (unsigned int i = 0; i < _num_eta; ++i)
-  //   _fi_material[i] = &getMaterial(_Fi_material[i]);
 }
 
 void
 SubConcentration::initQpStatefulProperties()
 {
-  (*_ci_prop[0])[_qp] = _ci_IC[0];
-  (*_ci_prop[1])[_qp] = _ci_IC[1];
-  (*_ci_prop[2])[_qp] = _ci_IC[2];
+  for (unsigned int i = 0; i < _num_eta; ++i)
+    (*_ci_prop[i])[_qp] = _ci_IC[i];
 }
 
 // // This function is also defined in NestedSolve.C (protected)
@@ -229,9 +151,8 @@ SubConcentration::computeQpProperties()
   auto compute = [&](const NestedSolve::Value<> & guess,
                      NestedSolve::Value<> & residual,
                      NestedSolve::Jacobian<> & jacobian) {
-    (*_ci_prop[0])[_qp] = guess(0);
-    (*_ci_prop[1])[_qp] = guess(1);
-    (*_ci_prop[2])[_qp] = guess(2);
+    for (unsigned int i = 0; i < _num_eta; ++i)
+      (*_ci_prop[i])[_qp] = guess(i);
 
     _f1.computePropertiesAtQp(_qp);
     _f2.computePropertiesAtQp(_qp);
@@ -264,130 +185,6 @@ SubConcentration::computeQpProperties()
     std::cout << "Newton iteration did not converge." << std::endl;
   }
 
-  (*_ci_prop[0])[_qp] = solution[0];
-  (*_ci_prop[1])[_qp] = solution[1];
-  (*_ci_prop[2])[_qp] = solution[2];
-
-  // // update f after solving for ci
-  // _f1.computePropertiesAtQp(_qp);
-  // _f2.computePropertiesAtQp(_qp);
-  // _f3.computePropertiesAtQp(_qp);
-  // _fi_material[0]->computePropertiesAtQp(_qp);
-  // _fi_material[1]->computePropertiesAtQp(_qp);
-  // _fi_material[2]->computePropertiesAtQp(_qp);
-
-  // // The matrix A used to compute dcidc, dcidb, and dcidetai are the same as the jacobian matrix
-  // std::vector<std::vector<Real>> A(3);
-  // for (auto & row : A)
-  //   row.resize(3);
-  //
-  // A[0][0] = (*_second_dFi[0])[_qp];
-  // A[0][1] = -(*_second_dFi[1])[_qp];
-  // A[0][2] = 0;
-  // A[1][0] = 0;
-  // A[1][1] = (*_second_dFi[1])[_qp];
-  // A[1][2] = -(*_second_dFi[2])[_qp];
-  // A[2][0] = (*_prop_hj[0])[_qp];
-  // A[2][1] = (*_prop_hj[1])[_qp];
-  // A[2][2] = (*_prop_hj[2])[_qp];
-  //
-  // MatrixTools::inverse(A, A);
-
-  // ////////////////////////////////////////////////////////////////////////////////////////// compute dc1dc, dc2dc, and dc3dc
-  // RealVectorValue x_dcidc;
-  // RealVectorValue b_dcidc{0, 0, 1};
-  //
-  // for (unsigned int i = 0; i < _num_eta; ++i)
-  // {
-  //   x_dcidc(i) = A[i][0] * b_dcidc(0) + A[i][1] * b_dcidc(1) + A[i][2] * b_dcidc(2);
-  // }
-  //
-  // (*_prop_dcidc[0])[_qp] = x_dcidc(0);
-  // (*_prop_dcidc[1])[_qp] = x_dcidc(1);
-  // (*_prop_dcidc[2])[_qp] = x_dcidc(2);
-
-  // ////////////////////////////////////////////////////////////////////////////////////////// compute coupled dcidb
-  // for (unsigned int n = 0; n < _num_other_b; ++n) // loop through other components
-  // {
-  //   RealVectorValue x_dcidb;
-  //   RealVectorValue b_dcidb{0,
-  //                           0,
-  //                           ((*_prop_dF1dc1db1[n])[_qp] * (*_prop_db1db[n])[_qp]) /
-  //                               ((*_second_dFi[0])[_qp] * (*_prop_dcidc[0])[_qp])};
-  //
-  //   for (unsigned int i = 0; i < _num_eta; ++i) // loop through phases
-  //   {
-  //     x_dcidb(i) = A[i][0] * b_dcidb(0) + A[i][1] * b_dcidb(1) + A[i][2] * b_dcidb(2);
-  //   }
-  //
-  //   (*_prop_coupled_dcidb[0][n])[_qp] = x_dcidb(0);
-  //   (*_prop_coupled_dcidb[1][n])[_qp] = x_dcidb(1);
-  //   (*_prop_coupled_dcidb[2][n])[_qp] = x_dcidb(2);
-  // }
-
-  // (*_prop_coupled_dcidb[0])[_qp] = 0; /// for decoupled ci and bi in energies
-  // (*_prop_coupled_dcidb[1])[_qp] = 0;
-  // (*_prop_coupled_dcidb[2])[_qp] = 0;
-
-  // RealVectorValue x_dcidb;
-  // RealVectorValue b_dcidb{0, 0, 0};
-  // for (unsigned int i = 0; i < _num_eta; ++i)
-  // {
-  //   x_dcidb(i) = A[i][0] * b_dcidb(0) + A[i][1] * b_dcidb(1) + A[i][2] * b_dcidb(2);
-  // }
-  //
-  // (*_prop_coupled_dcidb[0])[_qp] = x_dcidb(0);
-  // (*_prop_coupled_dcidb[1])[_qp] = x_dcidb(1);
-  // (*_prop_coupled_dcidb[2])[_qp] = x_dcidb(2);
-
-  // //////////////////////////////////////////////////////////////////////////////////////////// compute dc1deta1, dc2deta1, and dc3deta1
-  // RealVectorValue x_dcideta1;
-  // RealVectorValue b_dcideta1{0,
-  //                            0,
-  //                            -(*_prop_dhjdetai[0][0])[_qp] * (*_ci_prop[0])[_qp] -
-  //                                (*_prop_dhjdetai[1][0])[_qp] * (*_ci_prop[1])[_qp] -
-  //                                (*_prop_dhjdetai[2][0])[_qp] * (*_ci_prop[2])[_qp]};
-  //
-  // for (unsigned int i = 0; i < _num_eta; ++i)
-  // {
-  //   x_dcideta1(i) = A[i][0] * b_dcideta1(0) + A[i][1] * b_dcideta1(1) + A[i][2] * b_dcideta1(2);
-  // }
-  //
-  // (*_prop_dcidetaj[0][0])[_qp] = x_dcideta1(0);
-  // (*_prop_dcidetaj[0][1])[_qp] = x_dcideta1(1);
-  // (*_prop_dcidetaj[0][2])[_qp] = x_dcideta1(2);
-  //
-  // //////////////////////////////////////////////////////////////////////////////////////////// compute dc1deta2, dc2deta2, and dc3deta2
-  // RealVectorValue x_dcideta2;
-  // RealVectorValue b_dcideta2{0,
-  //                            0,
-  //                            -(*_prop_dhjdetai[0][1])[_qp] * (*_ci_prop[0])[_qp] -
-  //                                (*_prop_dhjdetai[1][1])[_qp] * (*_ci_prop[1])[_qp] -
-  //                                (*_prop_dhjdetai[2][1])[_qp] * (*_ci_prop[2])[_qp]};
-  //
-  // for (unsigned int i = 0; i < _num_eta; ++i)
-  // {
-  //   x_dcideta2(i) = A[i][0] * b_dcideta2(0) + A[i][1] * b_dcideta2(1) + A[i][2] * b_dcideta2(2);
-  // }
-  //
-  // (*_prop_dcidetaj[1][0])[_qp] = x_dcideta2(0);
-  // (*_prop_dcidetaj[1][1])[_qp] = x_dcideta2(1);
-  // (*_prop_dcidetaj[1][2])[_qp] = x_dcideta2(2);
-  //
-  // //////////////////////////////////////////////////////////////////////////////////////////// compute dc1deta3, dc2deta3, and dc3deta3
-  // RealVectorValue x_dcideta3;
-  // RealVectorValue b_dcideta3{0,
-  //                            0,
-  //                            -(*_prop_dhjdetai[0][2])[_qp] * (*_ci_prop[0])[_qp] -
-  //                                (*_prop_dhjdetai[1][2])[_qp] * (*_ci_prop[1])[_qp] -
-  //                                (*_prop_dhjdetai[2][2])[_qp] * (*_ci_prop[2])[_qp]};
-  //
-  // for (unsigned int i = 0; i < _num_eta; ++i)
-  // {
-  //   x_dcideta3(i) = A[i][0] * b_dcideta3(0) + A[i][1] * b_dcideta3(1) + A[i][2] * b_dcideta3(2);
-  // }
-  //
-  // (*_prop_dcidetaj[2][0])[_qp] = x_dcideta3(0);
-  // (*_prop_dcidetaj[2][1])[_qp] = x_dcideta3(1);
-  // (*_prop_dcidetaj[2][2])[_qp] = x_dcideta3(2);
+  for (unsigned int i = 0; i < _num_eta; ++i)
+    (*_ci_prop[i])[_qp] = solution[i];
 }

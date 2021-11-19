@@ -24,13 +24,6 @@ protected:
   virtual void computeQpProperties() override;
 
   const VariableValue & _c;
-
-  // const unsigned int _num_other_b;
-  // std::vector<MaterialPropertyName> _other_b1_names;
-  // std::vector<MaterialPropertyName> _other_db1db;
-  // std::vector<const MaterialProperty<Real> *> _prop_db1db;
-  // std::vector<const MaterialProperty<Real> *> _prop_dF1dc1db1;
-
   const unsigned int _num_eta;
   const std::vector<VariableName> _eta_names;
 
@@ -48,13 +41,6 @@ protected:
   // const std::vector<MaterialProperty<Real> *> _ci_old_prop;
 
   const std::vector<Real> _ci_IC;
-
-  // std::vector<MaterialPropertyName> _dcidc_names;
-  // std::vector<MaterialProperty<Real> *> _prop_dcidc;
-  // std::vector<MaterialPropertyName> _coupled_dcidb_names;
-
-  // std::vector<MaterialProperty<Real> *> _prop_coupled_dcidb;
-
   std::vector<MaterialPropertyName> _dcidetaj_names;
   std::vector<std::vector<MaterialProperty<Real> *>> _prop_dcidetaj;
 
