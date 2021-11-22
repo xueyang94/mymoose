@@ -17,22 +17,22 @@ KKSMultiACBulkF::validParams()
   InputParameters params = KKSMultiACBulkBase::validParams();
   params.addClassDescription("KKS model kernel (part 1 of 2) for the Bulk Allen-Cahn. This "
                              "includes all terms NOT dependent on chemical potential.");
-  params.addRequiredCoupledVar("global_c", "Global concentrations c, b, etc.");
+  params.addRequiredCoupledVar("global_cs", "Global concentrations c, b, etc.");
   params.addRequiredCoupledVar("etas", "Order parameters for all phases.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "c1_names",
-      "Phase concentrations in the frist phase of etas. The order must match global_c, for "
+      "Phase concentrations in the frist phase of etas. The order must match global_cs, for "
       "example, c1, b1, etc.");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dcidb_names",
       "The phase concentrations taken derivatives wrt global concentrations. i must match the "
-      "order of etas. ci and b must match the order of global_c. First keep the same b and loop "
+      "order of etas. ci and b must match the order of global_cs. First keep the same b and loop "
       "through ci for one species, for example, dc1dc, dc2dc, dc3dc, "
       "dc1db, dc2db, dc3db, db1dc, db2dc, db3dc, db1db, db2db, db3db, etc.");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dcidetaj_names",
       "The phase concentrations taken derivatives wrt kernel variable. ci must match the order in "
-      "global_c and etas, and etaj must match the order in etas, for example, dc1deta1, dc2deta1, "
+      "global_cs and etas, and etaj must match the order in etas, for example, dc1deta1, dc2deta1, "
       "dc3deta1, dc1deta2...dc1deta3...db1deta1...db2deta1...db3deta1..., etc.");
   params.addRequiredParam<Real>("wi", "Double well height parameter.");
   params.addRequiredParam<MaterialPropertyName>(
@@ -42,9 +42,9 @@ KKSMultiACBulkF::validParams()
 
 KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
   : KKSMultiACBulkBase(parameters),
-    _c_names(coupledComponents("global_c")),
-    _c_map(getParameterJvarMap("global_c")),
-    _num_c(coupledComponents("global_c")),
+    _c_names(coupledComponents("global_cs")),
+    _c_map(getParameterJvarMap("global_cs")),
+    _num_c(coupledComponents("global_cs")),
     _eta_names(coupledComponents("etas")),
     _eta_map(getParameterJvarMap("etas")),
     _k(-1),

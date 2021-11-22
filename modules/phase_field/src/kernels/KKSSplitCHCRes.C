@@ -20,37 +20,24 @@ KKSSplitCHCRes::validParams()
       "KKS model kernel for the split Bulk Cahn-Hilliard term. This kernel operates on the "
       "physical concentration 'c' as the non-linear variable");
   params.addCoupledVar("etas", "Order parameters for all phases.");
-  params.addRequiredCoupledVar("coupled_global_b",
-                               "The coupled interpolated concentration s, l, etc");
-  params.addRequiredCoupledVar("w",
-                               "Chemical potential non-linear helper variable for the split solve");
-  params.addRequiredParam<MaterialPropertyName>("c1_name", "c1");
+  params.addCoupledVar("global_cs", "Global concentrations c, b, etc.");
+  params.addCoupledVar("w", "Chemical potential non-linear helper variable for the split solve");
   params.addParam<std::vector<MaterialPropertyName>>(
-      "coupled_b1",
-      "The phase concentration of coupled_global_b in F1. The order must match coupled_global_b.");
-
-  params.addRequiredParam<MaterialPropertyName>("dc1dc_name", "The name of dc1/dc");
+      "c1_names",
+      "Phase concentrations in the frist phase of etas. The order must match global_c, for "
+      "example, c1, b1, etc.");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dc1db_names",
-      "The derivatives of the phase concentration c1 (corresponding to the kernel global c) wrt "
-      "coupled global concentrations. The order must match coupled_global_b.");
+      "The phase concentrations of the frist phase in Fj_names taken derivatives wrt global "
+      "concentrations.  c1 and b must match the order of global_c. First keep the same c1 and loop "
+      "through b for one species, for example, dc1dc, dc1db, db1dc, db1db");
   params.addParam<std::vector<MaterialPropertyName>>(
-      "db1dc_names",
-      "The phase concentration of other_global_b in the frist phase of Fj_names taken derivative"
-      "wrt kernel variable. The b1 order must match other_global_b.");
-  params.addParam<std::vector<MaterialPropertyName>>(
-      "db1db_names",
-      "The phase concentration of coupled_global_b in F1 taken derivative of the corresponding "
-      "coupled_global_b. The order must match coupled_global_b.");
-  params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "dc1detaj_names",
-      "The names of dc1/detaj must be in the same order as etas, for exemple, dc1deta1, dc2deta1, "
-      "dc3deta1, etc");
-  params.addParam<std::vector<MaterialPropertyName>>(
-      "db1detaj_names",
-      "The phase concentration of other_global_b in the first phase of Fj_names taken derivative "
-      "wrt eta. b1 must match the order of other_global_b. etaj must match the order of etas.");
-  params.addRequiredParam<MaterialPropertyName>("F1_name", "F1");
+      "The phase concentrations of the first phase in Fj_names taken derivatives wrt etas. c1 must "
+      "match the order in global_c, and etaj must match the order in etas. First keep the same c1 "
+      "and loop through eta, for example, dc1deta1, "
+      "dc1deta2, db1deta1, db1deta2.");
+  params.addParam<MaterialPropertyName>("F1_name", "F1");
   return params;
 }
 
@@ -60,59 +47,58 @@ KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
     _eta_names(coupledComponents("etas")),
     _eta_map(getParameterJvarMap("etas")),
     _num_j(_eta_names.size()),
-    _coupled_b_map(getParameterJvarMap("coupled_global_b")),
-    _num_coupled_b(coupledComponents("coupled_global_b")),
+    _c_names(coupledComponents("global_cs")),
+    _c_map(getParameterJvarMap("global_cs")),
+    _num_c(coupledComponents("global_cs")),
+    _o(-1), // position of nonlinear variable c in the list of global_cs
     _w_var(coupled("w")),
     _w(coupledValue("w")),
-    _c1_name(getParam<MaterialPropertyName>("c1_name")),
-    _coupled_b1_names(getParam<std::vector<MaterialPropertyName>>("coupled_b1")),
-
-    _dc1dc(getMaterialProperty<Real>("dc1dc_name")),
+    _c1_names(getParam<std::vector<MaterialPropertyName>>("c1_names")),
     _dc1db_names(getParam<std::vector<MaterialPropertyName>>("dc1db_names")),
-    _prop_dc1db(_num_coupled_b),
-    _db1dc_names(getParam<std::vector<MaterialPropertyName>>("db1dc_names")),
-    _prop_db1dc(_num_coupled_b),
-    _db1db_names(getParam<std::vector<MaterialPropertyName>>("db1db_names")),
-    _prop_db1db(_num_coupled_b),
+    _prop_dc1db(_num_c),
+
     _dc1detaj_names(getParam<std::vector<MaterialPropertyName>>("dc1detaj_names")),
-    _prop_dc1detaj(_num_j),
-    _db1detaj_names(getParam<std::vector<MaterialPropertyName>>("db1detaj_names")),
-    _prop_db1detaj(_num_coupled_b),
+    _prop_dc1detaj(_num_c),
 
     _F1_name(getParam<MaterialPropertyName>("F1_name")),
-    _first_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name)),
-    _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
-    _prop_d2F1dc1db1(_num_coupled_b)
+    _first_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_names[0])),
+    _prop_d2F1dc1db1(_num_c)
 
 {
+  for (unsigned int i = 0; i < _num_c; ++i)
+  {
+    // get c names and variable indices
+    _c_names[i] = getVar("global_cs", i)->name();
+
+    // Set _o to the position of the nonlinear variable in the list of global_cs
+    if (coupled("global_cs", i) == _var.number())
+      _o = i;
+  }
+
   // initialize _prop_dc1db
-  for (unsigned int i = 0; i < _num_coupled_b; ++i)
-    _prop_dc1db[i] = &getMaterialPropertyByName<Real>(_dc1db_names[i]);
+  for (unsigned int m = 0; m < _num_c; ++m)
+  {
+    _prop_dc1db[m].resize(_num_c);
 
-  // initialize _prop_db1dc
-  for (unsigned int i = 0; i < _num_coupled_b; ++i)
-    _prop_db1dc[i] = &getMaterialPropertyByName<Real>(_db1dc_names[i]);
-
-  // initialize _prop_db1db
-  for (unsigned int i = 0; i < _num_coupled_b; ++i)
-    _prop_db1db[i] = &getMaterialPropertyByName<Real>(_db1db_names[i]);
+    for (unsigned int n = 0; n < _num_c; ++n)
+    {
+      _prop_dc1db[m][n] = &getMaterialPropertyByName<Real>(_dc1db_names[m * _num_c + n]);
+    }
+  }
 
   // initialize _prop_dc1detaj
-  for (unsigned int i = 0; i < _num_j; ++i)
-    _prop_dc1detaj[i] = &getMaterialPropertyByName<Real>(_dc1detaj_names[i]);
-
-  // initialize _prop_db1detaj
-  for (unsigned int m = 0; m < _num_coupled_b; ++m)
+  for (unsigned int m = 0; m < _num_c; ++m)
   {
-    _prop_db1detaj[m].resize(_num_j);
+    _prop_dc1detaj[m].resize(_num_j);
+
     for (unsigned int n = 0; n < _num_j; ++n)
-      _prop_db1detaj[m][n] = &getMaterialPropertyByName<Real>(_db1detaj_names[m * _num_j + n]);
+      _prop_dc1detaj[m][n] = &getMaterialPropertyByName<Real>(_dc1detaj_names[m * _num_j + n]);
   }
 
   // initialize _prop_d2F1dc1db1
-  for (unsigned int i = 0; i < _num_coupled_b; ++i)
+  for (unsigned int i = 0; i < _num_c; ++i)
     _prop_d2F1dc1db1[i] =
-        &getMaterialPropertyDerivative<Real>(_F1_name, _c1_name, _coupled_b1_names[i]);
+        &getMaterialPropertyDerivative<Real>(_F1_name, _c1_names[0], _c1_names[i]);
 }
 
 Real
@@ -124,46 +110,43 @@ KKSSplitCHCRes::computeQpResidual()
 Real
 KKSSplitCHCRes::computeQpJacobian()
 {
-  Real factor = 0.0;
-  factor = _second_df1[_qp] * _dc1dc[_qp];
+  Real sum = 0.0;
 
-  for (unsigned int n = 0; n < _num_coupled_b; ++n)
-    factor += (*_prop_d2F1dc1db1[n])[_qp] * (*_prop_db1dc[n])[_qp];
+  for (unsigned int m = 0; m < _num_c; ++m)
+    sum += (*_prop_d2F1dc1db1[m])[_qp] * (*_prop_dc1db[m][_o])[_qp];
 
-  return factor * _phi[_j][_qp] * _test[_i][_qp];
+  return sum * _phi[_j][_qp] * _test[_i][_qp];
 }
 
 Real
 KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
 {
-  Real factor = 0.0;
+  Real sum = 0.0;
 
   // treat w variable explicitly
   if (jvar == _w_var)
     return -_phi[_j][_qp] * _test[_i][_qp];
 
   // if b is the coupled variable
-  auto coupled_b_var = mapJvarToCvar(jvar, _coupled_b_map);
-  if (coupled_b_var >= 0)
+  auto compvar = mapJvarToCvar(jvar, _c_map);
+  if (compvar >= 0)
   {
-    factor = _second_df1[_qp] * (*_prop_dc1db[coupled_b_var])[_qp];
+    // This can be further improve by not looping the nonlinear variable c because dRdc is
+    // on-diagonal
+    for (unsigned int m = 0; m < _num_c; ++m)
+      sum += (*_prop_d2F1dc1db1[m])[_qp] * (*_prop_dc1db[m][compvar])[_qp];
 
-    for (unsigned int n = 0; n < _num_coupled_b; ++n)
-      factor += (*_prop_d2F1dc1db1[n])[_qp] * (*_prop_db1db[n])[_qp];
-
-    return factor * _phi[_j][_qp] * _test[_i][_qp];
+    return sum * _phi[_j][_qp] * _test[_i][_qp];
   }
 
   // if order parameters are the coupled variables
   auto etavar = mapJvarToCvar(jvar, _eta_map);
   if (etavar >= 0)
   {
-    factor = _second_df1[_qp] * (*_prop_dc1detaj[etavar])[_qp];
+    for (unsigned int m = 0; m < _num_c; ++m)
+      sum += (*_prop_d2F1dc1db1[m])[_qp] * (*_prop_dc1detaj[m][etavar])[_qp];
 
-    for (unsigned int n = 0; n < _num_coupled_b; ++n)
-      factor += (*_prop_d2F1dc1db1[n])[_qp] * (*_prop_db1detaj[n][etavar])[_qp];
-
-    return factor * _phi[_j][_qp] * _test[_i][_qp];
+    return sum * _phi[_j][_qp] * _test[_i][_qp];
   }
 
   return 0.0;
