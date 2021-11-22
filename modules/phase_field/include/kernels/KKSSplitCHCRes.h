@@ -45,28 +45,21 @@ protected:
   std::vector<VariableName> _eta_names;
   const JvarMap & _eta_map;
   unsigned int _num_j;
-  const JvarMap & _coupled_b_map;
-  unsigned int _num_coupled_b;
+  std::vector<VariableName> _c_names;
+  const JvarMap & _c_map;
+  unsigned int _num_c;
+  int _o;
   /// Chemical potential
   unsigned int _w_var;
   const VariableValue & _w;
-  const MaterialPropertyName _c1_name;
-  std::vector<MaterialPropertyName> _coupled_b1_names;
-
-  const MaterialProperty<Real> & _dc1dc;
+  std::vector<MaterialPropertyName> _c1_names;
   std::vector<MaterialPropertyName> _dc1db_names;
-  std::vector<const MaterialProperty<Real> *> _prop_dc1db;
-  std::vector<MaterialPropertyName> _db1dc_names;
-  std::vector<const MaterialProperty<Real> *> _prop_db1dc;
-  std::vector<MaterialPropertyName> _db1db_names;
-  std::vector<const MaterialProperty<Real> *> _prop_db1db;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dc1db;
+
   std::vector<MaterialPropertyName> _dc1detaj_names;
-  std::vector<const MaterialProperty<Real> *> _prop_dc1detaj;
-  std::vector<MaterialPropertyName> _db1detaj_names;
-  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_db1detaj;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dc1detaj;
 
   const MaterialPropertyName _F1_name;
   const MaterialProperty<Real> & _first_df1;
-  const MaterialProperty<Real> & _second_df1;
   std::vector<const MaterialProperty<Real> *> _prop_d2F1dc1db1;
 };
