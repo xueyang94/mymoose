@@ -18,7 +18,8 @@ KKSMultiACBulkC::validParams()
   params.addClassDescription("Multi-phase KKS model kernel (part 2 of 2) for the Bulk Allen-Cahn. "
                              "This includes all terms dependent on chemical potential.");
   params.addRequiredCoupledVar(
-      "global_cs", "The global concentration of the component corresponding to ci_names.");
+      "global_cs",
+      "The global concentration of the component corresponding to ci_names, for example, c, b.");
   params.addRequiredCoupledVar(
       "etas", "Order parameters for all phases. Place in the same order as Fj_names.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
@@ -207,6 +208,7 @@ KKSMultiACBulkC::computeDFDOP(PFFunctionType type)
 
       return -sum * _phi[_j][_qp];
   }
+
   mooseError("Invalid type passed in");
 }
 
@@ -216,12 +218,12 @@ KKSMultiACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
   // first get dependence of mobility _L on other variables using parent class member function Real
   Real res = ACBulk<Real>::computeQpOffDiagJacobian(jvar);
 
+  Real sum = 0.0;
+
   // if other cs are the coupled variables
   auto compvar = mapJvarToCvar(jvar, _c_map);
   if (compvar >= 0)
   {
-    Real sum = 0.0;
-
     for (unsigned int m = 0; m < _num_c; ++m)
     {
       Real sum1 = 0.0;
@@ -252,8 +254,6 @@ KKSMultiACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
   auto etavar = mapJvarToCvar(jvar, _eta_map);
   if (etavar >= 0)
   {
-    Real sum = 0.0;
-
     for (unsigned int m = 0; m < _num_c; ++m)
     {
       Real sum1 = 0.0;

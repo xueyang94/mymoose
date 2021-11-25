@@ -127,8 +127,8 @@ KKSMultiACBulkF::computeDFDOP(PFFunctionType type)
   switch (type)
   {
     case Residual:
-      for (unsigned int n = 0; n < _num_j; ++n)
-        sum += (*_prop_dhjdetai[n])[_qp] * (*_prop_Fj[n])[_qp];
+      for (unsigned int m = 0; m < _num_j; ++m)
+        sum += (*_prop_dhjdetai[m])[_qp] * (*_prop_Fj[m])[_qp];
 
       return sum + _wi * _dgi[_qp];
 
@@ -141,16 +141,18 @@ KKSMultiACBulkF::computeDFDOP(PFFunctionType type)
       // For when eta_i is the nonlinear variable
       for (unsigned int m = 0; m < _num_j; ++m)
       {
-        Real factor = 0.0;
-        for (unsigned int n = 0; n < _num_c; ++n)
-          factor += (*_dF1dc1[n])[_qp] * (*_prop_dcidetaj[n][m][_k])[_qp];
+        Real sum1 = 0.0;
 
-        sum += (*_d2hjdetaidetap[m][_k])[_qp] * (*_prop_Fj[m])[_qp] +
-               (*_prop_dhjdetai[m])[_qp] * factor;
+        for (unsigned int n = 0; n < _num_c; ++n)
+          sum1 += (*_dF1dc1[n])[_qp] * (*_prop_dcidetaj[n][m][_k])[_qp];
+
+        sum +=
+            (*_d2hjdetaidetap[m][_k])[_qp] * (*_prop_Fj[m])[_qp] + (*_prop_dhjdetai[m])[_qp] * sum1;
       }
 
       return _phi[_j][_qp] * (sum + _wi * _d2gi[_qp]);
   }
+
   mooseError("Invalid type passed in");
 }
 
@@ -168,11 +170,12 @@ KKSMultiACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
   {
     for (unsigned int m = 0; m < _num_j; ++m)
     {
-      Real factor = 0.0;
-      for (unsigned int n = 0; n < _num_c; ++n)
-        factor += (*_dF1dc1[n])[_qp] * (*_prop_dcidb[n][m][compvar])[_qp];
+      Real sum1 = 0.0;
 
-      sum += (*_prop_dhjdetai[m])[_qp] * factor;
+      for (unsigned int n = 0; n < _num_c; ++n)
+        sum1 += (*_dF1dc1[n])[_qp] * (*_prop_dcidb[n][m][compvar])[_qp];
+
+      sum += (*_prop_dhjdetai[m])[_qp] * sum1;
     }
 
     res += _L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
@@ -186,12 +189,13 @@ KKSMultiACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
   {
     for (unsigned int m = 0; m < _num_j; ++m)
     {
-      Real factor = 0.0;
+      Real sum1 = 0.0;
+
       for (unsigned int n = 0; n < _num_c; ++n)
-        factor += (*_dF1dc1[n])[_qp] * (*_prop_dcidetaj[n][m][etavar])[_qp];
+        sum1 += (*_dF1dc1[n])[_qp] * (*_prop_dcidetaj[n][m][etavar])[_qp];
 
       sum += (*_d2hjdetaidetap[m][etavar])[_qp] * (*_prop_Fj[m])[_qp] +
-             (*_prop_dhjdetai[m])[_qp] * factor;
+             (*_prop_dhjdetai[m])[_qp] * sum1;
     }
 
     res += _L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
@@ -199,20 +203,22 @@ KKSMultiACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
     return res;
   }
 
-  // get the coupled variable jvar is referring to
-  const unsigned int cvar = mapJvarToCvar(jvar);
-  // add dependence of KKSMultiACBulkF on other variables
-  for (unsigned int n = 0; n < _num_j; ++n)
-    sum += (*_prop_d2hjdetaidarg[n][cvar])[_qp] * (*_prop_Fj[n])[_qp] +
-           (*_prop_dhjdetai[n])[_qp] * (*_prop_dFjdarg[n][cvar])[_qp];
+  // // get the coupled variable jvar is referring to
+  // const unsigned int cvar = mapJvarToCvar(jvar);
+  // // add dependence of KKSMultiACBulkF on other variables
+  // for (unsigned int n = 0; n < _num_j; ++n)
+  //   sum += (*_prop_d2hjdetaidarg[n][cvar])[_qp] * (*_prop_Fj[n])[_qp] +
+  //          (*_prop_dhjdetai[n])[_qp] * (*_prop_dFjdarg[n][cvar])[_qp];
 
   // Handle the case when this kernel is used in the Lagrange multiplier equation
   // In this case the second derivative of the barrier function contributes
   // to the off-diagonal Jacobian
   if (jvar == _etai_var)
+  {
     sum += _wi * _d2gi[_qp];
 
-  res += _L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
+    res += _L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
+  }
 
   return res;
 }
