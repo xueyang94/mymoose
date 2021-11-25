@@ -155,7 +155,7 @@ PhaseConcentrationDerivatives::PhaseConcentrationDerivatives(const InputParamete
 void
 PhaseConcentrationDerivatives::computeQpProperties()
 {
-  ///////////////////////////////////////////////////////////////////////////////////// solve linear system of constraint derivatives wrt c for computing dcidc and dbidc
+  /////////////////////////////////////////////////////////////////////////////////////////////////// solve linear system of constraint derivatives wrt c for computing dcidc and dbidc
   // loop through taking derivative wrt the ith component, each i constructs a A_c
   for (unsigned int i = 0; i < _num_c; ++i)
   {
