@@ -45,7 +45,6 @@ protected:
   std::vector<VariableName> _eta_names;
   const JvarMap & _eta_map;
   unsigned int _num_j;
-  std::vector<VariableName> _c_names;
   const JvarMap & _c_map;
   unsigned int _num_c;
   int _o;
@@ -60,6 +59,6 @@ protected:
   std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dc1detaj;
 
   const MaterialPropertyName _F1_name;
-  const MaterialProperty<Real> & _first_df1;
+  std::vector<const MaterialProperty<Real> *> _prop_dF1dc1;
   std::vector<const MaterialProperty<Real> *> _prop_d2F1dc1db1;
 };

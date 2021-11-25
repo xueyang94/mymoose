@@ -29,7 +29,6 @@ protected:
 
   std::vector<MaterialPropertyName> _hj_names;
   std::vector<const MaterialProperty<Real> *> _prop_hj;
-  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dhjdetai;
 
   std::vector<MaterialPropertyName> _ci_names;
   std::vector<MaterialProperty<Real> *> _ci_prop;

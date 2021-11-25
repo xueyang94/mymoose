@@ -47,7 +47,6 @@ KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
     _eta_names(coupledComponents("etas")),
     _eta_map(getParameterJvarMap("etas")),
     _num_j(_eta_names.size()),
-    _c_names(coupledComponents("global_cs")),
     _c_map(getParameterJvarMap("global_cs")),
     _num_c(coupledComponents("global_cs")),
     _o(-1), // position of nonlinear variable c in the list of global_cs
@@ -61,15 +60,12 @@ KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
     _prop_dc1detaj(_num_c),
 
     _F1_name(getParam<MaterialPropertyName>("F1_name")),
-    _first_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_names[0])),
+    _prop_dF1dc1(_num_c),
     _prop_d2F1dc1db1(_num_c)
 
 {
   for (unsigned int i = 0; i < _num_c; ++i)
   {
-    // get c names and variable indices
-    _c_names[i] = getVar("global_cs", i)->name();
-
     // Set _o to the position of the nonlinear variable in the list of global_cs
     if (coupled("global_cs", i) == _var.number())
       _o = i;
@@ -95,16 +91,21 @@ KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
       _prop_dc1detaj[m][n] = &getMaterialPropertyByName<Real>(_dc1detaj_names[m * _num_j + n]);
   }
 
-  // initialize _prop_d2F1dc1db1
   for (unsigned int i = 0; i < _num_c; ++i)
+  {
+    // initialize _prop_dF1dc1
+    _prop_dF1dc1[i] = &getMaterialPropertyDerivative<Real>(_F1_name, _c1_names[i]);
+
+    // initialize _prop_d2F1dc1db1
     _prop_d2F1dc1db1[i] =
-        &getMaterialPropertyDerivative<Real>(_F1_name, _c1_names[0], _c1_names[i]);
+        &getMaterialPropertyDerivative<Real>(_F1_name, _c1_names[_o], _c1_names[i]);
+  }
 }
 
 Real
 KKSSplitCHCRes::computeQpResidual()
 {
-  return (_first_df1[_qp] - _w[_qp]) * _test[_i][_qp];
+  return ((*_prop_dF1dc1[_o])[_qp] - _w[_qp]) * _test[_i][_qp];
 }
 
 Real

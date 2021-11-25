@@ -55,7 +55,6 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _eta_names(coupledNames("all_etas")),
     _hj_names(getParam<std::vector<MaterialPropertyName>>("hj_names")),
     _prop_hj(_num_eta),
-    _prop_dhjdetai(_num_eta),
 
     _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),
     _ci_prop(_num_eta),
@@ -113,11 +112,6 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 
     // declare h and dh material properties
     _prop_hj[m] = &getMaterialPropertyByName<Real>(_hj_names[m]);
-
-    // _prop_dhjdetai[m][n] is the derivative of h_j w.r.t. eta_i
-    _prop_dhjdetai[m].resize(_num_eta);
-    for (unsigned int n = 0; n < _num_eta; ++n)
-      _prop_dhjdetai[m][n] = &getMaterialPropertyDerivative<Real>(_hj_names[m], _eta_names[n]);
   }
 }
 
@@ -127,14 +121,6 @@ SubConcentration::initQpStatefulProperties()
   for (unsigned int i = 0; i < _num_eta; ++i)
     (*_ci_prop[i])[_qp] = _ci_IC[i];
 }
-
-// // This function is also defined in NestedSolve.C (protected)
-// // And the inverse() method does not give the inverse of A, strange
-// void
-// linear(RankTwoTensor A, RealVectorValue & x, RealVectorValue b)
-// {
-//   x = A.inverse() * b;
-// }
 
 void
 SubConcentration::computeQpProperties()
@@ -157,24 +143,36 @@ SubConcentration::computeQpProperties()
     _f1.computePropertiesAtQp(_qp);
     _f2.computePropertiesAtQp(_qp);
     _f3.computePropertiesAtQp(_qp);
-    // _fi_material[0]->computePropertiesAtQp(_qp);
-    // _fi_material[1]->computePropertiesAtQp(_qp);
-    // _fi_material[2]->computePropertiesAtQp(_qp);
 
-    residual(0) = (*_first_dFi[0])[_qp] - (*_first_dFi[1])[_qp];
-    residual(1) = (*_first_dFi[1])[_qp] - (*_first_dFi[2])[_qp];
-    residual(2) = (*_prop_hj[0])[_qp] * guess(0) + (*_prop_hj[1])[_qp] * guess(1) +
-                  (*_prop_hj[2])[_qp] * guess(2) - _c[_qp];
+    // assign the equal chemical potential equations in residual
+    for (unsigned int m = 0; m < (_num_eta - 1); ++m)
+      residual(m) = (*_first_dFi[m])[_qp] - (*_first_dFi[m + 1])[_qp];
 
-    jacobian(0, 0) = (*_second_dFi[0])[_qp];
-    jacobian(0, 1) = -(*_second_dFi[1])[_qp];
-    jacobian(0, 2) = 0;
-    jacobian(1, 0) = 0;
-    jacobian(1, 1) = (*_second_dFi[1])[_qp];
-    jacobian(1, 2) = -(*_second_dFi[2])[_qp];
-    jacobian(2, 0) = (*_prop_hj[0])[_qp];
-    jacobian(2, 1) = (*_prop_hj[1])[_qp];
-    jacobian(2, 2) = (*_prop_hj[2])[_qp];
+    // assign the concentration conservation equation in residual
+    Real sum = 0;
+
+    for (unsigned int m = 0; m < _num_eta; ++m)
+      sum += (*_prop_hj[m])[_qp] * guess(m);
+
+    residual(_num_eta - 1) = sum - _c[_qp];
+
+    // initialize all elements in jacobian to be zero
+    for (unsigned int m = 0; m < _num_eta; ++m)
+    {
+      for (unsigned int n = 0; n < _num_eta; ++n)
+        jacobian(m, n) = 0;
+    }
+
+    // assign the equal chemical potential equations in jacobian
+    for (unsigned int m = 0; m < (_num_eta - 1); ++m)
+    {
+      jacobian(m, m) = (*_second_dFi[m])[_qp];
+      jacobian(m, m + 1) = -(*_second_dFi[m + 1])[_qp];
+    }
+
+    // assign the concentration conservation equations in jacobian
+    for (unsigned int m = 0; m < _num_eta; ++m)
+      jacobian(_num_eta - 1, m) = (*_prop_hj[m])[_qp];
   };
 
   _nested_solve.nonlinear(solution, compute);
