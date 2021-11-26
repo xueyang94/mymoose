@@ -157,10 +157,11 @@ PhaseConcentrationDerivatives::computeQpProperties()
         // equal chemical potential derivative equations
         A_c[m * _num_eta][n * _num_eta] = (*_d2Fjdcjdbj[0][m][n])[_qp];
         A_c[m * _num_eta][n * _num_eta + 1] = -(*_d2Fjdcjdbj[1][m][n])[_qp];
-        // concentration conservation derivative equations
-        A_c[m * _num_eta + 1][n * _num_eta] = (1 - _prop_h[_qp]);
-        A_c[m * _num_eta + 1][n * _num_eta + 1] = _prop_h[_qp];
       }
+
+      // concentration conservation derivative equations
+      A_c[m * _num_eta + 1][m * _num_eta] = 1 - _prop_h[_qp];
+      A_c[m * _num_eta + 1][m * _num_eta + 1] = _prop_h[_qp];
     }
 
     MatrixTools::inverse(A_c, A_c);
@@ -212,10 +213,11 @@ PhaseConcentrationDerivatives::computeQpProperties()
       // equal chemical potential derivative equations
       A_eta[m * _num_eta][n * _num_eta] = (*_d2Fjdcjdbj[0][m][n])[_qp];
       A_eta[m * _num_eta][n * _num_eta + 1] = -(*_d2Fjdcjdbj[1][m][n])[_qp];
-      // concentration conservation derivative equations
-      A_eta[m * _num_eta + 1][n * _num_eta] = (1 - _prop_h[_qp]);
-      A_eta[m * _num_eta + 1][n * _num_eta + 1] = _prop_h[_qp];
     }
+
+    // concentration conservation derivative equations
+    A_eta[m * _num_eta + 1][m * _num_eta] = (1 - _prop_h[_qp]);
+    A_eta[m * _num_eta + 1][m * _num_eta + 1] = _prop_h[_qp];
   }
 
   MatrixTools::inverse(A_eta, A_eta);

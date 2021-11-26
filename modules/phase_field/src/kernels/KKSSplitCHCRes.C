@@ -40,7 +40,7 @@ KKSSplitCHCRes::validParams()
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
   : DerivativeMaterialInterface<JvarMapKernelInterface<Kernel>>(parameters),
     // : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
-    _num_j(2),
+    // _num_j(2),
     _c_map(getParameterJvarMap("global_cs")),
     _num_c(coupledComponents("global_cs")),
     _o(-1), // position of nonlinear variable c in the list of global_cs

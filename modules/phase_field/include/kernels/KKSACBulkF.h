@@ -33,8 +33,8 @@ protected:
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
   const JvarMap & _c_map;
-  unsigned int _num_c;
-  unsigned int _num_j;
+  const unsigned int _num_c;
+  const unsigned int _num_j;
   std::vector<MaterialPropertyName> _ci_names;
   std::vector<std::vector<MaterialPropertyName>> _ci_name_matrix;
   std::vector<MaterialPropertyName> _dcidb_names;

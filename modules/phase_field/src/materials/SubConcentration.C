@@ -50,21 +50,16 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _c(coupledValue("global_c")),
     _eta(coupledValue("eta")),
     _prop_h(getMaterialProperty<Real>("h_name")),
-
     _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),
     _prop_ci(2),
-
     _c1_old(getMaterialPropertyOld<Real>("c1_name")), // old
     _c2_old(getMaterialPropertyOld<Real>("c2_name")), // old
     _ci_IC(getParam<std::vector<Real>>("ci_IC")),
-
     _f1(getMaterial("F1_material")),
     _f2(getMaterial("F2_material")),
-
     _Fi_names(getParam<std::vector<MaterialPropertyName>>("Fi_names")),
     _first_dFi(2),
     _second_dFi(2),
-
     _iter(declareProperty<Real>("nested_iterations")),
     _abs_tol(getParam<Real>("absolute_tolerance")),
     _rel_tol(getParam<Real>("relative_tolerance")),
