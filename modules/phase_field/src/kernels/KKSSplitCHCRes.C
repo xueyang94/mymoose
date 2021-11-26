@@ -62,7 +62,6 @@ KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
     _F1_name(getParam<MaterialPropertyName>("F1_name")),
     _prop_dF1dc1(_num_c),
     _prop_d2F1dc1db1(_num_c)
-
 {
   for (unsigned int i = 0; i < _num_c; ++i)
   {
