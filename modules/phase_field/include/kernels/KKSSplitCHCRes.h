@@ -42,8 +42,6 @@ protected:
   virtual Real computeQpJacobian();
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-  std::vector<VariableName> _eta_names;
-  const JvarMap & _eta_map;
   unsigned int _num_j;
   const JvarMap & _c_map;
   unsigned int _num_c;
@@ -51,12 +49,13 @@ protected:
   /// Chemical potential
   unsigned int _w_var;
   const VariableValue & _w;
+  unsigned int _eta_var;
   std::vector<MaterialPropertyName> _c1_names;
   std::vector<MaterialPropertyName> _dc1db_names;
   std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dc1db;
 
-  std::vector<MaterialPropertyName> _dc1detaj_names;
-  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dc1detaj;
+  std::vector<MaterialPropertyName> _dc1deta_names;
+  std::vector<const MaterialProperty<Real> *> _prop_dc1deta;
 
   const MaterialPropertyName _F1_name;
   std::vector<const MaterialProperty<Real> *> _prop_dF1dc1;

@@ -14,90 +14,169 @@ registerMooseObject("PhaseFieldApp", KKSACBulkC);
 InputParameters
 KKSACBulkC::validParams()
 {
-  // InputParameters params = Kernel::validParams();
-  InputParameters params = DerivativeMaterialInterface<Kernel>::validParams();
+  InputParameters params = KKSACBulkBase::validParams();
   params.addClassDescription("KKS model kernel (part 2 of 2) for the Bulk Allen-Cahn. This "
                              "includes all terms dependent on chemical potential.");
-  params.addRequiredParam<MaterialPropertyName>("c1_name", "The name of c1");
-  params.addRequiredParam<MaterialPropertyName>("c2_name", "The name of c2");
-  params.addRequiredParam<MaterialPropertyName>("dc1dc_name", "The name of dc1/dc");
-  params.addRequiredParam<MaterialPropertyName>("dc2dc_name", "The name of dc2/dc");
-  params.addRequiredParam<MaterialPropertyName>("dc1deta_name", "The name of dc1/deta");
-  params.addRequiredParam<MaterialPropertyName>("dc2deta_name", "The name of dc2/deta");
-  params.addRequiredParam<MaterialPropertyName>("F1_name",
-                                                "The name of the bulk energy of phase 1");
-  params.addRequiredParam<MaterialPropertyName>("F2_name",
-                                                "The name of the bulk energy of phase 2");
+  params.addRequiredCoupledVar(
+      "global_cs",
+      "The global concentration of the component corresponding to ci_names, for example, c, b.");
+  params.addRequiredParam<std::vector<MaterialPropertyName>>(
+      "ci_names",
+      "Phase concentrations. These must have the same order as Fj_names and global_cs, for "
+      "example, c1, c2, b1, b2.");
+  params.addParam<std::vector<MaterialPropertyName>>(
+      "dcidb_names",
+      "Coupled dcidb in the order of dc1dc, dc2dc, dc1db, dc2db, db1dc, db2dc, db1db, db2db. These "
+      "must have the same order as Fj_names and ci_names");
+  params.addParam<std::vector<MaterialPropertyName>>(
+      "dcideta_names",
+      "The phase concentrations taken derivatives wrt kernel variable. ci must match the order in "
+      "ci_names, for example, dc1deta, dc2deta, db1deta, db2deta, etc");
   params.addRequiredParam<MaterialPropertyName>("L_name", "The name of the Allen-Cahn mobility");
-  params.addRequiredCoupledVar("w",
-                               "Chemical potential non-linear helper variable for the split solve");
   return params;
 }
 
 KKSACBulkC::KKSACBulkC(const InputParameters & parameters)
-  // : Kernel(parameters),
-  : DerivativeMaterialInterface<Kernel>(parameters),
-    _c1(getMaterialProperty<Real>("c1_name")),
-    _c2(getMaterialProperty<Real>("c2_name")),
-    _dc1dc(getMaterialProperty<Real>("dc1dc_name")),
-    _dc2dc(getMaterialProperty<Real>("dc2dc_name")),
-    _dc1deta(getMaterialProperty<Real>("dc1deta_name")),
-    _dc2deta(getMaterialProperty<Real>("dc2deta_name")),
-    _c1_name("c1"),
-    _c2_name("c2"),
-    _first_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name)),
-    _second_df1(getMaterialPropertyDerivative<Real>("F1_name", _c1_name, _c1_name)),
+  : KKSACBulkBase(parameters),
+    _c_names(coupledComponents("global_cs")),
+    _c_map(getParameterJvarMap("global_cs")),
+    _num_c(coupledComponents("global_cs")),
+    _num_j(2),
+    _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),
+    _ci_name_matrix(_num_c),
+    _prop_ci(_num_c),
+    _dcidb_names(getParam<std::vector<MaterialPropertyName>>("dcidb_names")),
+    _prop_dcidb(_num_c),
+    _dcideta_names(getParam<std::vector<MaterialPropertyName>>("dcideta_names")),
+    _prop_dcideta(_num_c),
     _L(getMaterialProperty<Real>("L_name")),
-    _w_var(coupled("w")),
-    _w(coupledValue("w"))
+    _Fa_name(getParam<MaterialPropertyName>("fa_name")),
+    _first_dFa(_num_c),
+    _d2F1dc1db1(_num_c)
 {
+  // initialize _ci_name_matrix
+  for (unsigned int m = 0; m < _num_c; ++m)
+  {
+    _ci_name_matrix[m].resize(_num_j);
+
+    for (unsigned int n = 0; n < _num_j; ++n)
+    {
+      _ci_name_matrix[m][n] = _ci_names[m * _num_j + n];
+    }
+  }
+
+  // initialize _prop_ci
+  for (unsigned int m = 0; m < _num_c; ++m)
+  {
+    _prop_ci[m].resize(_num_j);
+
+    for (unsigned int n = 0; n < _num_j; ++n)
+    {
+      _prop_ci[m][n] = &getMaterialPropertyByName<Real>(_ci_names[m * _num_j + n]);
+    }
+  }
+
+  // declare _prop_dcidb. m is the numerator species (ci or bi), n is the phase of the numerator i,
+  // l is the denominator species (c or b)
+  for (unsigned int m = 0; m < _num_c; ++m)
+  {
+    _prop_dcidb[m].resize(_num_j);
+
+    for (unsigned int n = 0; n < _num_j; ++n)
+    {
+      _prop_dcidb[m][n].resize(_num_c);
+
+      for (unsigned int l = 0; l < _num_c; ++l)
+      {
+        _prop_dcidb[m][n][l] =
+            &getMaterialPropertyByName<Real>(_dcidb_names[m * _num_j * _num_c + n + l * _num_j]);
+      }
+    }
+  }
+
+  // declare _prop_dcideta. m is te numerator species (ci or bi), n is the phase of the numerator
+  // i
+  for (unsigned int m = 0; m < _num_c; ++m)
+  {
+    _prop_dcideta[m].resize(_num_j);
+
+    for (unsigned int n = 0; n < _num_j; ++n)
+    {
+      _prop_dcideta[m][n] = &getMaterialPropertyByName<Real>(_dcideta_names[m * _num_j + n]);
+    }
+  }
+
+  // initialize _first_dFa
+  for (unsigned int m = 0; m < _num_c; ++m)
+    _first_dFa[m] = &getMaterialPropertyDerivative<Real>(_Fa_name, _ci_name_matrix[m][0]);
+
+  // initialize _d2F1dc1db1[m][n]. m is the species of c1, n is the species of b1
+  for (unsigned int m = 0; m < _num_c; ++m)
+  {
+    _d2F1dc1db1[m].resize(_num_c);
+
+    for (unsigned int n = 0; n < _num_c; ++n)
+      _d2F1dc1db1[m][n] = &getMaterialPropertyDerivative<Real>(
+          _Fa_name, _ci_name_matrix[m][0], _ci_name_matrix[n][0]);
+  }
 }
 
 Real
-KKSACBulkC::computeQpResidual()
+KKSACBulkC::computeDFDOP(PFFunctionType type)
 {
-  Real n = _u[_qp];
+  Real sum = 0.0;
 
-  return _L[_qp] * (30.0 * n * n * (n * n - 2.0 * n + 1.0)) * _first_df1[_qp] *
-         (_c1[_qp] - _c2[_qp]) * _test[_i][_qp];
-}
+  switch (type)
+  {
+    case Residual:
 
-Real
-KKSACBulkC::computeQpJacobian()
-{
-  Real n = _u[_qp];
+      for (unsigned int m = 0; m < _num_c; ++m)
+        sum += (*_first_dFa[m])[_qp] * ((*_prop_ci[m][0])[_qp] - (*_prop_ci[m][1])[_qp]);
 
-  return _L[_qp] *
-         (n * (120.0 * n * n - 180.0 * n + 60.0) * _first_df1[_qp] * (_c1[_qp] - _c2[_qp]) +
-          30.0 * n * n * (n * n - 2.0 * n + 1.0) *
-              (_second_df1[_qp] * _dc1deta[_qp] * (_c1[_qp] - _c2[_qp]) +
-               _first_df1[_qp] * (_dc1deta[_qp] - _dc2deta[_qp]))) *
-         _phi[_j][_qp] * _test[_i][_qp];
+      return _prop_dh[_qp] * sum;
 
-  // return _L[_qp] *
-  //        (n * (120.0 * n * n - 180.0 * n + 60.0) * _first_df1[_qp] * (_c1[_qp] - _c2[_qp]) +
-  //         30.0 * n * n * (n * n - 2.0 * n + 1.0) *
-  //             (_second_df1[_qp] * _dc1deta[_qp] * (_c1[_qp] - _c2[_qp]) +
-  //              _first_df1[_qp] * (_dc1deta[_qp] - _dc2deta[_qp]))) *
-  //        _test[_i][_qp];
+    case Jacobian:
+      Real sum1 = 0.0;
+      for (unsigned int m = 0; m < _num_c; ++m)
+        sum1 += (*_first_dFa[m])[_qp] * ((*_prop_ci[m][0])[_qp] - (*_prop_ci[m][1])[_qp]);
+
+      Real sum3 = 0.0;
+      for (unsigned int m = 0; m < _num_c; ++m)
+      {
+        Real sum2 = 0;
+        for (unsigned int n = 0; n < _num_c; ++n)
+          sum2 += (*_d2F1dc1db1[m][n])[_qp] * (*_prop_dcideta[n][0])[_qp];
+
+        sum3 += sum2 * ((*_prop_ci[m][0])[_qp] - (*_prop_ci[m][1])[_qp]) +
+                (*_first_dFa[m])[_qp] * ((*_prop_dcideta[m][0])[_qp] - (*_prop_dcideta[m][1])[_qp]);
+      }
+
+      return (_prop_d2h[_qp] * sum1 + _prop_dh[_qp] * sum3) * _phi[_j][_qp];
+  }
+
+  mooseError("Invalid type passed in");
 }
 
 Real KKSACBulkC::computeQpOffDiagJacobian(unsigned int jvar) // needs to multiply the mobility L
 {
-  Real n = _u[_qp];
-
-  // treat w variable explicitly
-  if (jvar == _w_var)
-    return 0.0;
-
   // c is the coupled variable
-  return _L[_qp] * 30.0 * n * n * (n * n - 2.0 * n + 1.0) *
-         (_second_df1[_qp] * _dc1dc[_qp] * (_c1[_qp] - _c2[_qp]) +
-          _first_df1[_qp] * (_dc1dc[_qp] - _dc2dc[_qp])) *
-         _phi[_j][_qp] * _test[_i][_qp];
+  auto compvar = mapJvarToCvar(jvar, _c_map);
+  if (compvar >= 0)
+  {
+    Real sum2 = 0.0;
+    for (unsigned int m = 0; m < _num_c; ++m)
+    {
+      Real sum1 = 0.0;
+      for (unsigned int n = 0; n < _num_c; ++n)
+        sum1 += (*_d2F1dc1db1[m][n])[_qp] * (*_prop_dcidb[n][0][compvar])[_qp];
 
-  // return _L[_qp] * 30.0 * n * n * (n * n - 2.0 * n + 1.0) *
-  //        (_second_df1[_qp] * _dc1dc[_qp] * (_c1[_qp] - _c2[_qp]) +
-  //         _first_df1[_qp] * (_dc1dc[_qp] - _dc2dc[_qp])) *
-  //        _test[_i][_qp];
+      sum2 += sum1 * ((*_prop_ci[m][0])[_qp] - (*_prop_ci[m][1])[_qp]) +
+              (*_first_dFa[m])[_qp] *
+                  ((*_prop_dcidb[m][0][compvar])[_qp] - (*_prop_dcidb[m][0][compvar])[_qp]);
+    }
+
+    return _L[_qp] * _prop_dh[_qp] * sum2 * _phi[_j][_qp] * _test[_i][_qp];
+  }
+
+  return 0.0;
 }

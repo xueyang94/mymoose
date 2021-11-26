@@ -9,9 +9,7 @@
 
 #pragma once
 
-// #include "KKSACBulkBase.h"
-// #include "Kernel.h"
-#include "DerivativeMaterialInterface.h"
+#include "KKSACBulkBase.h"
 
 // Forward Declarations
 
@@ -23,8 +21,7 @@
  * The non-linear variable for this Kernel is the order parameter 'eta'.
  */
 
-// class KKSACBulkC : public Kernel
-class KKSACBulkC : public DerivativeMaterialInterface<Kernel>
+class KKSACBulkC : public KKSACBulkBase
 {
 public:
   static InputParameters validParams();
@@ -32,26 +29,23 @@ public:
   KKSACBulkC(const InputParameters & parameters);
 
 protected:
-  virtual Real computeQpResidual();
-  virtual Real computeQpJacobian();
+  virtual Real computeDFDOP(PFFunctionType type);
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-  const MaterialProperty<Real> & _c1;
-  const MaterialProperty<Real> & _c2;
-
-  const MaterialProperty<Real> & _dc1dc;
-  const MaterialProperty<Real> & _dc2dc;
-  const MaterialProperty<Real> & _dc1deta;
-  const MaterialProperty<Real> & _dc2deta;
-
-  const SymbolName _c1_name;
-  const SymbolName _c2_name;
-  const MaterialProperty<Real> & _first_df1;
-  const MaterialProperty<Real> & _second_df1;
-
+  std::vector<VariableName> _c_names;
+  const JvarMap & _c_map;
+  unsigned int _num_c;
+  const unsigned int _num_j;
+  std::vector<MaterialPropertyName> _ci_names;
+  std::vector<std::vector<MaterialPropertyName>> _ci_name_matrix;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_ci;
+  std::vector<MaterialPropertyName> _dcidb_names;
+  std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _prop_dcidb;
+  std::vector<MaterialPropertyName> _dcideta_names;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dcideta;
   const MaterialProperty<Real> & _L;
 
-  // Chemical potential
-  unsigned int _w_var;
-  const VariableValue & _w;
+  const MaterialPropertyName _Fa_name;
+  std::vector<const MaterialProperty<Real> *> _first_dFa;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _d2F1dc1db1;
 };

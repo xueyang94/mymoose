@@ -25,19 +25,17 @@ protected:
   const std::vector<VariableName> _c_names;
   std::vector<std::vector<const MaterialProperty<Real> *>> _prop_ci;
 
-  const std::vector<VariableName> _eta_names;
+  VariableName _eta_name;
   const unsigned int _num_eta;
-  std::vector<MaterialPropertyName> _Fj_names;
-  std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _d2Fjdcjdbj;
-  std::vector<MaterialPropertyName> _hj_names;
-  std::vector<const MaterialProperty<Real> *> _prop_hj;
-  std::vector<std::vector<const MaterialProperty<Real> *>> _dhjdetap;
   std::vector<MaterialPropertyName> _ci_names;
-
   std::vector<std::vector<MaterialPropertyName>> _ci_name_matrix;
-
   std::vector<MaterialPropertyName> _dcidb_names;
   std::vector<std::vector<std::vector<MaterialProperty<Real> *>>> _prop_dcidb;
-  std::vector<MaterialPropertyName> _dcidetaj_names;
-  std::vector<std::vector<std::vector<MaterialProperty<Real> *>>> _prop_dcidetaj;
+  std::vector<MaterialPropertyName> _dcideta_names;
+  std::vector<std::vector<MaterialProperty<Real> *>> _prop_dcideta;
+
+  std::vector<MaterialPropertyName> _Fj_names;
+  std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _d2Fjdcjdbj;
+  const MaterialProperty<Real> & _prop_h;
+  const MaterialProperty<Real> & _prop_dh;
 };
