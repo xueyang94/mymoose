@@ -128,7 +128,7 @@ KKSACBulkF::computeDFDOP(PFFunctionType type)
                 (*_first_dFb[m])[_qp] * (*_prop_dcideta[m][1])[_qp];
 
       return (-(_prop_d2h[_qp] * (_prop_Fa[_qp] - _prop_Fb[_qp]) + _prop_dh[_qp] * sum1) +
-              _w * _prop_dg[_qp]) *
+              _w * _prop_d2g[_qp]) *
              _phi[_j][_qp];
   }
 
