@@ -32,7 +32,9 @@ KKSSplitCHCRes::validParams()
       "concentrations.  c1 and b must match the order of global_c. First keep the same c1 and loop "
       "through b for one species, for example, dc1dc, dc1db, db1dc, db1db");
   params.addParam<std::vector<MaterialPropertyName>>(
-      "dc1deta_names", "The phase concentrations in F1 taken derivatives wrt eta");
+      "dc1deta_names",
+      "The phase concentrations in F1 taken derivatives wrt eta. The order must match c1_names, "
+      "for example, dc1deta, db1deta, etc.");
   params.addParam<MaterialPropertyName>("F1_name", "F1");
   return params;
 }
@@ -40,7 +42,6 @@ KKSSplitCHCRes::validParams()
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
   : DerivativeMaterialInterface<JvarMapKernelInterface<Kernel>>(parameters),
     // : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
-    // _num_j(2),
     _c_map(getParameterJvarMap("global_cs")),
     _num_c(coupledComponents("global_cs")),
     _o(-1), // position of nonlinear variable c in the list of global_cs

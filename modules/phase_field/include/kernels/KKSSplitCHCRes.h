@@ -42,7 +42,6 @@ protected:
   virtual Real computeQpJacobian();
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-  // const unsigned int _num_j;
   const JvarMap & _c_map;
   const unsigned int _num_c;
   int _o;

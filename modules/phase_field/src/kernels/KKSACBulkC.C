@@ -137,21 +137,24 @@ KKSACBulkC::computeDFDOP(PFFunctionType type)
 
     case Jacobian:
       Real sum1 = 0.0;
+
       for (unsigned int m = 0; m < _num_c; ++m)
         sum1 += (*_first_dFa[m])[_qp] * ((*_prop_ci[m][0])[_qp] - (*_prop_ci[m][1])[_qp]);
 
-      Real sum3 = 0.0;
+      Real sum2 = 0.0;
+
       for (unsigned int m = 0; m < _num_c; ++m)
       {
-        Real sum2 = 0;
-        for (unsigned int n = 0; n < _num_c; ++n)
-          sum2 += (*_d2F1dc1db1[m][n])[_qp] * (*_prop_dcideta[n][0])[_qp];
+        Real sum3 = 0.0;
 
-        sum3 += sum2 * ((*_prop_ci[m][0])[_qp] - (*_prop_ci[m][1])[_qp]) +
+        for (unsigned int n = 0; n < _num_c; ++n)
+          sum3 += (*_d2F1dc1db1[m][n])[_qp] * (*_prop_dcideta[n][0])[_qp];
+
+        sum2 += sum3 * ((*_prop_ci[m][0])[_qp] - (*_prop_ci[m][1])[_qp]) +
                 (*_first_dFa[m])[_qp] * ((*_prop_dcideta[m][0])[_qp] - (*_prop_dcideta[m][1])[_qp]);
       }
 
-      return (_prop_d2h[_qp] * sum1 + _prop_dh[_qp] * sum3) * _phi[_j][_qp];
+      return (_prop_d2h[_qp] * sum1 + _prop_dh[_qp] * sum2) * _phi[_j][_qp];
   }
 
   mooseError("Invalid type passed in");
@@ -163,19 +166,21 @@ Real KKSACBulkC::computeQpOffDiagJacobian(unsigned int jvar) // needs to multipl
   auto compvar = mapJvarToCvar(jvar, _c_map);
   if (compvar >= 0)
   {
-    Real sum2 = 0.0;
+    Real sum1 = 0.0;
+
     for (unsigned int m = 0; m < _num_c; ++m)
     {
-      Real sum1 = 0.0;
-      for (unsigned int n = 0; n < _num_c; ++n)
-        sum1 += (*_d2F1dc1db1[m][n])[_qp] * (*_prop_dcidb[n][0][compvar])[_qp];
+      Real sum2 = 0.0;
 
-      sum2 += sum1 * ((*_prop_ci[m][0])[_qp] - (*_prop_ci[m][1])[_qp]) +
+      for (unsigned int n = 0; n < _num_c; ++n)
+        sum2 += (*_d2F1dc1db1[m][n])[_qp] * (*_prop_dcidb[n][0][compvar])[_qp];
+
+      sum1 += sum2 * ((*_prop_ci[m][0])[_qp] - (*_prop_ci[m][1])[_qp]) +
               (*_first_dFa[m])[_qp] *
-                  ((*_prop_dcidb[m][0][compvar])[_qp] - (*_prop_dcidb[m][0][compvar])[_qp]);
+                  ((*_prop_dcidb[m][0][compvar])[_qp] - (*_prop_dcidb[m][1][compvar])[_qp]);
     }
 
-    return _L[_qp] * _prop_dh[_qp] * sum2 * _phi[_j][_qp] * _test[_i][_qp];
+    return _L[_qp] * _prop_dh[_qp] * sum1 * _phi[_j][_qp] * _test[_i][_qp];
   }
 
   return 0.0;

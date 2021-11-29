@@ -24,7 +24,6 @@ protected:
   virtual void computeQpProperties() override;
 
   const VariableValue & _c;
-  const VariableValue & _eta;
   const MaterialProperty<Real> & _prop_h;
 
   std::vector<MaterialPropertyName> _ci_names;

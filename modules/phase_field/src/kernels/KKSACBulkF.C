@@ -147,7 +147,7 @@ KKSACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
       sum1 += (*_first_dFa[m])[_qp] * (*_prop_dcidb[m][0][compvar])[_qp] -
               (*_first_dFb[m])[_qp] * (*_prop_dcidb[m][1][compvar])[_qp];
 
-    return -_prop_dh[_qp] * sum1 * _phi[_j][_qp] * _test[_i][_qp];
+    return -_L[_qp] * _prop_dh[_qp] * sum1 * _phi[_j][_qp] * _test[_i][_qp];
   }
 
   return 0.0;

@@ -169,12 +169,12 @@ PhaseConcentrationDerivatives::computeQpProperties()
     std::vector<Real> k_c(_num_eta * _num_c); // of component i
     std::vector<Real> x_c(_num_eta * _num_c); // of component i
 
-    // fill in k_eta
-    for (unsigned int m = 0; m < _num_c; ++m)
-    {
-      k_c[m * _num_eta] = 0;
-      k_c[m * _num_eta + 1] = 1;
-    }
+    // initialize all elements in k_c to be zero
+    for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
+      k_c[m] = 0;
+
+    // assign non-zero elements in k_c
+    k_c[i * _num_eta + 1] = 1;
 
     // compute x_c
     for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
@@ -216,7 +216,7 @@ PhaseConcentrationDerivatives::computeQpProperties()
     }
 
     // concentration conservation derivative equations
-    A_eta[m * _num_eta + 1][m * _num_eta] = (1 - _prop_h[_qp]);
+    A_eta[m * _num_eta + 1][m * _num_eta] = 1 - _prop_h[_qp];
     A_eta[m * _num_eta + 1][m * _num_eta + 1] = _prop_h[_qp];
   }
 

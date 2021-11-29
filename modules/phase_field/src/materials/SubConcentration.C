@@ -20,8 +20,6 @@ SubConcentration::validParams()
       "Computes the KKS phase concentrations by using Newton iteration to solve the equal chemical "
       "potential and concentration conservation equations");
   params.addRequiredCoupledVar("global_c", "The interpolated concentration");
-
-  params.addRequiredCoupledVar("eta", "The order parameter");
   params.addRequiredParam<MaterialPropertyName>("h_name", "Name of the switching function");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "ci_names", "Phase concentrations. The phase order must match Fi_names");
@@ -48,7 +46,6 @@ SubConcentration::validParams()
 SubConcentration::SubConcentration(const InputParameters & parameters)
   : DerivativeMaterialInterface<Material>(parameters),
     _c(coupledValue("global_c")),
-    _eta(coupledValue("eta")),
     _prop_h(getMaterialProperty<Real>("h_name")),
     _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),
     _prop_ci(2),
@@ -103,7 +100,7 @@ SubConcentration::computeQpProperties()
     _f1.computePropertiesAtQp(_qp);
     _f2.computePropertiesAtQp(_qp);
 
-    residual(0) = (*_first_dFi[0])[_qp] - (*_first_dFi[0])[_qp];
+    residual(0) = (*_first_dFi[0])[_qp] - (*_first_dFi[1])[_qp];
     residual(1) =
         (1 - _prop_h[_qp]) * (*_prop_ci[0])[_qp] + _prop_h[_qp] * (*_prop_ci[1])[_qp] - _c[_qp];
 
@@ -117,9 +114,7 @@ SubConcentration::computeQpProperties()
   _iter[_qp] = _nested_solve.getIterations();
 
   if (_nested_solve.getState() == NestedSolve::State::NOT_CONVERGED)
-  {
     std::cout << "Newton iteration did not converge." << std::endl;
-  }
 
   for (unsigned int i = 0; i < 2; ++i)
     (*_prop_ci[i])[_qp] = solution[i];
