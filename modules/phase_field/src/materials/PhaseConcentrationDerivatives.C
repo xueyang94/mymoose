@@ -133,42 +133,43 @@ PhaseConcentrationDerivatives::PhaseConcentrationDerivatives(const InputParamete
 void
 PhaseConcentrationDerivatives::computeQpProperties()
 {
-  /////////////////////////////////////////////////////////////////////////////////////////////////// solve linear system of constraint derivatives wrt c for computing dcidc and dbidc
-  // loop through taking derivative wrt the ith component, each i constructs a A_c
+  /////////////////////////////////////////////////////////////////////////////////////////////////// solve linear system of constraint derivatives wrt c for computing dcidb.
+  // declare A
+  std::vector<std::vector<Real>> A(_num_eta * _num_c);
+  for (auto & row : A)
+    row.resize(_num_eta * _num_c);
+
+  // initialize all elements in A to be zero
+  for (unsigned int m = 0; m < _num_eta * _num_c; ++m)
+  {
+    for (unsigned int n = 0; n < _num_eta * _num_c; ++n)
+      A[m][n] = 0;
+  }
+
+  // now fill in the non-zero elements in A
+  for (unsigned int m = 0; m < _num_c; ++m)
+  {
+    for (unsigned int n = 0; n < _num_c; ++n)
+    {
+      // equal chemical potential derivative equations
+      A[m * _num_eta][n * _num_eta] = (*_d2Fjdcjdbj[0][m][n])[_qp];
+      A[m * _num_eta][n * _num_eta + 1] = -(*_d2Fjdcjdbj[1][m][n])[_qp];
+    }
+
+    // concentration conservation derivative equations
+    A[m * _num_eta + 1][m * _num_eta] = 1 - _prop_h[_qp];
+    A[m * _num_eta + 1][m * _num_eta + 1] = _prop_h[_qp];
+  }
+
+  MatrixTools::inverse(A, A);
+
+  std::vector<Real> k_c(_num_eta * _num_c);
+  std::vector<Real> x_c(_num_eta * _num_c);
+
+  // loop through taking derivative wrt the ith component, they have the same A, but have
+  // different k_c
   for (unsigned int i = 0; i < _num_c; ++i)
   {
-    // declare A_c
-    std::vector<std::vector<Real>> A_c(_num_eta * _num_c);
-    for (auto & row : A_c)
-      row.resize(_num_eta * _num_c);
-
-    // initialize all elements in A_c to be zero
-    for (unsigned int m = 0; m < _num_eta * _num_c; ++m)
-    {
-      for (unsigned int n = 0; n < _num_eta * _num_c; ++n)
-        A_c[m][n] = 0;
-    }
-
-    // now fill in the non-zero elements in A_c
-    for (unsigned int m = 0; m < _num_c; ++m)
-    {
-      for (unsigned int n = 0; n < _num_c; ++n)
-      {
-        // equal chemical potential derivative equations
-        A_c[m * _num_eta][n * _num_eta] = (*_d2Fjdcjdbj[0][m][n])[_qp];
-        A_c[m * _num_eta][n * _num_eta + 1] = -(*_d2Fjdcjdbj[1][m][n])[_qp];
-      }
-
-      // concentration conservation derivative equations
-      A_c[m * _num_eta + 1][m * _num_eta] = 1 - _prop_h[_qp];
-      A_c[m * _num_eta + 1][m * _num_eta + 1] = _prop_h[_qp];
-    }
-
-    MatrixTools::inverse(A_c, A_c);
-
-    std::vector<Real> k_c(_num_eta * _num_c); // of component i
-    std::vector<Real> x_c(_num_eta * _num_c); // of component i
-
     // initialize all elements in k_c to be zero
     for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
       k_c[m] = 0;
@@ -176,52 +177,27 @@ PhaseConcentrationDerivatives::computeQpProperties()
     // assign non-zero elements in k_c
     k_c[i * _num_eta + 1] = 1;
 
+    // initialize all elements in x_c to be zero
+    for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
+      x_c[m] = 0;
+
     // compute x_c
     for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
     {
       for (unsigned int n = 0; n < (_num_eta * _num_c); ++n)
-        x_c[m] += A_c[m][n] * k_c[n];
+        x_c[m] += A[m][n] * k_c[n];
     }
 
     // assign the values in x_c to _prop_dcidb
     for (unsigned int m = 0; m < _num_c; ++m)
     {
       for (unsigned int n = 0; n < _num_eta; ++n)
-      {
         (*_prop_dcidb[m][n][i])[_qp] = x_c[m * _num_eta + n];
-      }
     }
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////// solve linear system of constraint derivatives wrt eta for computing dcideta
-  std::vector<std::vector<Real>> A_eta(_num_eta * _num_c);
-  for (auto & row : A_eta)
-    row.resize(_num_eta * _num_c);
-
-  // initialize all elements in A to be zero
-  for (unsigned int m = 0; m < _num_eta * _num_c; ++m)
-  {
-    for (unsigned int n = 0; n < _num_eta * _num_c; ++n)
-      A_eta[m][n] = 0;
-  }
-
-  // now fill in the non-zero elements in A_c
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
-    for (unsigned int n = 0; n < _num_c; ++n)
-    {
-      // equal chemical potential derivative equations
-      A_eta[m * _num_eta][n * _num_eta] = (*_d2Fjdcjdbj[0][m][n])[_qp];
-      A_eta[m * _num_eta][n * _num_eta + 1] = -(*_d2Fjdcjdbj[1][m][n])[_qp];
-    }
-
-    // concentration conservation derivative equations
-    A_eta[m * _num_eta + 1][m * _num_eta] = 1 - _prop_h[_qp];
-    A_eta[m * _num_eta + 1][m * _num_eta + 1] = _prop_h[_qp];
-  }
-
-  MatrixTools::inverse(A_eta, A_eta);
-
+  // using the same linear matrix as computring dcidb
   std::vector<Real> k_eta(_num_eta * _num_c);
   std::vector<Real> x_eta(_num_eta * _num_c);
 
@@ -232,11 +208,15 @@ PhaseConcentrationDerivatives::computeQpProperties()
     k_eta[m * _num_eta + 1] = _prop_dh[_qp] * ((*_prop_ci[m][0])[_qp] - (*_prop_ci[m][1])[_qp]);
   }
 
+  // initialize all elements in x_eta to be zero
+  for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
+    x_eta[m] = 0;
+
   // compute x_eta
   for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
   {
     for (unsigned int n = 0; n < (_num_eta * _num_c); ++n)
-      x_eta[m] += A_eta[m][n] * k_eta[n];
+      x_eta[m] += A[m][n] * k_eta[n];
   }
 
   // assign the values in x_eta to _prop_dcidetaj
