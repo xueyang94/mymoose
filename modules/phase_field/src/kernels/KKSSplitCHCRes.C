@@ -123,8 +123,6 @@ KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
   auto compvar = mapJvarToCvar(jvar, _c_map);
   if (compvar >= 0)
   {
-    // This can be further improve by not looping the nonlinear variable c because dRdc is
-    // on-diagonal
     for (unsigned int m = 0; m < _num_c; ++m)
       sum += (*_prop_d2F1dc1db1[m])[_qp] * (*_prop_dc1db[m][compvar])[_qp];
 

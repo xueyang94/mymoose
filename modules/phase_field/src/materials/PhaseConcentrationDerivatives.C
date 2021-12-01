@@ -192,7 +192,12 @@ PhaseConcentrationDerivatives::computeQpProperties()
     for (unsigned int m = 0; m < _num_c; ++m)
     {
       for (unsigned int n = 0; n < _num_eta; ++n)
+      {
         (*_prop_dcidb[m][n][i])[_qp] = x_c[m * _num_eta + n];
+
+        // if (m != i)
+        //   (*_prop_dcidb[m][n][i])[_qp] = 0;
+      }
     }
   }
 
