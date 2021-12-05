@@ -122,13 +122,21 @@ KKSACBulkF::computeDFDOP(PFFunctionType type)
 
     case Jacobian:
 
-      Real sum = 0.0;
+      // Real sum = 0.0;
+      //
+      // for (unsigned int m = 0; m < _num_c; ++m)
+      //   sum += (*_first_dFa[m])[_qp] * (*_prop_dcideta[m][0])[_qp] -
+      //          (*_first_dFb[m])[_qp] * (*_prop_dcideta[m][1])[_qp];
+      //
+      // return (-(_prop_d2h[_qp] * (_prop_Fa[_qp] - _prop_Fb[_qp]) + _prop_dh[_qp] * sum) +
+      //         _w * _prop_d2g[_qp]) *
+      //        _phi[_j][_qp];
 
-      for (unsigned int m = 0; m < _num_c; ++m)
-        sum += (*_first_dFa[m])[_qp] * (*_prop_dcideta[m][0])[_qp] -
-               (*_first_dFb[m])[_qp] * (*_prop_dcideta[m][1])[_qp];
-
-      return (-(_prop_d2h[_qp] * (_prop_Fa[_qp] - _prop_Fb[_qp]) + _prop_dh[_qp] * sum) +
+      return (-(_prop_d2h[_qp] * (_prop_Fa[_qp] - _prop_Fb[_qp]) +
+                _prop_dh[_qp] * (((*_first_dFa[0])[_qp] * (*_prop_dcideta[0][0])[_qp] +
+                                  (*_first_dFa[1])[_qp] * (*_prop_dcideta[1][0])[_qp]) -
+                                 ((*_first_dFb[0])[_qp] * (*_prop_dcideta[0][1])[_qp] +
+                                  (*_first_dFb[1])[_qp] * (*_prop_dcideta[1][1])[_qp]))) +
               _w * _prop_d2g[_qp]) *
              _phi[_j][_qp];
   }
@@ -143,13 +151,19 @@ KKSACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
   auto compvar = mapJvarToCvar(jvar, _c_map);
   if (compvar >= 0)
   {
-    Real sum = 0.0;
+    // Real sum = 0.0;
+    //
+    // for (unsigned int m = 0; m < _num_c; ++m)
+    //   sum += (*_first_dFa[m])[_qp] * (*_prop_dcidb[m][0][compvar])[_qp] -
+    //          (*_first_dFb[m])[_qp] * (*_prop_dcidb[m][1][compvar])[_qp];
+    //
+    // return -_L[_qp] * _prop_dh[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
 
-    for (unsigned int m = 0; m < _num_c; ++m)
-      sum += (*_first_dFa[m])[_qp] * (*_prop_dcidb[m][0][compvar])[_qp] -
-             (*_first_dFb[m])[_qp] * (*_prop_dcidb[m][1][compvar])[_qp];
-
-    return -_L[_qp] * _prop_dh[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
+    return (-_prop_dh[_qp] * (((*_first_dFa[0])[_qp] * (*_prop_dcidb[0][0][compvar])[_qp] +
+                               (*_first_dFa[1])[_qp] * (*_prop_dcidb[1][0][compvar])[_qp]) -
+                              ((*_first_dFb[0])[_qp] * (*_prop_dcidb[0][1][compvar])[_qp] +
+                               (*_first_dFb[1])[_qp] * (*_prop_dcidb[1][1][compvar])[_qp]))) *
+           _L[_qp] * _phi[_j][_qp] * _test[_i][_qp];
   }
 
   return 0.0;
