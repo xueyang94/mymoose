@@ -205,7 +205,7 @@ PhaseConcentrationDerivatives::computeQpProperties()
       k_c[m] = 0;
 
     // assign non-zero elements in k_c
-    k_c[i * _num_eta + _num_c] = 1;
+    k_c[i * _num_eta + _num_eta - 1] = 1;
 
     // compute x_c
     for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
