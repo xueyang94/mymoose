@@ -36,6 +36,7 @@ protected:
   const JvarMap & _c_map;
   const unsigned int _num_c;
   const unsigned int _num_j;
+
   std::vector<MaterialPropertyName> _ci_names;
   std::vector<std::vector<MaterialPropertyName>> _ci_name_matrix;
   std::vector<std::vector<const MaterialProperty<Real> *>> _prop_ci;

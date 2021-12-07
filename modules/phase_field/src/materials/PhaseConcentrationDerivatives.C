@@ -198,38 +198,6 @@ PhaseConcentrationDerivatives::computeQpProperties()
     }
   }
 
-  // std::vector<std::vector<Real>> A_c(2);
-  // for (auto & row : A_c)
-  //   row.resize(2);
-  //
-  // for (unsigned int i = 0; i < _num_c; ++i)
-  // {
-  //   A_c[0][0] = (*_d2Fjdcjdbj[0][i][i])[_qp];
-  //   A_c[0][1] = -(*_d2Fjdcjdbj[1][i][i])[_qp];
-  //   A_c[1][0] = 1 - _prop_h[_qp];
-  //   A_c[1][1] = _prop_h[_qp];
-  //
-  //   MatrixTools::inverse(A_c, A_c);
-  //
-  //   std::vector<Real> k_c(2);
-  //   k_c[0] = 0;
-  //   k_c[1] = 1;
-  //
-  //   std::vector<Real> x_c(2);
-  //   for (unsigned int m = 0; m < 2; ++m)
-  //     x_c[m] = 0;
-  //
-  //   // compute x_c
-  //   for (unsigned int m = 0; m < 2; ++m)
-  //   {
-  //     for (unsigned int n = 0; n < 2; ++n)
-  //       x_c[m] += A_c[m][n] * k_c[n];
-  //   }
-  //
-  //   for (unsigned int m = 0; m < 2; ++m)
-  //     (*_prop_dcidb[i][m][i])[_qp] = x_c[m];
-  // }
-
   ////////////////////////////////////////////////////////////////////////////////////////////////////// solve linear system of constraint derivatives wrt eta for computing dcideta
   // using the same linear matrix as computring dcidb
   std::vector<Real> k_eta(_num_eta * _num_c);
@@ -259,36 +227,4 @@ PhaseConcentrationDerivatives::computeQpProperties()
     for (unsigned int n = 0; n < _num_eta; ++n)
       (*_prop_dcideta[m][n])[_qp] = x_eta[m * _num_eta + n];
   }
-
-  // std::vector<std::vector<Real>> A_eta(2);
-  // for (auto & row : A_eta)
-  //   row.resize(2);
-  //
-  // for (unsigned int i = 0; i < _num_c; ++i)
-  // {
-  //   A_eta[0][0] = (*_d2Fjdcjdbj[0][i][i])[_qp];
-  //   A_eta[0][1] = -(*_d2Fjdcjdbj[1][i][i])[_qp];
-  //   A_eta[1][0] = 1 - _prop_h[_qp];
-  //   A_eta[1][1] = _prop_h[_qp];
-  //
-  //   MatrixTools::inverse(A_eta, A_eta);
-  //
-  //   std::vector<Real> k_eta(2);
-  //   k_eta[0] = 0;
-  //   k_eta[1] = _prop_dh[_qp] * ((*_prop_ci[i][0])[_qp] - (*_prop_ci[i][1])[_qp]);
-  //
-  //   std::vector<Real> x_eta(2);
-  //   for (unsigned int m = 0; m < 2; ++m)
-  //     x_eta[m] = 0;
-  //
-  //   // compute x_eta
-  //   for (unsigned int m = 0; m < 2; ++m)
-  //   {
-  //     for (unsigned int n = 0; n < 2; ++n)
-  //       x_eta[m] += A_eta[m][n] * k_eta[n];
-  //   }
-  //
-  //   for (unsigned int m = 0; m < 2; ++m)
-  //     (*_prop_dcideta[i][m])[_qp] = x_eta[m];
-  // }
 }

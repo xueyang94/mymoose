@@ -104,11 +104,8 @@ KKSSplitCHCRes::computeQpJacobian()
 {
   Real sum = 0.0;
 
-  // for (unsigned int m = 0; m < _num_c; ++m)
-  //   sum += (*_prop_d2F1dc1db1[m])[_qp] * (*_prop_dc1db[m][_o])[_qp];
-
-  sum = (*_prop_d2F1dc1db1[0])[_qp] * (*_prop_dc1db[0][_o])[_qp] +
-        (*_prop_d2F1dc1db1[1])[_qp] * (*_prop_dc1db[1][_o])[_qp];
+  for (unsigned int m = 0; m < _num_c; ++m)
+    sum += (*_prop_d2F1dc1db1[m])[_qp] * (*_prop_dc1db[m][_o])[_qp];
 
   return sum * _phi[_j][_qp] * _test[_i][_qp];
 }
@@ -126,11 +123,8 @@ KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
   auto compvar = mapJvarToCvar(jvar, _c_map);
   if (compvar >= 0)
   {
-    // for (unsigned int m = 0; m < _num_c; ++m)
-    //   sum += (*_prop_d2F1dc1db1[m])[_qp] * (*_prop_dc1db[m][compvar])[_qp];
-
-    sum = (*_prop_d2F1dc1db1[0])[_qp] * (*_prop_dc1db[0][compvar])[_qp] +
-          (*_prop_d2F1dc1db1[1])[_qp] * (*_prop_dc1db[1][compvar])[_qp];
+    for (unsigned int m = 0; m < _num_c; ++m)
+      sum += (*_prop_d2F1dc1db1[m])[_qp] * (*_prop_dc1db[m][compvar])[_qp];
 
     return sum * _phi[_j][_qp] * _test[_i][_qp];
   }
@@ -138,11 +132,8 @@ KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
   // if order parameter is the coupled variables
   if (jvar == _eta_var)
   {
-    // for (unsigned int m = 0; m < _num_c; ++m)
-    //   sum += (*_prop_d2F1dc1db1[m])[_qp] * (*_prop_dc1deta[m])[_qp];
-
-    sum = (*_prop_d2F1dc1db1[0])[_qp] * (*_prop_dc1deta[0])[_qp] +
-          (*_prop_d2F1dc1db1[1])[_qp] * (*_prop_dc1deta[1])[_qp];
+    for (unsigned int m = 0; m < _num_c; ++m)
+      sum += (*_prop_d2F1dc1db1[m])[_qp] * (*_prop_dc1deta[m])[_qp];
 
     return sum * _phi[_j][_qp] * _test[_i][_qp];
   }

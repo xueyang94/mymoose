@@ -23,23 +23,21 @@ protected:
   virtual void initQpStatefulProperties() override;
   virtual void computeQpProperties() override;
 
-  const VariableValue & _c;
+  const std::vector<const VariableValue *> _prop_c;
+  const unsigned int _num_c;
   const MaterialProperty<Real> & _prop_h;
-
   std::vector<MaterialPropertyName> _ci_names;
-  std::vector<MaterialProperty<Real> *> _prop_ci;
+  std::vector<std::vector<MaterialPropertyName>> _ci_name_matrix;
+  std::vector<std::vector<MaterialProperty<Real> *>> _prop_ci;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _ci_old;
+  std::vector<Real> _ci_IC;
 
-  const MaterialProperty<Real> & _c1_old;
-  const MaterialProperty<Real> & _c2_old;
-  const std::vector<Real> _ci_IC;
-
-  std::vector<MaterialName> _Fi_material;
   MaterialBase & _f1;
   MaterialBase & _f2;
 
   std::vector<MaterialPropertyName> _Fi_names;
-  std::vector<const MaterialProperty<Real> *> _first_dFi;
-  std::vector<const MaterialProperty<Real> *> _second_dFi;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _first_dFi;
+  std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _second_dFi;
 
   MaterialProperty<Real> & _iter;
   const Real _abs_tol;
