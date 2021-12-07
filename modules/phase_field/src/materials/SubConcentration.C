@@ -73,7 +73,7 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _prop_ci[m].resize(2);
 
     for (unsigned int n = 0; n < 2; ++n)
-      _prop_ci[m][n] = &declareProperty<Real>(_ci_names[m * 2 + n]);
+      _prop_ci[m][n] = &declareProperty<Real>(_ci_name_matrix[m][n]);
   }
 
   // declare old ci
@@ -82,7 +82,7 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _ci_old[m].resize(2);
 
     for (unsigned int n = 0; n < 2; ++n)
-      _ci_old[m][n] = &getMaterialPropertyOld<Real>(_ci_names[m * 2 + n]);
+      _ci_old[m][n] = &getMaterialPropertyOld<Real>(_ci_name_matrix[m][n]);
   }
 
   // declare the first derivatives of phase energy wrt phase concentrations
@@ -145,27 +145,32 @@ SubConcentration::computeQpProperties()
     // assign residual functions
     for (unsigned int m = 0; m < _num_c; ++m)
     {
-      residual(m) = (*_first_dFi[0][m])[_qp] - (*_first_dFi[1][m])[_qp];
-      residual(m + _num_c) = (1 - _prop_h[_qp]) * (*_prop_ci[m][0])[_qp] +
-                             _prop_h[_qp] * (*_prop_ci[m][1])[_qp] - (*_prop_c[m])[_qp];
+      residual(m * 2) = (*_first_dFi[0][m])[_qp] - (*_first_dFi[1][m])[_qp];
+      residual(m * 2 + 1) = (1 - _prop_h[_qp]) * (*_prop_ci[m][0])[_qp] +
+                            _prop_h[_qp] * (*_prop_ci[m][1])[_qp] - (*_prop_c[m])[_qp];
     }
 
-    jacobian(0, 0) = (*_second_dFi[0][0][0])[_qp];
-    jacobian(0, 1) = -(*_second_dFi[1][0][0])[_qp];
-    jacobian(0, 2) = (*_second_dFi[0][0][1])[_qp];
-    jacobian(0, 3) = -(*_second_dFi[1][0][1])[_qp];
-    jacobian(1, 0) = (*_second_dFi[0][1][0])[_qp];
-    jacobian(1, 1) = -(*_second_dFi[1][0][0])[_qp];
-    jacobian(1, 2) = (*_second_dFi[0][1][1])[_qp];
-    jacobian(1, 3) = -(*_second_dFi[1][1][1])[_qp];
-    jacobian(2, 0) = 1 - _prop_h[_qp];
-    jacobian(2, 1) = _prop_h[_qp];
-    jacobian(2, 2) = 0;
-    jacobian(2, 3) = 0;
-    jacobian(3, 0) = 0;
-    jacobian(3, 1) = 0;
-    jacobian(3, 2) = 1 - _prop_h[_qp];
-    jacobian(3, 3) = _prop_h[_qp];
+    // initialize all elements in jacobian to be zero
+    for (unsigned int m = 0; m < _num_c * 2; ++m)
+    {
+      for (unsigned int n = 0; n < _num_c * 2; ++n)
+        jacobian(m, n) = 0;
+    }
+
+    // fill in the non-zero elements in jacobian
+    for (unsigned int m = 0; m < _num_c; ++m)
+    {
+      for (unsigned int n = 0; n < _num_c; ++n)
+      {
+        // equal chemical potential derivative equations
+        jacobian(m * 2, n * 2) = (*_second_dFi[0][m][n])[_qp];
+        jacobian(m * 2, n * 2 + 1) = -(*_second_dFi[1][m][n])[_qp];
+      }
+
+      // concentration conservation derivative equations
+      jacobian(m * 2 + 1, m * 2) = 1 - _prop_h[_qp];
+      jacobian(m * 2 + 1, m * 2 + 1) = _prop_h[_qp];
+    }
   };
 
   _nested_solve.nonlinear(solution, compute);

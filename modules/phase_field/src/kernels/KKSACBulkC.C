@@ -73,7 +73,7 @@ KKSACBulkC::KKSACBulkC(const InputParameters & parameters)
 
     for (unsigned int n = 0; n < _num_j; ++n)
     {
-      _prop_ci[m][n] = &getMaterialPropertyByName<Real>(_ci_names[m * _num_j + n]);
+      _prop_ci[m][n] = &getMaterialPropertyByName<Real>(_ci_name_matrix[m][n]);
     }
   }
 

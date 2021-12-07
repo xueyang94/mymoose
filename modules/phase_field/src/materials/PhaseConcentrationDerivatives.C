@@ -77,7 +77,7 @@ PhaseConcentrationDerivatives::PhaseConcentrationDerivatives(const InputParamete
 
     for (unsigned int n = 0; n < _num_eta; ++n)
     {
-      _prop_ci[m][n] = &getMaterialPropertyByName<Real>(_ci_names[m * _num_eta + n]);
+      _prop_ci[m][n] = &getMaterialPropertyByName<Real>(_ci_name_matrix[m][n]);
     }
   }
 
@@ -146,7 +146,7 @@ PhaseConcentrationDerivatives::computeQpProperties()
       A[m][n] = 0;
   }
 
-  // now fill in the non-zero elements in A
+  // fill in the non-zero elements in A
   for (unsigned int m = 0; m < _num_c; ++m)
   {
     for (unsigned int n = 0; n < _num_c; ++n)
@@ -171,20 +171,20 @@ PhaseConcentrationDerivatives::computeQpProperties()
   for (unsigned int i = 0; i < _num_c; ++i)
   {
     // initialize all elements in k_c to be zero
-    for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
+    for (unsigned int m = 0; m < _num_eta * _num_c; ++m)
       k_c[m] = 0;
 
     // assign non-zero elements in k_c
     k_c[i * _num_eta + 1] = 1;
 
     // initialize all elements in x_c to be zero
-    for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
+    for (unsigned int m = 0; m < _num_eta * _num_c; ++m)
       x_c[m] = 0;
 
     // compute x_c
-    for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
+    for (unsigned int m = 0; m < _num_eta * _num_c; ++m)
     {
-      for (unsigned int n = 0; n < (_num_eta * _num_c); ++n)
+      for (unsigned int n = 0; n < _num_eta * _num_c; ++n)
         x_c[m] += A[m][n] * k_c[n];
     }
 
@@ -211,13 +211,13 @@ PhaseConcentrationDerivatives::computeQpProperties()
   }
 
   // initialize all elements in x_eta to be zero
-  for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
+  for (unsigned int m = 0; m < _num_eta * _num_c; ++m)
     x_eta[m] = 0;
 
   // compute x_eta
-  for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
+  for (unsigned int m = 0; m < _num_eta * _num_c; ++m)
   {
-    for (unsigned int n = 0; n < (_num_eta * _num_c); ++n)
+    for (unsigned int n = 0; n < _num_eta * _num_c; ++n)
       x_eta[m] += A[m][n] * k_eta[n];
   }
 
