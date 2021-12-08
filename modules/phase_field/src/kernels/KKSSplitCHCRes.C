@@ -19,12 +19,12 @@ KKSSplitCHCRes::validParams()
   params.addClassDescription(
       "KKS model kernel for the split Bulk Cahn-Hilliard term. This kernel operates on the "
       "physical concentration 'c' as the non-linear variable");
-  params.addCoupledVar("etas", "Order parameters for all phases.");
+  params.addCoupledVar("all_etas", "Order parameters for all phases.");
   params.addCoupledVar("global_cs", "Global concentrations c, b, etc.");
   params.addCoupledVar("w", "Chemical potential non-linear helper variable for the split solve");
   params.addParam<std::vector<MaterialPropertyName>>(
       "c1_names",
-      "Phase concentrations in the frist phase of etas. The order must match global_c, for "
+      "Phase concentrations in the frist phase of all_etas. The order must match global_cs, for "
       "example, c1, b1, etc.");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dc1db_names",
@@ -33,10 +33,9 @@ KKSSplitCHCRes::validParams()
       "through b for one species, for example, dc1dc, dc1db, db1dc, db1db");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dc1detaj_names",
-      "The phase concentrations of the first phase in Fj_names taken derivatives wrt etas. c1 must "
-      "match the order in global_c, and etaj must match the order in etas. First keep the same c1 "
-      "and loop through eta, for example, dc1deta1, "
-      "dc1deta2, db1deta1, db1deta2.");
+      "The phase concentrations of the first phase in Fj_names taken derivatives wrt all_etas. c1 "
+      "must match the order in global_c, and etaj must match the order in all_etas. First keep the "
+      "same c1 and loop through eta, for example, dc1deta1, dc1deta2, db1deta1, db1deta2.");
   params.addParam<MaterialPropertyName>("F1_name", "F1");
   return params;
 }
@@ -44,8 +43,8 @@ KKSSplitCHCRes::validParams()
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
   : DerivativeMaterialInterface<JvarMapKernelInterface<Kernel>>(parameters),
     // : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
-    _eta_names(coupledComponents("etas")),
-    _eta_map(getParameterJvarMap("etas")),
+    _eta_names(coupledComponents("all_etas")),
+    _eta_map(getParameterJvarMap("all_etas")),
     _num_j(_eta_names.size()),
     _c_map(getParameterJvarMap("global_cs")),
     _num_c(coupledComponents("global_cs")),
@@ -55,10 +54,8 @@ KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
     _c1_names(getParam<std::vector<MaterialPropertyName>>("c1_names")),
     _dc1db_names(getParam<std::vector<MaterialPropertyName>>("dc1db_names")),
     _prop_dc1db(_num_c),
-
     _dc1detaj_names(getParam<std::vector<MaterialPropertyName>>("dc1detaj_names")),
     _prop_dc1detaj(_num_c),
-
     _F1_name(getParam<MaterialPropertyName>("F1_name")),
     _prop_dF1dc1(_num_c),
     _prop_d2F1dc1db1(_num_c)
@@ -70,22 +67,16 @@ KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
       _o = i;
   }
 
-  // initialize _prop_dc1db
   for (unsigned int m = 0; m < _num_c; ++m)
   {
     _prop_dc1db[m].resize(_num_c);
-
-    for (unsigned int n = 0; n < _num_c; ++n)
-    {
-      _prop_dc1db[m][n] = &getMaterialPropertyByName<Real>(_dc1db_names[m * _num_c + n]);
-    }
-  }
-
-  // initialize _prop_dc1detaj
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
     _prop_dc1detaj[m].resize(_num_j);
 
+    // initialize _prop_dc1db
+    for (unsigned int n = 0; n < _num_c; ++n)
+      _prop_dc1db[m][n] = &getMaterialPropertyByName<Real>(_dc1db_names[m * _num_c + n]);
+
+    // initialize _prop_dc1detaj
     for (unsigned int n = 0; n < _num_j; ++n)
       _prop_dc1detaj[m][n] = &getMaterialPropertyByName<Real>(_dc1detaj_names[m * _num_j + n]);
   }

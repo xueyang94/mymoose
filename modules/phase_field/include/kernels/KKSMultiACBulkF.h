@@ -39,7 +39,6 @@ protected:
   /// Position of the nonlinear variable in the list of cj's
   int _k;
   std::vector<MaterialPropertyName> _c1_names;
-
   std::vector<MaterialPropertyName> _dcidb_names;
   std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _prop_dcidb;
   std::vector<MaterialPropertyName> _dcidetaj_names;

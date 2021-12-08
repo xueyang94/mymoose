@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include "Kernel.h"
 // #include "SplitCHBase.h"
 #include "JvarMapInterface.h"
 #include "DerivativeMaterialInterface.h"
@@ -54,10 +53,8 @@ protected:
   std::vector<MaterialPropertyName> _c1_names;
   std::vector<MaterialPropertyName> _dc1db_names;
   std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dc1db;
-
   std::vector<MaterialPropertyName> _dc1detaj_names;
   std::vector<std::vector<const MaterialProperty<Real> *>> _prop_dc1detaj;
-
   const MaterialPropertyName _F1_name;
   std::vector<const MaterialProperty<Real> *> _prop_dF1dc1;
   std::vector<const MaterialProperty<Real> *> _prop_d2F1dc1db1;

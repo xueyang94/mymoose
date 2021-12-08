@@ -21,11 +21,11 @@ KKSMultiACBulkC::validParams()
       "global_cs",
       "The global concentration of the component corresponding to ci_names, for example, c, b.");
   params.addRequiredCoupledVar(
-      "etas", "Order parameters for all phases. Place in the same order as Fj_names.");
+      "all_etas", "Order parameters for all phases. Place in the same order as Fj_names.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "ci_names",
-      "Phase concentrations. These must have the same order as Fj_names and global_cs, for "
-      "example, c1, c2, b1, b2.");
+      "Phase concentrations. The phase order must match all_etas and global_cs. First keep the "
+      "same global_cs and loop through all_etas, for example, c1, c2, c3, b1, b2, b3, etc");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dcidb_names",
       "Coupled dcidb in the order of dc1db, dc2db, dc3db, etc. These must have the same order as "
@@ -33,7 +33,8 @@ KKSMultiACBulkC::validParams()
   params.addParam<std::vector<MaterialPropertyName>>(
       "dcidetaj_names",
       "The phase concentrations taken derivatives wrt kernel variable. ci must match the order in "
-      "global_c and etas, and etaj must match the order in etas, for example, dc1deta1, dc2deta1, "
+      "global_c and all_etas, and etaj must match the order in all_etas, for example, dc1deta1, "
+      "dc2deta1, "
       "dc3deta1, dc1deta2...dc1deta3...db1deta1...db2deta1...db3deta1..., etc.");
   return params;
 }
@@ -43,20 +44,16 @@ KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
     _c_names(coupledComponents("global_cs")),
     _c_map(getParameterJvarMap("global_cs")),
     _num_c(coupledComponents("global_cs")),
-    _eta_names(coupledComponents("etas")),
-    _eta_map(getParameterJvarMap("etas")),
+    _eta_names(coupledComponents("all_etas")),
+    _eta_map(getParameterJvarMap("all_etas")),
     _k(-1),
-
     _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),
     _ci_name_matrix(_num_c),
     _prop_ci(_num_c),
-
     _dcidb_names(getParam<std::vector<MaterialPropertyName>>("dcidb_names")),
     _prop_dcidb(_num_c),
-
     _dcidetaj_names(getParam<std::vector<MaterialPropertyName>>("dcidetaj_names")),
     _prop_dcidetaj(_num_c),
-
     _prop_d2hjdetaidetap(_num_j),
     _first_df1(_num_c),
     _d2F1dc1db1(_num_c)
@@ -64,93 +61,67 @@ KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
   for (unsigned int i = 0; i < _num_j; ++i)
   {
     // get order parameter names and variable indices
-    _eta_names[i] = getVar("etas", i)->name();
+    _eta_names[i] = getVar("all_etas", i)->name();
 
     // Set _k to the position of the nonlinear variable in the list of etaj's
-    if (coupled("etas", i) == _var.number())
+    if (coupled("all_etas", i) == _var.number())
       _k = i;
   }
 
-  // initialize _ci_name_matrix
+  // initialize _ci_name_matrix and _prop_ci for easy reference
   for (unsigned int m = 0; m < _num_c; ++m)
   {
     _ci_name_matrix[m].resize(_num_j);
-
-    for (unsigned int n = 0; n < _num_j; ++n)
-    {
-      _ci_name_matrix[m][n] = _ci_names[m * _num_j + n];
-    }
-  }
-
-  // initialize _prop_ci
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
     _prop_ci[m].resize(_num_j);
 
     for (unsigned int n = 0; n < _num_j; ++n)
     {
+      _ci_name_matrix[m][n] = _ci_names[m * _num_j + n];
+
       _prop_ci[m][n] = &getMaterialPropertyByName<Real>(_ci_name_matrix[m][n]);
     }
   }
 
-  // declare _prop_dcidb. m is the numerator species (ci or bi), n is the phase of the numerator i,
-  // l is the denominator species (c or b)
   for (unsigned int m = 0; m < _num_c; ++m)
   {
     _prop_dcidb[m].resize(_num_j);
-
-    for (unsigned int n = 0; n < _num_j; ++n)
-    {
-      _prop_dcidb[m][n].resize(_num_c);
-
-      for (unsigned int l = 0; l < _num_c; ++l)
-      {
-        _prop_dcidb[m][n][l] =
-            &getMaterialPropertyByName<Real>(_dcidb_names[m * _num_j * _num_c + n + l * _num_j]);
-      }
-    }
-  }
-
-  // declare _prop_dcidetaj. m is te numerator species (ci or bi), n is the phase of the numerator
-  // i, l is the phase of denominator j
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
     _prop_dcidetaj[m].resize(_num_j);
 
     for (unsigned int n = 0; n < _num_j; ++n)
     {
+      _prop_dcidb[m][n].resize(_num_c);
       _prop_dcidetaj[m][n].resize(_num_j);
 
+      // declare _prop_dcidb. m is the numerator species (ci or bi), n is the phase of the numerator
+      // i, l is the denominator species (c or b)
+      for (unsigned int l = 0; l < _num_c; ++l)
+        _prop_dcidb[m][n][l] =
+            &getMaterialPropertyByName<Real>(_dcidb_names[m * _num_j * _num_c + n + l * _num_j]);
+
+      // declare _prop_dcidetaj. m is te numerator species (ci or bi), n is the phase of the
+      // numerator i, l is the phase of denominator j
       for (unsigned int l = 0; l < _num_j; ++l)
-      {
         _prop_dcidetaj[m][n][l] =
             &getMaterialPropertyByName<Real>(_dcidetaj_names[m * _num_j * _num_j + n + l * _num_j]);
-      }
     }
   }
 
-  // initialize _prop_d2hjdetaidetap
   for (unsigned int m = 0; m < _num_j; ++m)
   {
     _prop_d2hjdetaidetap[m].resize(_num_j);
 
     for (unsigned int n = 0; n < _num_j; ++n)
-    {
-      // Get the derivative of dhjdetai wrt all order parameters
       _prop_d2hjdetaidetap[m][n] =
           &getMaterialPropertyDerivative<Real>(_hj_names[m], _eta_names[_k], _eta_names[n]);
-    }
   }
 
-  // initialize _first_df1
-  for (unsigned int m = 0; m < _num_c; ++m)
-    _first_df1[m] = &getMaterialPropertyDerivative<Real>(_Fj_names[0], _ci_name_matrix[m][0]);
-
-  // initialize _d2F1dc1db1[m][n]. m is the species of c1, n is the species of b1
   for (unsigned int m = 0; m < _num_c; ++m)
   {
+    _first_df1[m] = &getMaterialPropertyDerivative<Real>(_Fj_names[0], _ci_name_matrix[m][0]);
+
     _d2F1dc1db1[m].resize(_num_c);
 
+    // initialize _d2F1dc1db1[m][n]. m is the species of c1, n is the species of b1
     for (unsigned int n = 0; n < _num_c; ++n)
       _d2F1dc1db1[m][n] = &getMaterialPropertyDerivative<Real>(
           _Fj_names[0], _ci_name_matrix[m][0], _ci_name_matrix[n][0]);
@@ -191,9 +162,7 @@ KKSMultiACBulkC::computeDFDOP(PFFunctionType type)
         Real sum3 = 0.0;
 
         for (unsigned int n = 0; n < _num_c; ++n)
-        {
           sum1 += (*_d2F1dc1db1[m][n])[_qp] * (*_prop_dcidetaj[n][0][_k])[_qp];
-        }
 
         for (unsigned int l = 0; l < _num_j; ++l)
         {
@@ -231,9 +200,7 @@ KKSMultiACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
       Real sum3 = 0.0;
 
       for (unsigned int n = 0; n < _num_c; ++n)
-      {
         sum1 += (*_d2F1dc1db1[m][n])[_qp] * (*_prop_dcidb[n][0][compvar])[_qp];
-      }
 
       for (unsigned int l = 0; l < _num_j; ++l)
       {
@@ -261,9 +228,7 @@ KKSMultiACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
       Real sum3 = 0.0;
 
       for (unsigned int n = 0; n < _num_c; ++n)
-      {
         sum1 += (*_d2F1dc1db1[m][n])[_qp] * (*_prop_dcidetaj[n][0][etavar])[_qp];
-      }
 
       for (unsigned int l = 0; l < _num_j; ++l)
       {
