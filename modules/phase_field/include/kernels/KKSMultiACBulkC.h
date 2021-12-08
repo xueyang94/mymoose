@@ -38,16 +38,13 @@ protected:
   const JvarMap & _eta_map;
   /// Position of the nonlinear variable in the list of cj's
   int _k;
-
   std::vector<MaterialPropertyName> _ci_names;
   std::vector<std::vector<MaterialPropertyName>> _ci_name_matrix;
   std::vector<std::vector<const MaterialProperty<Real> *>> _prop_ci;
-
   std::vector<MaterialPropertyName> _dcidb_names;
   std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _prop_dcidb;
   std::vector<MaterialPropertyName> _dcidetaj_names;
   std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _prop_dcidetaj;
-
   std::vector<std::vector<const MaterialProperty<Real> *>> _prop_d2hjdetaidetap;
   std::vector<const MaterialProperty<Real> *> _first_df1;
   std::vector<std::vector<const MaterialProperty<Real> *>> _d2F1dc1db1;

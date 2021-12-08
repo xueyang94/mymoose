@@ -19,12 +19,15 @@ SubConcentration::validParams()
   params.addClassDescription(
       "Computes the KKS phase concentrations by using Newton iteration to solve the equal chemical "
       "potential and concentration conservation equations");
-  params.addRequiredCoupledVar("global_cs", "The interpolated concentrations");
+  params.addRequiredCoupledVar("global_cs",
+                               "The interpolated concentrations, for example, c, b, etc");
   params.addRequiredCoupledVar("all_etas", "Vector of all order parameters for all phases");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "hj_names", "Names of the switching functions in the same order of the all_etas");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
-      "ci_names", "Phase concentrations. The phase order must match Fi_names");
+      "ci_names",
+      "Phase concentrations. The phase order must match all_etas and global_cs. First keep the "
+      "same global_cs and loop through all_etas, for example, c1, c2, c3, b1, b2, b3, etc");
   params.addRequiredParam<std::vector<Real>>("ci_IC",
                                              "Initial values of ci in the same order of ci_names");
 
@@ -32,7 +35,8 @@ SubConcentration::validParams()
   params.addRequiredParam<MaterialName>("F2_material", "F2");
   params.addRequiredParam<MaterialName>("F3_material", "F3");
 
-  params.addRequiredParam<std::vector<MaterialPropertyName>>("Fi_names", "Fi");
+  params.addRequiredParam<std::vector<MaterialPropertyName>>(
+      "Fi_names", "Phase energies in the same order as all_etas");
 
   params.addParam<MaterialPropertyName>(
       "nested_iterations", "The number of nested Newton iterations at each quadrature point");
@@ -47,15 +51,14 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
   : DerivativeMaterialInterface<Material>(parameters),
     _prop_c(coupledValues("global_cs")),
     _num_c(coupledComponents("global_cs")),
-    _num_eta(coupledComponents("all_etas")),
+    _num_j(coupledComponents("all_etas")),
     _eta_names(coupledNames("all_etas")),
     _hj_names(getParam<std::vector<MaterialPropertyName>>("hj_names")),
-    _prop_hj(_num_eta),
+    _prop_hj(_num_j),
 
     _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),
-    _ci_name_matrix(_num_c),
-    _prop_ci(_num_c),
-    _ci_old(_num_c),
+    _prop_ci(_num_c * _num_j),
+    _ci_old(_num_c * _num_j),
     _ci_IC(getParam<std::vector<Real>>("ci_IC")),
 
     _f1(getMaterial("F1_material")),
@@ -63,8 +66,8 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
     _f3(getMaterial("F3_material")),
 
     _Fi_names(getParam<std::vector<MaterialPropertyName>>("Fi_names")),
-    _first_dFi(_num_eta),
-    _second_dFi(_num_eta),
+    _first_dFi(_num_j),
+    _second_dFi(_num_j),
 
     _iter(declareProperty<Real>("nested_iterations")),
     _abs_tol(getParam<Real>("absolute_tolerance")),
@@ -73,68 +76,41 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 
 {
   // // error check parameters
-  // if (_hj_names.size() != 0 && _hj_names.size() != _num_eta)
+  // if (_hj_names.size() != 0 && _hj_names.size() != _num_j)
   //   paramError("hj_names",
   //              "Specify either as many entries are eta values or none at all for auto-naming the
   //              " "hj material properties.");
   //
-  // if (_ci_names.size() != 0 && _ci_names.size() != _num_eta)
+  // if (_ci_names.size() != 0 && _ci_names.size() != _num_j)
   //   paramError("ci_names",
   //              "Specify either as many entries are eta values or none at all for auto-naming the
   //              " "ci material properties.");
 
-  // initialize _ci_name_matrix
-  for (unsigned int m = 0; m < _num_c; ++m)
+  for (unsigned int m = 0; m < _num_c * _num_j; ++m)
   {
-    _ci_name_matrix[m].resize(_num_eta);
-
-    for (unsigned int n = 0; n < _num_eta; ++n)
-      _ci_name_matrix[m][n] = _ci_names[m * _num_eta + n];
+    _ci_old[m] = &getMaterialPropertyOld<Real>(_ci_names[m]);
+    _prop_ci[m] = &declareProperty<Real>(_ci_names[m]);
   }
 
-  // declare ci material properties
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
-    _prop_ci[m].resize(_num_eta);
-
-    for (unsigned int n = 0; n < _num_eta; ++n)
-      _prop_ci[m][n] = &declareProperty<Real>(_ci_name_matrix[m][n]);
-  }
-
-  // declare old ci
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
-    _ci_old[m].resize(_num_eta);
-
-    for (unsigned int n = 0; n < _num_eta; ++n)
-      _ci_old[m][n] = &getMaterialPropertyOld<Real>(_ci_name_matrix[m][n]);
-  }
-
-  // declare h material properties
-  for (unsigned int m = 0; m < _num_eta; ++m)
-    _prop_hj[m] = &getMaterialPropertyByName<Real>(_hj_names[m]);
-
-  // declare the first derivatives of phase energy wrt phase concentrations
-  for (unsigned int m = 0; m < _num_eta; ++m)
+  // declare _prop_hj, the first derivatives, and the second derivatives of phase energy wrt phase
+  // concentrations
+  for (unsigned int m = 0; m < _num_j; ++m)
   {
     _first_dFi[m].resize(_num_c);
-
-    for (unsigned int n = 0; n < _num_c; ++n)
-      _first_dFi[m][n] = &getMaterialPropertyDerivative<Real>(_Fi_names[m], _ci_name_matrix[n][m]);
-  }
-
-  // declare the second derivatives of phase energies wrt phase concentrations
-  for (unsigned int m = 0; m < _num_eta; ++m)
-  {
     _second_dFi[m].resize(_num_c);
+
+    _prop_hj[m] = &getMaterialPropertyByName<Real>(_hj_names[m]);
 
     for (unsigned int n = 0; n < _num_c; ++n)
     {
+      _first_dFi[m][n] =
+          &getMaterialPropertyDerivative<Real>(_Fi_names[m], _ci_names[m + n * _num_j]);
+
       _second_dFi[m][n].resize(_num_c);
 
       for (unsigned int l = 0; l < _num_c; ++l)
         _second_dFi[m][n][l] = &getMaterialPropertyDerivative<Real>(
-            _Fi_names[m], _ci_name_matrix[n][m], _ci_name_matrix[l][m]);
+            _Fi_names[m], _ci_names[m + n * _num_j], _ci_names[m + l * _num_j]);
     }
   }
 }
@@ -142,20 +118,18 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 void
 SubConcentration::initQpStatefulProperties()
 {
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
-    for (unsigned int n = 0; n < _num_eta; ++n)
-      (*_prop_ci[m][n])[_qp] = _ci_IC[m * _num_eta + n];
-  }
+  for (unsigned int m = 0; m < _num_c * _num_j; ++m)
+    (*_prop_ci[m])[_qp] = _ci_IC[m];
 }
 
 void
 SubConcentration::computeQpProperties()
 {
   // dynamicaly sized vector class from the Eigen library
-  NestedSolve::Value<> solution(_num_c * _num_eta);
+  NestedSolve::Value<> solution(_num_c * _num_j);
 
-  solution << _ci_IC[0], _ci_IC[1], _ci_IC[2], _ci_IC[3], _ci_IC[4], _ci_IC[5];
+  solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
+      (*_ci_old[4])[_qp], (*_ci_old[5])[_qp];
 
   _nested_solve.setAbsoluteTolerance(_abs_tol);
   _nested_solve.setRelativeTolerance(_rel_tol);
@@ -163,11 +137,8 @@ SubConcentration::computeQpProperties()
   auto compute = [&](const NestedSolve::Value<> & guess,
                      NestedSolve::Value<> & residual,
                      NestedSolve::Jacobian<> & jacobian) {
-    for (unsigned int m = 0; m < _num_c; ++m)
-    {
-      for (unsigned int n = 0; n < _num_eta; ++n)
-        (*_prop_ci[m][n])[_qp] = guess(m * _num_eta + n);
-    }
+    for (unsigned int m = 0; m < _num_c * _num_j; ++m)
+      (*_prop_ci[m])[_qp] = guess(m);
 
     _f1.computePropertiesAtQp(_qp);
     _f2.computePropertiesAtQp(_qp);
@@ -176,19 +147,19 @@ SubConcentration::computeQpProperties()
     // assign residual functions
     for (unsigned int m = 0; m < _num_c; ++m)
     {
-      for (unsigned int n = 0; n < _num_eta - 1; ++n)
-        residual(m * _num_eta + n) = (*_first_dFi[n][m])[_qp] - (*_first_dFi[n + 1][m])[_qp];
+      for (unsigned int n = 0; n < _num_j - 1; ++n)
+        residual(m * _num_j + n) = (*_first_dFi[n][m])[_qp] - (*_first_dFi[n + 1][m])[_qp];
 
-      residual(m * _num_eta + _num_c) = -(*_prop_c[m])[_qp];
+      residual(m * _num_j + _num_c) = -(*_prop_c[m])[_qp];
 
-      for (unsigned int l = 0; l < _num_eta; ++l)
-        residual(m * _num_eta + _num_c) += (*_prop_hj[l])[_qp] * (*_prop_ci[m][l])[_qp];
+      for (unsigned int l = 0; l < _num_j; ++l)
+        residual(m * _num_j + _num_c) += (*_prop_hj[l])[_qp] * (*_prop_ci[m * _num_j + l])[_qp];
     }
 
     // initialize all terms in jacobian to be zero
-    for (unsigned int m = 0; m < _num_eta * _num_c; ++m)
+    for (unsigned int m = 0; m < _num_j * _num_c; ++m)
     {
-      for (unsigned int n = 0; n < _num_eta * _num_c; ++n)
+      for (unsigned int n = 0; n < _num_j * _num_c; ++n)
         jacobian(m, n) = 0;
     }
 
@@ -198,13 +169,13 @@ SubConcentration::computeQpProperties()
     for (unsigned int m = 0; m < _num_c; ++m)
     {
       // loop through the nth constraint equation in the constraint set of one component
-      for (unsigned int n = 0; n < (_num_eta - 1); ++n)
+      for (unsigned int n = 0; n < (_num_j - 1); ++n)
       {
         // loop through the lth chain rule terms in one constrain equation
         for (unsigned int l = 0; l < _num_c; ++l)
         {
-          jacobian(m * _num_eta + n, n + l * _num_eta) = (*_second_dFi[n][m][l])[_qp];
-          jacobian(m * _num_eta + n, n + l * _num_eta + 1) = -(*_second_dFi[n + 1][m][l])[_qp];
+          jacobian(m * _num_j + n, n + l * _num_j) = (*_second_dFi[n][m][l])[_qp];
+          jacobian(m * _num_j + n, n + l * _num_j + 1) = -(*_second_dFi[n + 1][m][l])[_qp];
         }
       }
     }
@@ -212,8 +183,8 @@ SubConcentration::computeQpProperties()
     // then assign the terms in jacobian that come from the concentration conservation equations
     for (unsigned int m = 0; m < _num_c; ++m)
     {
-      for (unsigned int n = 0; n < _num_eta; ++n)
-        jacobian(m * _num_eta + _num_c, m * _num_eta + n) = (*_prop_hj[n])[_qp];
+      for (unsigned int n = 0; n < _num_j; ++n)
+        jacobian(m * _num_j + _num_c, m * _num_j + n) = (*_prop_hj[n])[_qp];
     }
   };
 
@@ -226,9 +197,6 @@ SubConcentration::computeQpProperties()
   }
 
   // assign solution to ci
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
-    for (unsigned int n = 0; n < _num_eta; ++n)
-      (*_prop_ci[m][n])[_qp] = solution[m * _num_eta + n];
-  }
+  for (unsigned int m = 0; m < _num_c * _num_j; ++m)
+    (*_prop_ci[m])[_qp] = solution[m];
 }

@@ -25,15 +25,14 @@ protected:
 
   const std::vector<const VariableValue *> _prop_c;
   const unsigned int _num_c;
-  const unsigned int _num_eta;
+  const unsigned int _num_j;
   const std::vector<VariableName> _eta_names;
   std::vector<MaterialPropertyName> _hj_names;
   std::vector<const MaterialProperty<Real> *> _prop_hj;
 
   std::vector<MaterialPropertyName> _ci_names;
-  std::vector<std::vector<MaterialPropertyName>> _ci_name_matrix;
-  std::vector<std::vector<MaterialProperty<Real> *>> _prop_ci;
-  std::vector<std::vector<const MaterialProperty<Real> *>> _ci_old;
+  std::vector<MaterialProperty<Real> *> _prop_ci;
+  std::vector<const MaterialProperty<Real> *> _ci_old;
   std::vector<Real> _ci_IC;
 
   MaterialBase & _f1;

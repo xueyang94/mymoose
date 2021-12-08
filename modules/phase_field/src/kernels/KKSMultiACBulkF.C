@@ -18,21 +18,23 @@ KKSMultiACBulkF::validParams()
   params.addClassDescription("KKS model kernel (part 1 of 2) for the Bulk Allen-Cahn. This "
                              "includes all terms NOT dependent on chemical potential.");
   params.addRequiredCoupledVar("global_cs", "Global concentrations c, b, etc.");
-  params.addRequiredCoupledVar("etas", "Order parameters for all phases.");
+  params.addRequiredCoupledVar("all_etas", "Order parameters for all phases.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "c1_names",
-      "Phase concentrations in the frist phase of etas. The order must match global_cs, for "
+      "Phase concentrations in the frist phase of all_etas. The order must match global_cs, for "
       "example, c1, b1, etc.");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dcidb_names",
       "The phase concentrations taken derivatives wrt global concentrations. i must match the "
-      "order of etas. ci and b must match the order of global_cs. First keep the same b and loop "
+      "order of all_etas. ci and b must match the order of global_cs. First keep the same b and "
+      "loop "
       "through ci for one species, for example, dc1dc, dc2dc, dc3dc, "
       "dc1db, dc2db, dc3db, db1dc, db2dc, db3dc, db1db, db2db, db3db, etc.");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dcidetaj_names",
       "The phase concentrations taken derivatives wrt kernel variable. ci must match the order in "
-      "global_cs and etas, and etaj must match the order in etas, for example, dc1deta1, dc2deta1, "
+      "global_cs and all_etas, and etaj must match the order in all_etas, for example, dc1deta1, "
+      "dc2deta1, "
       "dc3deta1, dc1deta2...dc1deta3...db1deta1...db2deta1...db3deta1..., etc.");
   params.addRequiredParam<Real>("wi", "Double well height parameter.");
   params.addRequiredParam<MaterialPropertyName>(
@@ -45,17 +47,14 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
     _c_names(coupledComponents("global_cs")),
     _c_map(getParameterJvarMap("global_cs")),
     _num_c(coupledComponents("global_cs")),
-    _eta_names(coupledComponents("etas")),
-    _eta_map(getParameterJvarMap("etas")),
+    _eta_names(coupledComponents("all_etas")),
+    _eta_map(getParameterJvarMap("all_etas")),
     _k(-1),
     _c1_names(getParam<std::vector<MaterialPropertyName>>("c1_names")),
-
     _dcidb_names(getParam<std::vector<MaterialPropertyName>>("dcidb_names")),
     _prop_dcidb(_num_c),
-
     _dcidetaj_names(getParam<std::vector<MaterialPropertyName>>("dcidetaj_names")),
     _prop_dcidetaj(_num_c),
-
     _wi(getParam<Real>("wi")),
     _gi_name(getParam<MaterialPropertyName>("gi_name")),
     _dgi(getMaterialPropertyDerivative<Real>("gi_name", _etai_name)),
@@ -66,10 +65,10 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
   for (unsigned int i = 0; i < _num_j; ++i)
   {
     // get order parameter names and variable indices
-    _eta_names[i] = getVar("etas", i)->name();
+    _eta_names[i] = getVar("all_etas", i)->name();
 
     // Set _k to the position of the nonlinear variable in the list of etaj's
-    if (coupled("etas", i) == _var.number())
+    if (coupled("all_etas", i) == _var.number())
       _k = i;
   }
 
@@ -77,26 +76,19 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
   for (unsigned int m = 0; m < _num_c; ++m)
   {
     _prop_dcidb[m].resize(_num_j);
-
-    for (unsigned int n = 0; n < _num_j; ++n)
-    {
-      _prop_dcidb[m][n].resize(_num_c);
-
-      for (unsigned int l = 0; l < _num_c; ++l)
-        _prop_dcidb[m][n][l] =
-            &getMaterialPropertyByName<Real>(_dcidb_names[m * _num_j * _num_c + n + l * _num_j]);
-    }
-  }
-
-  // initialize _prop_dcidetaj
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
     _prop_dcidetaj[m].resize(_num_j);
 
     for (unsigned int n = 0; n < _num_j; ++n)
     {
+      _prop_dcidb[m][n].resize(_num_c);
       _prop_dcidetaj[m][n].resize(_num_j);
 
+      // initialize _prop_dcidb
+      for (unsigned int l = 0; l < _num_c; ++l)
+        _prop_dcidb[m][n][l] =
+            &getMaterialPropertyByName<Real>(_dcidb_names[m * _num_j * _num_c + n + l * _num_j]);
+
+      // initialize _prop_dcidetaj
       for (unsigned int l = 0; l < _num_j; ++l)
         _prop_dcidetaj[m][n][l] =
             &getMaterialPropertyByName<Real>(_dcidetaj_names[m * _num_j * _num_j + n + l * _num_j]);
@@ -112,7 +104,6 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
   {
     _d2hjdetaidetap[m].resize(_num_j);
 
-    // Get the derivative of dhjdetai wrt all order parameters p
     for (unsigned int n = 0; n < _num_j; ++n)
       _d2hjdetaidetap[m][n] =
           &getMaterialPropertyDerivative<Real>(_hj_names[m], _eta_names[_k], _eta_names[n]);

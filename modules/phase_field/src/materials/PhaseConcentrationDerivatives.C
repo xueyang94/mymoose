@@ -19,16 +19,13 @@ PhaseConcentrationDerivatives::validParams()
   params.addClassDescription(
       "Computes the KKS phase concentration derivatives wrt global concentrations and order "
       "parameters, which are used in the chain rules in the KKS kernels.");
-  params.addRequiredCoupledVar("all_cs", "The interpolated concentration c, b, etc");
+  params.addRequiredCoupledVar("global_cs",
+                               "The interpolated concentrations, for example, c, b, etc");
   params.addRequiredCoupledVar("all_etas", "Vector of all order parameters for all phases");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
-      "Fj_names", "Phase energies in the same order as the all_etas.");
-  params.addRequiredParam<std::vector<MaterialPropertyName>>(
-      "hj_names", "Names of the switching functions in the same order of the all_etas");
-  params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "ci_names",
-      "Phase concentrations. The phase order must match Fi_names and global_c, for example, c1, "
-      "c2, b1, b2, etc");
+      "Phase concentrations. The phase order must match all_etas and global_cs. First keep the "
+      "same global_cs and loop through all_etas, for example, c1, c2, c3, b1, b2, b3, etc");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "dcidb_names",
       "The derivative of phase concentrations wrt global concentrations. The order must match "
@@ -39,67 +36,74 @@ PhaseConcentrationDerivatives::validParams()
       "The derivative of phase concentrations wrt order parameters. The order must match "
       "ci_names and Fj_names, for example, dc1deta1, dc1deta2, dc2deta1, dc2deta2, db1deta1, "
       "db1deta2, db2deta1, db2deta2, etc.");
+  params.addRequiredParam<std::vector<MaterialPropertyName>>(
+      "hj_names", "Names of the switching functions in the same order of the all_etas");
+  params.addRequiredParam<std::vector<MaterialPropertyName>>(
+      "Fj_names", "Phase energies in the same order as the all_etas.");
   return params;
 }
 
 PhaseConcentrationDerivatives::PhaseConcentrationDerivatives(const InputParameters & parameters)
   : DerivativeMaterialInterface<Material>(parameters),
-    _num_c(coupledComponents("all_cs")),
-    _c_names(coupledComponents("all_cs")),
-    _prop_ci(_num_c),
+    _num_c(coupledComponents("global_cs")),
+    _c_names(coupledComponents("global_cs")),
     _eta_names(coupledNames("all_etas")),
-    _num_eta(coupledComponents("all_etas")),
-    _Fj_names(getParam<std::vector<MaterialPropertyName>>("Fj_names")),
-    _d2Fjdcjdbj(_num_eta),
-    _hj_names(getParam<std::vector<MaterialPropertyName>>("hj_names")),
-    _prop_hj(_num_eta),
-    _dhjdetap(_num_eta),
+    _num_j(coupledComponents("all_etas")),
+    _prop_ci(_num_c * _num_j),
     _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),
-    _ci_name_matrix(_num_c),
     _dcidb_names(getParam<std::vector<MaterialPropertyName>>("dcidb_names")),
     _prop_dcidb(_num_c),
     _dcidetaj_names(getParam<std::vector<MaterialPropertyName>>("dcidetaj_names")),
-    _prop_dcidetaj(_num_c)
+    _prop_dcidetaj(_num_c),
+    _hj_names(getParam<std::vector<MaterialPropertyName>>("hj_names")),
+    _prop_hj(_num_j),
+    _dhjdetap(_num_j),
+    _Fj_names(getParam<std::vector<MaterialPropertyName>>("Fj_names")),
+    _d2Fjdcjdbj(_num_j)
 {
-  // initialize _ci_name_matrix
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
-    _ci_name_matrix[m].resize(_num_eta);
-
-    for (unsigned int n = 0; n < _num_eta; ++n)
-    {
-      _ci_name_matrix[m][n] = _ci_names[m * _num_eta + n];
-    }
-  }
-
   // initialize _prop_ci
+  for (unsigned int m = 0; m < _num_c * _num_j; ++m)
+    _prop_ci[m] = &getMaterialPropertyByName<Real>(_ci_names[m]);
+
   for (unsigned int m = 0; m < _num_c; ++m)
   {
-    _prop_ci[m].resize(_num_eta);
+    _prop_dcidb[m].resize(_num_j);
+    _prop_dcidetaj[m].resize(_num_j);
 
-    for (unsigned int n = 0; n < _num_eta; ++n)
+    for (unsigned int n = 0; n < _num_j; ++n)
     {
-      _prop_ci[m][n] = &getMaterialPropertyByName<Real>(_ci_name_matrix[m][n]);
+      _prop_dcidb[m][n].resize(_num_c);
+      _prop_dcidetaj[m][n].resize(_num_j);
+
+      // declare _prop_dcidb. m is the numerator species (ci or bi), n is the phase of the numerator
+      // i, l is the denominator species (c or b)
+      for (unsigned int l = 0; l < _num_c; ++l)
+        _prop_dcidb[m][n][l] =
+            &declareProperty<Real>(_dcidb_names[m * _num_j * _num_c + n + l * _num_j]);
+
+      // declare _prop_dcidetaj. m is the numerator species (ci or bi), n is the phase of the
+      // numerator i, l is the phase of denominator j
+      for (unsigned int l = 0; l < _num_j; ++l)
+        _prop_dcidetaj[m][n][l] =
+            &declareProperty<Real>(_dcidetaj_names[m * _num_j * _num_j + n + l * _num_j]);
     }
   }
 
-  for (unsigned int m = 0; m < _num_eta; ++m)
+  for (unsigned int m = 0; m < _num_j; ++m)
   {
     // initialize _prop_hj
     _prop_hj[m] = &getMaterialPropertyByName<Real>(_hj_names[m]);
 
-    _dhjdetap[m].resize(_num_eta);
+    _dhjdetap[m].resize(_num_j);
 
     // initialize _prop_dhjetap
-    for (unsigned int n = 0; n < _num_eta; ++n)
-    {
+    for (unsigned int n = 0; n < _num_j; ++n)
       _dhjdetap[m][n] = &getMaterialPropertyDerivative<Real>(_hj_names[m], _eta_names[n]);
-    }
   }
 
   // initialize _d2Fjdcjdbj[m][n][l], m is phase, n is the first phase concentration species in
   // phase m, l is the second phase concentration species in phase m
-  for (unsigned int m = 0; m < _num_eta; ++m)
+  for (unsigned int m = 0; m < _num_j; ++m)
   {
     _d2Fjdcjdbj[m].resize(_num_c);
 
@@ -108,46 +112,8 @@ PhaseConcentrationDerivatives::PhaseConcentrationDerivatives(const InputParamete
       _d2Fjdcjdbj[m][n].resize(_num_c);
 
       for (unsigned int l = 0; l < _num_c; ++l)
-      {
         _d2Fjdcjdbj[m][n][l] = &getMaterialPropertyDerivative<Real>(
-            _Fj_names[m], _ci_name_matrix[n][m], _ci_name_matrix[l][m]);
-      }
-    }
-  }
-
-  // declare _prop_dcidb. m is the numerator species (ci or bi), n is the phase of the numerator i,
-  // l is the denominator species (c or b)
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
-    _prop_dcidb[m].resize(_num_eta);
-
-    for (unsigned int n = 0; n < _num_eta; ++n)
-    {
-      _prop_dcidb[m][n].resize(_num_c);
-
-      for (unsigned int l = 0; l < _num_c; ++l)
-      {
-        _prop_dcidb[m][n][l] =
-            &declareProperty<Real>(_dcidb_names[m * _num_eta * _num_c + n + l * _num_eta]);
-      }
-    }
-  }
-
-  // declare _prop_dcidetaj. m is the numerator species (ci or bi), n is the phase of the numerator
-  // i, l is the phase of denominator j
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
-    _prop_dcidetaj[m].resize(_num_eta);
-
-    for (unsigned int n = 0; n < _num_eta; ++n)
-    {
-      _prop_dcidetaj[m][n].resize(_num_eta);
-
-      for (unsigned int l = 0; l < _num_eta; ++l)
-      {
-        _prop_dcidetaj[m][n][l] =
-            &declareProperty<Real>(_dcidetaj_names[m * _num_eta * _num_eta + n + l * _num_eta]);
-      }
+            _Fj_names[m], _ci_names[m + n * _num_j], _ci_names[m + l * _num_j]);
     }
   }
 }
@@ -155,16 +121,16 @@ PhaseConcentrationDerivatives::PhaseConcentrationDerivatives(const InputParamete
 void
 PhaseConcentrationDerivatives::computeQpProperties()
 {
-  /////////////////////////////////////////////////////////////////////////////////////////////////// solve linear system of constraint derivatives wrt c for computing dcidc and dbidc
+  ///////////////////////////////////////////////////////////// solve linear system of constraint derivatives wrt c for computing dcidc and dbidc
   // declare A
-  std::vector<std::vector<Real>> A(_num_eta * _num_c);
+  std::vector<std::vector<Real>> A(_num_j * _num_c);
   for (auto & row : A)
-    row.resize(_num_eta * _num_c);
+    row.resize(_num_j * _num_c);
 
   // initialize all elements in A_c to be zero
-  for (unsigned int m = 0; m < _num_eta * _num_c; ++m)
+  for (unsigned int m = 0; m < _num_j * _num_c; ++m)
   {
-    for (unsigned int n = 0; n < _num_eta * _num_c; ++n)
+    for (unsigned int n = 0; n < _num_j * _num_c; ++n)
       A[m][n] = 0;
   }
 
@@ -174,13 +140,13 @@ PhaseConcentrationDerivatives::computeQpProperties()
   for (unsigned int m = 0; m < _num_c; ++m)
   {
     // loop through the nth constraint equation in the constraint set of one component
-    for (unsigned int n = 0; n < (_num_eta - 1); ++n)
+    for (unsigned int n = 0; n < (_num_j - 1); ++n)
     {
       // loop through the lth chain rule terms in one constrain equation
       for (unsigned int l = 0; l < _num_c; ++l)
       {
-        A[m * _num_eta + n][n + l * _num_eta] = (*_d2Fjdcjdbj[n][m][l])[_qp];
-        A[m * _num_eta + n][n + l * _num_eta + 1] = -(*_d2Fjdcjdbj[n + 1][m][l])[_qp];
+        A[m * _num_j + n][n + l * _num_j] = (*_d2Fjdcjdbj[n][m][l])[_qp];
+        A[m * _num_j + n][n + l * _num_j + 1] = -(*_d2Fjdcjdbj[n + 1][m][l])[_qp];
       }
     }
   }
@@ -188,86 +154,75 @@ PhaseConcentrationDerivatives::computeQpProperties()
   // then assign the elements in A that come from the concentration conservation equations
   for (unsigned int m = 0; m < _num_c; ++m)
   {
-    for (unsigned int n = 0; n < _num_eta; ++n)
-      A[m * _num_eta + _num_c][m * _num_eta + n] = (*_prop_hj[n])[_qp];
+    for (unsigned int n = 0; n < _num_j; ++n)
+      A[m * _num_j + _num_c][m * _num_j + n] = (*_prop_hj[n])[_qp];
   }
 
   MatrixTools::inverse(A, A);
 
-  std::vector<Real> k_c(_num_eta * _num_c);
-  std::vector<Real> x_c(_num_eta * _num_c);
+  std::vector<Real> k_c(_num_j * _num_c);
+  std::vector<Real> x_c(_num_j * _num_c);
 
   // loop through taking derivative wrt the ith component
   for (unsigned int i = 0; i < _num_c; ++i)
   {
     // initialize all elements in k_c to be zero
-    for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
+    for (unsigned int m = 0; m < (_num_j * _num_c); ++m)
       k_c[m] = 0;
 
     // assign non-zero elements in k_c
-    k_c[i * _num_eta + _num_eta - 1] = 1;
+    k_c[i * _num_j + _num_j - 1] = 1;
 
     // initialize all elements in x_c to be zero
-    for (unsigned int m = 0; m < _num_eta * _num_c; ++m)
+    for (unsigned int m = 0; m < _num_j * _num_c; ++m)
       x_c[m] = 0;
 
     // compute x_c
-    for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
+    for (unsigned int m = 0; m < (_num_j * _num_c); ++m)
     {
-      for (unsigned int n = 0; n < (_num_eta * _num_c); ++n)
+      for (unsigned int n = 0; n < (_num_j * _num_c); ++n)
         x_c[m] += A[m][n] * k_c[n];
     }
 
     // assign the values in x_c to _prop_dcidb
     for (unsigned int m = 0; m < _num_c; ++m)
     {
-      for (unsigned int n = 0; n < _num_eta; ++n)
-      {
-        (*_prop_dcidb[m][n][i])[_qp] = x_c[m * _num_eta + n];
-      }
+      for (unsigned int n = 0; n < _num_j; ++n)
+        (*_prop_dcidb[m][n][i])[_qp] = x_c[m * _num_j + n];
     }
   }
 
-  //////////////////////////////////////////////////////////////////////////////////////////////////////// solve linear system of constraint derivatives wrt etaj for computing dcidetaj
-  std::vector<Real> k_eta(_num_eta * _num_c);
-  std::vector<Real> x_eta(_num_eta * _num_c);
-
-  for (unsigned int i = 0; i < _num_eta; ++i) // loop through all the order parameters that the
-                                              // phase concentrations take derivative to
+  ///////////////////////////////////////////////////////////// solve linear system of constraint derivatives wrt etaj for computing dcidetaj
+  for (unsigned int i = 0; i < _num_j; ++i) // loop through all the order parameters that the
+                                            // phase concentrations take derivative to
   {
-    // initialize all elements in k_eta to be zero
-    for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
-      k_eta[m] = 0;
+    std::vector<Real> k_eta(_num_j * _num_c);
 
     // assign non-zero elements in k_eta
     for (unsigned int m = 0; m < _num_c; ++m)
     {
       Real sum = 0.0;
 
-      for (unsigned int n = 0; n < _num_eta; ++n)
-        sum += (*_dhjdetap[n][i])[_qp] * (*_prop_ci[m][n])[_qp];
+      for (unsigned int n = 0; n < _num_j; ++n)
+        sum += (*_dhjdetap[n][i])[_qp] * (*_prop_ci[m * _num_j + n])[_qp];
 
-      k_eta[m * _num_eta + _num_c] = -sum;
+      k_eta[m * _num_j + _num_c] = -sum;
     }
 
-    // initialize all elements in x_eta to be zero
-    for (unsigned int m = 0; m < _num_eta * _num_c; ++m)
-      x_eta[m] = 0;
+    std::vector<Real> x_eta(_num_j * _num_c);
 
     // compute x_eta
-    for (unsigned int m = 0; m < (_num_eta * _num_c); ++m)
+    for (unsigned int m = 0; m < (_num_j * _num_c); ++m)
     {
-      for (unsigned int n = 0; n < (_num_eta * _num_c); ++n)
+      for (unsigned int n = 0; n < (_num_j * _num_c); ++n)
         x_eta[m] += A[m][n] * k_eta[n];
     }
 
     // assign the values in x_eta to _prop_dcidetaj
     for (unsigned int m = 0; m < _num_c; ++m)
     {
-      for (unsigned int n = 0; n < _num_eta; ++n)
-      {
-        (*_prop_dcidetaj[m][n][i])[_qp] = x_eta[m * _num_eta + n];
-      }
+      for (unsigned int n = 0; n < _num_j; ++n)
+        (*_prop_dcidetaj[m][n][i])[_qp] = x_eta[m * _num_j + n];
     }
   }
 }
