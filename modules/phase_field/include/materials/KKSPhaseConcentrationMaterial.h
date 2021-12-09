@@ -12,12 +12,12 @@
 #include "DerivativeMaterialInterface.h"
 #include "NestedSolve.h"
 
-class SubConcentration : public DerivativeMaterialInterface<Material>
+class KKSPhaseConcentrationMaterial : public DerivativeMaterialInterface<Material>
 {
 public:
   static InputParameters validParams();
 
-  SubConcentration(const InputParameters & parameters);
+  KKSPhaseConcentrationMaterial(const InputParameters & parameters);
 
 protected:
   virtual void initQpStatefulProperties() override;
@@ -25,11 +25,7 @@ protected:
 
   const std::vector<const VariableValue *> _prop_c;
   const unsigned int _num_c;
-  const unsigned int _num_j;
-  const std::vector<VariableName> _eta_names;
-  std::vector<MaterialPropertyName> _hj_names;
-  std::vector<const MaterialProperty<Real> *> _prop_hj;
-
+  const MaterialProperty<Real> & _prop_h;
   std::vector<MaterialPropertyName> _ci_names;
   std::vector<MaterialProperty<Real> *> _prop_ci;
   std::vector<const MaterialProperty<Real> *> _ci_old;
@@ -37,7 +33,6 @@ protected:
 
   MaterialBase & _f1;
   MaterialBase & _f2;
-  MaterialBase & _f3;
 
   std::vector<MaterialPropertyName> _Fi_names;
   std::vector<std::vector<const MaterialProperty<Real> *>> _first_dFi;

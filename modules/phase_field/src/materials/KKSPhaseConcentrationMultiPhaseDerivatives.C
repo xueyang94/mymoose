@@ -7,13 +7,13 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#include "PhaseConcentrationDerivatives.h"
+#include "KKSPhaseConcentrationMultiPhaseDerivatives.h"
 #include "MatrixTools.h"
 
-registerMooseObject("PhaseFieldApp", PhaseConcentrationDerivatives);
+registerMooseObject("PhaseFieldApp", KKSPhaseConcentrationMultiPhaseDerivatives);
 
 InputParameters
-PhaseConcentrationDerivatives::validParams()
+KKSPhaseConcentrationMultiPhaseDerivatives::validParams()
 {
   InputParameters params = DerivativeMaterialInterface<Material>::validParams();
   params.addClassDescription(
@@ -43,7 +43,8 @@ PhaseConcentrationDerivatives::validParams()
   return params;
 }
 
-PhaseConcentrationDerivatives::PhaseConcentrationDerivatives(const InputParameters & parameters)
+KKSPhaseConcentrationMultiPhaseDerivatives::KKSPhaseConcentrationMultiPhaseDerivatives(
+    const InputParameters & parameters)
   : DerivativeMaterialInterface<Material>(parameters),
     _num_c(coupledComponents("global_cs")),
     _c_names(coupledComponents("global_cs")),
@@ -119,7 +120,7 @@ PhaseConcentrationDerivatives::PhaseConcentrationDerivatives(const InputParamete
 }
 
 void
-PhaseConcentrationDerivatives::computeQpProperties()
+KKSPhaseConcentrationMultiPhaseDerivatives::computeQpProperties()
 {
   ///////////////////////////////////////////////////////////// solve linear system of constraint derivatives wrt c for computing dcidc and dbidc
   // declare A

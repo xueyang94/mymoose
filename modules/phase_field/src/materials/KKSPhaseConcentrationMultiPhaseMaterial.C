@@ -7,13 +7,13 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#include "SubConcentration.h"
+#include "KKSPhaseConcentrationMultiPhaseMaterial.h"
 #include "MatrixTools.h"
 
-registerMooseObject("PhaseFieldApp", SubConcentration);
+registerMooseObject("PhaseFieldApp", KKSPhaseConcentrationMultiPhaseMaterial);
 
 InputParameters
-SubConcentration::validParams()
+KKSPhaseConcentrationMultiPhaseMaterial::validParams()
 {
   InputParameters params = DerivativeMaterialInterface<Material>::validParams();
   params.addClassDescription(
@@ -47,7 +47,8 @@ SubConcentration::validParams()
   return params;
 }
 
-SubConcentration::SubConcentration(const InputParameters & parameters)
+KKSPhaseConcentrationMultiPhaseMaterial::KKSPhaseConcentrationMultiPhaseMaterial(
+    const InputParameters & parameters)
   : DerivativeMaterialInterface<Material>(parameters),
     _prop_c(coupledValues("global_cs")),
     _num_c(coupledComponents("global_cs")),
@@ -116,14 +117,14 @@ SubConcentration::SubConcentration(const InputParameters & parameters)
 }
 
 void
-SubConcentration::initQpStatefulProperties()
+KKSPhaseConcentrationMultiPhaseMaterial::initQpStatefulProperties()
 {
   for (unsigned int m = 0; m < _num_c * _num_j; ++m)
     (*_prop_ci[m])[_qp] = _ci_IC[m];
 }
 
 void
-SubConcentration::computeQpProperties()
+KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
 {
   // dynamicaly sized vector class from the Eigen library
   NestedSolve::Value<> solution(_num_c * _num_j);
