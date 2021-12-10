@@ -9,6 +9,8 @@
 
 #include "KKSPhaseConcentrationMultiPhaseMaterial.h"
 #include "MatrixTools.h"
+#include <Eigen/Dense>
+#include <Eigen/Core>
 
 registerMooseObject("PhaseFieldApp", KKSPhaseConcentrationMultiPhaseMaterial);
 
