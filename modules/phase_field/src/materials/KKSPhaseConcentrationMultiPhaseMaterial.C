@@ -131,8 +131,9 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
   // dynamicaly sized vector class from the Eigen library
   NestedSolve::Value<> solution(_num_c * _num_j);
 
-  solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
-      (*_ci_old[4])[_qp], (*_ci_old[5])[_qp];
+  // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
+  //     (*_ci_old[4])[_qp], (*_ci_old[5])[_qp];
+  solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp];
 
   _nested_solve.setAbsoluteTolerance(_abs_tol);
   _nested_solve.setRelativeTolerance(_rel_tol);
@@ -153,10 +154,10 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
       for (unsigned int n = 0; n < _num_j - 1; ++n)
         residual(m * _num_j + n) = (*_first_dFi[n][m])[_qp] - (*_first_dFi[n + 1][m])[_qp];
 
-      residual(m * _num_j + _num_c) = -(*_prop_c[m])[_qp];
+      residual((m + 1) * _num_j - 1) = -(*_prop_c[m])[_qp];
 
       for (unsigned int l = 0; l < _num_j; ++l)
-        residual(m * _num_j + _num_c) += (*_prop_hj[l])[_qp] * (*_prop_ci[m * _num_j + l])[_qp];
+        residual((m + 1) * _num_j - 1) += (*_prop_hj[l])[_qp] * (*_prop_ci[m * _num_j + l])[_qp];
     }
 
     // initialize all terms in jacobian to be zero
@@ -187,7 +188,7 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
     for (unsigned int m = 0; m < _num_c; ++m)
     {
       for (unsigned int n = 0; n < _num_j; ++n)
-        jacobian(m * _num_j + _num_c, m * _num_j + n) = (*_prop_hj[n])[_qp];
+        jacobian((m + 1) * _num_j - 1, m * _num_j + n) = (*_prop_hj[n])[_qp];
     }
   };
 

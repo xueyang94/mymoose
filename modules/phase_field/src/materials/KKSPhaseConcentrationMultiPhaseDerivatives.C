@@ -156,7 +156,7 @@ KKSPhaseConcentrationMultiPhaseDerivatives::computeQpProperties()
   for (unsigned int m = 0; m < _num_c; ++m)
   {
     for (unsigned int n = 0; n < _num_j; ++n)
-      A[m * _num_j + _num_c][m * _num_j + n] = (*_prop_hj[n])[_qp];
+      A[(m + 1) * _num_j - 1][m * _num_j + n] = (*_prop_hj[n])[_qp];
   }
 
   MatrixTools::inverse(A, A);
