@@ -159,6 +159,33 @@ KKSPhaseConcentrationMultiPhaseDerivatives::computeQpProperties()
       A[(m + 1) * _num_j - 1][m * _num_j + n] = (*_prop_hj[n])[_qp];
   }
 
+  // std::cout << A[0][0] << std::endl;
+  // std::cout << A[0][1] << std::endl;
+  // std::cout << A[0][2] << std::endl;
+  // std::cout << A[0][3] << std::endl;
+  // std::cout << A[0][4] << std::endl;
+  // std::cout << A[0][5] << std::endl;
+  // std::cout << A[0][6] << std::endl;
+  // std::cout << A[0][7] << std::endl;
+  // std::cout << A[0][8] << std::endl;
+  // std::cout << A[0][9] << std::endl;
+  // std::cout << A[0][10] << std::endl;
+  // std::cout << A[0][11] << std::endl;
+  // std::cout << A[0][12] << std::endl;
+  // std::cout << A[0][13] << std::endl;
+  // std::cout << A[0][14] << std::endl;
+  // std::cout << A[0][15] << std::endl;
+  // std::cout << A[0][16] << std::endl;
+  // std::cout << A[0][17] << std::endl;
+  // std::cout << A[0][18] << std::endl;
+  // std::cout << A[0][19] << std::endl;
+  // std::cout << "=================================================================" << std::endl;
+
+  // std::cout << (*_d2Fjdcjdbj[0][1][1])[_qp] << std::endl;
+  // std::cout << (*_d2Fjdcjdbj[0][1][2])[_qp] << std::endl;
+  // std::cout << (*_d2Fjdcjdbj[0][1][3])[_qp] << std::endl;
+  // std::cout << "=================================================================" << std::endl;
+
   MatrixTools::inverse(A, A);
 
   std::vector<Real> k_c(_num_j * _num_c);
