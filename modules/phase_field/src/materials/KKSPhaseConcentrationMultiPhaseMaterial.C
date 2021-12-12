@@ -36,7 +36,7 @@ KKSPhaseConcentrationMultiPhaseMaterial::validParams()
   params.addRequiredParam<MaterialName>("F1_material", "F1");
   params.addRequiredParam<MaterialName>("F2_material", "F2");
   params.addRequiredParam<MaterialName>("F3_material", "F3");
-  // params.addRequiredParam<MaterialName>("F4_material", "F4");
+  params.addRequiredParam<MaterialName>("F4_material", "F4");
   // params.addRequiredParam<MaterialName>("F5_material", "F5");
 
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
@@ -69,7 +69,7 @@ KKSPhaseConcentrationMultiPhaseMaterial::KKSPhaseConcentrationMultiPhaseMaterial
     _f1(getMaterial("F1_material")),
     _f2(getMaterial("F2_material")),
     _f3(getMaterial("F3_material")),
-    // _f4(getMaterial("F4_material")),
+    _f4(getMaterial("F4_material")),
     // _f5(getMaterial("F5_material")),
 
     _Fi_names(getParam<std::vector<MaterialPropertyName>>("Fi_names")),
@@ -135,8 +135,11 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
   // dynamicaly sized vector class from the Eigen library
   NestedSolve::Value<> solution(_num_c * _num_j);
 
+  // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
+  //     (*_ci_old[4])[_qp], (*_ci_old[5])[_qp];
   solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
-      (*_ci_old[4])[_qp], (*_ci_old[5])[_qp];
+      (*_ci_old[4])[_qp], (*_ci_old[5])[_qp], (*_ci_old[6])[_qp], (*_ci_old[7])[_qp],
+      (*_ci_old[8])[_qp], (*_ci_old[9])[_qp], (*_ci_old[10])[_qp], (*_ci_old[11])[_qp];
   // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp];
   // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
   //     (*_ci_old[4])[_qp], (*_ci_old[5])[_qp], (*_ci_old[6])[_qp], (*_ci_old[7])[_qp],
@@ -156,7 +159,7 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
     _f1.computePropertiesAtQp(_qp);
     _f2.computePropertiesAtQp(_qp);
     _f3.computePropertiesAtQp(_qp);
-    // _f4.computePropertiesAtQp(_qp);
+    _f4.computePropertiesAtQp(_qp);
     // _f5.computePropertiesAtQp(_qp);
 
     // assign residual functions

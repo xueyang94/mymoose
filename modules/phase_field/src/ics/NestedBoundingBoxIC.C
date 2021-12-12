@@ -38,9 +38,11 @@ NestedBoundingBoxIC::value(const Point & p)
     {
       for (unsigned int i = 0; i < _dim; ++i)
       {
-        if (_c1[b](i) < _c2[b](i) && p(i) >= _c1[b](i) - 2 * _int_width &&
-            p(i) <= _c2[b](i) + 2 * _int_width)
+        // if (_c1[b](i) < _c2[b](i) && p(i) >= _c1[b](i) - 2 * _int_width &&
+        //     p(i) <= _c2[b](i) + 2 * _int_width)
         // if (_c1[b](i) < _c2[b](i))
+        if (_c1[b](i) < _c2[b](i) && p(i) >= _c1[b](i) - _int_width &&
+            p(i) <= _c2[b](i) + _int_width)
         {
           if (i != _dim - 1)
             continue;
