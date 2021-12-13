@@ -137,10 +137,13 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
 
   // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
   //     (*_ci_old[4])[_qp], (*_ci_old[5])[_qp];
+
   solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
       (*_ci_old[4])[_qp], (*_ci_old[5])[_qp], (*_ci_old[6])[_qp], (*_ci_old[7])[_qp],
       (*_ci_old[8])[_qp], (*_ci_old[9])[_qp], (*_ci_old[10])[_qp], (*_ci_old[11])[_qp];
+
   // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp];
+
   // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
   //     (*_ci_old[4])[_qp], (*_ci_old[5])[_qp], (*_ci_old[6])[_qp], (*_ci_old[7])[_qp],
   //     (*_ci_old[8])[_qp], (*_ci_old[9])[_qp], (*_ci_old[10])[_qp], (*_ci_old[11])[_qp],
