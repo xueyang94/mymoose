@@ -36,8 +36,8 @@ KKSPhaseConcentrationMultiPhaseMaterial::validParams()
   params.addRequiredParam<MaterialName>("F1_material", "F1");
   params.addRequiredParam<MaterialName>("F2_material", "F2");
   params.addRequiredParam<MaterialName>("F3_material", "F3");
-  params.addRequiredParam<MaterialName>("F4_material", "F4");
-  params.addRequiredParam<MaterialName>("F5_material", "F5");
+  // params.addRequiredParam<MaterialName>("F4_material", "F4");
+  // params.addRequiredParam<MaterialName>("F5_material", "F5");
 
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "Fi_names", "Phase energies in the same order as all_etas");
@@ -69,8 +69,8 @@ KKSPhaseConcentrationMultiPhaseMaterial::KKSPhaseConcentrationMultiPhaseMaterial
     _f1(getMaterial("F1_material")),
     _f2(getMaterial("F2_material")),
     _f3(getMaterial("F3_material")),
-    _f4(getMaterial("F4_material")),
-    _f5(getMaterial("F5_material")),
+    // _f4(getMaterial("F4_material")),
+    // _f5(getMaterial("F5_material")),
 
     _Fi_names(getParam<std::vector<MaterialPropertyName>>("Fi_names")),
     _first_dFi(_num_j),
@@ -140,15 +140,15 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
   // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
   //     (*_ci_old[4])[_qp], (*_ci_old[5])[_qp];
 
-  // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
-  //     (*_ci_old[4])[_qp], (*_ci_old[5])[_qp], (*_ci_old[6])[_qp], (*_ci_old[7])[_qp],
-  //     (*_ci_old[8])[_qp], (*_ci_old[9])[_qp], (*_ci_old[10])[_qp], (*_ci_old[11])[_qp];
-
   solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
       (*_ci_old[4])[_qp], (*_ci_old[5])[_qp], (*_ci_old[6])[_qp], (*_ci_old[7])[_qp],
-      (*_ci_old[8])[_qp], (*_ci_old[9])[_qp], (*_ci_old[10])[_qp], (*_ci_old[11])[_qp],
-      (*_ci_old[12])[_qp], (*_ci_old[13])[_qp], (*_ci_old[14])[_qp], (*_ci_old[15])[_qp],
-      (*_ci_old[16])[_qp], (*_ci_old[17])[_qp], (*_ci_old[18])[_qp], (*_ci_old[19])[_qp];
+      (*_ci_old[8])[_qp], (*_ci_old[9])[_qp], (*_ci_old[10])[_qp], (*_ci_old[11])[_qp];
+
+  // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
+  //     (*_ci_old[4])[_qp], (*_ci_old[5])[_qp], (*_ci_old[6])[_qp], (*_ci_old[7])[_qp],
+  //     (*_ci_old[8])[_qp], (*_ci_old[9])[_qp], (*_ci_old[10])[_qp], (*_ci_old[11])[_qp],
+  //     (*_ci_old[12])[_qp], (*_ci_old[13])[_qp], (*_ci_old[14])[_qp], (*_ci_old[15])[_qp],
+  //     (*_ci_old[16])[_qp], (*_ci_old[17])[_qp], (*_ci_old[18])[_qp], (*_ci_old[19])[_qp];
 
   _nested_solve.setAbsoluteTolerance(_abs_tol);
   _nested_solve.setRelativeTolerance(_rel_tol);
@@ -162,8 +162,8 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
     _f1.computePropertiesAtQp(_qp);
     _f2.computePropertiesAtQp(_qp);
     _f3.computePropertiesAtQp(_qp);
-    _f4.computePropertiesAtQp(_qp);
-    _f5.computePropertiesAtQp(_qp);
+    // _f4.computePropertiesAtQp(_qp);
+    // _f5.computePropertiesAtQp(_qp);
 
     // assign residual functions
     for (unsigned int m = 0; m < _num_c; ++m)
