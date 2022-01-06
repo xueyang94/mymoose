@@ -34,8 +34,8 @@ KKSPhaseConcentrationMultiPhaseDerivatives::validParams()
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "dcidetaj_names",
       "The derivative of phase concentrations wrt order parameters. The order must match "
-      "ci_names and Fj_names, for example, dc1deta1, dc1deta2, dc2deta1, dc2deta2, db1deta1, "
-      "db1deta2, db2deta1, db2deta2, etc.");
+      "ci_names and Fj_names, for example, dc1deta1, dc2deta1, dc1deta2, dc2deta2, db1deta1, "
+      "db2deta1, db1deta2, db2deta2, etc.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "hj_names", "Names of the switching functions in the same order of the all_etas");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
@@ -122,8 +122,7 @@ KKSPhaseConcentrationMultiPhaseDerivatives::KKSPhaseConcentrationMultiPhaseDeriv
 void
 KKSPhaseConcentrationMultiPhaseDerivatives::computeQpProperties()
 {
-  ///////////////////////////////////////////////////////////// solve linear system of constraint derivatives wrt c for computing dcidc and dbidc
-  // declare A
+  // declare Jacobian matrix A
   std::vector<std::vector<Real>> A(_num_j * _num_c);
   for (auto & row : A)
     row.resize(_num_j * _num_c);
@@ -159,51 +158,18 @@ KKSPhaseConcentrationMultiPhaseDerivatives::computeQpProperties()
       A[(m + 1) * _num_j - 1][m * _num_j + n] = (*_prop_hj[n])[_qp];
   }
 
-  // std::cout << A[0][0] << std::endl;
-  // std::cout << A[0][1] << std::endl;
-  // std::cout << A[0][2] << std::endl;
-  // std::cout << A[0][3] << std::endl;
-  // std::cout << A[0][4] << std::endl;
-  // std::cout << A[0][5] << std::endl;
-  // std::cout << A[0][6] << std::endl;
-  // std::cout << A[0][7] << std::endl;
-  // std::cout << A[0][8] << std::endl;
-  // std::cout << A[0][9] << std::endl;
-  // std::cout << A[0][10] << std::endl;
-  // std::cout << A[0][11] << std::endl;
-  // std::cout << A[0][12] << std::endl;
-  // std::cout << A[0][13] << std::endl;
-  // std::cout << A[0][14] << std::endl;
-  // std::cout << A[0][15] << std::endl;
-  // std::cout << A[0][16] << std::endl;
-  // std::cout << A[0][17] << std::endl;
-  // std::cout << A[0][18] << std::endl;
-  // std::cout << A[0][19] << std::endl;
-  // std::cout << "=================================================================" << std::endl;
-
-  // std::cout << (*_d2Fjdcjdbj[0][1][1])[_qp] << std::endl;
-  // std::cout << (*_d2Fjdcjdbj[0][1][2])[_qp] << std::endl;
-  // std::cout << (*_d2Fjdcjdbj[0][1][3])[_qp] << std::endl;
-  // std::cout << "=================================================================" << std::endl;
-
   MatrixTools::inverse(A, A);
 
-  std::vector<Real> k_c(_num_j * _num_c);
-  std::vector<Real> x_c(_num_j * _num_c);
-
+  ///////////////////////////////////////////////////////////// solve linear system of constraint derivatives wrt c for computing dcidc and dbidc
   // loop through taking derivative wrt the ith component
   for (unsigned int i = 0; i < _num_c; ++i)
   {
-    // initialize all elements in k_c to be zero
-    for (unsigned int m = 0; m < (_num_j * _num_c); ++m)
-      k_c[m] = 0;
+    std::vector<Real> k_c(_num_j * _num_c);
 
     // assign non-zero elements in k_c
     k_c[i * _num_j + _num_j - 1] = 1;
 
-    // initialize all elements in x_c to be zero
-    for (unsigned int m = 0; m < _num_j * _num_c; ++m)
-      x_c[m] = 0;
+    std::vector<Real> x_c(_num_j * _num_c);
 
     // compute x_c
     for (unsigned int m = 0; m < (_num_j * _num_c); ++m)
@@ -234,7 +200,7 @@ KKSPhaseConcentrationMultiPhaseDerivatives::computeQpProperties()
       for (unsigned int n = 0; n < _num_j; ++n)
         sum += (*_dhjdetap[n][i])[_qp] * (*_prop_ci[m * _num_j + n])[_qp];
 
-      k_eta[m * _num_j + _num_c] = -sum;
+      k_eta[m * _num_j + _num_j - 1] = -sum;
     }
 
     std::vector<Real> x_eta(_num_j * _num_c);
