@@ -57,12 +57,11 @@ KKSPhaseConcentrationDerivatives::KKSPhaseConcentrationDerivatives(
     _prop_h(getMaterialProperty<Real>("h_name")),
     _prop_dh(getMaterialPropertyDerivative<Real>("h_name", _eta_name))
 {
-  // initialize _prop_ci
   for (unsigned int m = 0; m < _num_c * 2; ++m)
     _prop_ci[m] = &getMaterialPropertyByName<Real>(_ci_names[m]);
 
-  // declare _prop_dcidb. m is the numerator species (ci or bi), n is the phase of the numerator i,
-  // l is the denominator species (c or b)
+  // declare _prop_dcidb. m is the numerator species, n is the phase of the numerator i, l is the
+  // denominator species
   for (unsigned int m = 0; m < _num_c; ++m)
   {
     _prop_dcidb[m].resize(2);
@@ -103,8 +102,7 @@ KKSPhaseConcentrationDerivatives::KKSPhaseConcentrationDerivatives(
 void
 KKSPhaseConcentrationDerivatives::computeQpProperties()
 {
-  /////////////////////////////////////////////////////////////////////////////////////////////////// solve linear system of constraint derivatives wrt c for computing dcidb.
-  // declare A
+  // declare Jacobian matrix A
   std::vector<std::vector<Real>> A(_num_c * 2);
   for (auto & row : A)
     row.resize(_num_c * 2);
@@ -133,14 +131,15 @@ KKSPhaseConcentrationDerivatives::computeQpProperties()
 
   MatrixTools::inverse(A, A);
 
-  // loop through taking derivative wrt the ith component, they have the same A, but have
-  // different k_c
+  /////////////////////////////////////////////////////////////////////////////////////////////////// solve linear system of constraint derivatives wrt c for computing dcidb
+  // loop through taking derivative wrt the ith component, they have the same A, but have different
+  // k_c
   for (unsigned int i = 0; i < _num_c; ++i)
   {
     std::vector<Real> k_c(_num_c * 2);
     std::vector<Real> x_c(_num_c * 2);
 
-    // assign non-zero elements in k_c
+    // assign the non-zero elements in k_c
     k_c[i * 2 + 1] = 1;
 
     // compute x_c

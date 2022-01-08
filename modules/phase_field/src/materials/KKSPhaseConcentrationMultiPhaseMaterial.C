@@ -19,17 +19,16 @@ KKSPhaseConcentrationMultiPhaseMaterial::validParams()
 {
   InputParameters params = DerivativeMaterialInterface<Material>::validParams();
   params.addClassDescription(
-      "Computes the KKS phase concentrations by using Newton iteration to solve the equal chemical "
-      "potential and concentration conservation equations");
-  params.addRequiredCoupledVar("global_cs",
-                               "The interpolated concentrations, for example, c, b, etc");
-  params.addRequiredCoupledVar("all_etas", "Vector of all order parameters for all phases");
+      "Computes the KKS phase concentrations by using a nested Newton iteration "
+      "to solve the equal chemical potential and concentration conservation equations");
+  params.addRequiredCoupledVar("global_cs", "Global concentrations, for example, c, b.");
+  params.addRequiredCoupledVar("all_etas", "Order parameters for all phases.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "hj_names", "Names of the switching functions in the same order of the all_etas");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "ci_names",
-      "Phase concentrations. The phase order must match all_etas and global_cs. First keep the "
-      "same global_cs and loop through all_etas, for example, c1, c2, c3, b1, b2, b3, etc");
+      "Phase concentrations. These must have the same order as Fj_names and global_cs, for "
+      "example, c1, c2, b1, b2.");
   params.addRequiredParam<std::vector<Real>>("ci_IC",
                                              "Initial values of ci in the same order of ci_names");
 
@@ -41,7 +40,6 @@ KKSPhaseConcentrationMultiPhaseMaterial::validParams()
 
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "Fi_names", "Phase energies in the same order as all_etas");
-
   params.addParam<MaterialPropertyName>(
       "nested_iterations", "The number of nested Newton iterations at each quadrature point");
   params.set<unsigned int>("min_iterations") = 10;
@@ -60,17 +58,18 @@ KKSPhaseConcentrationMultiPhaseMaterial::KKSPhaseConcentrationMultiPhaseMaterial
     _eta_names(coupledNames("all_etas")),
     _hj_names(getParam<std::vector<MaterialPropertyName>>("hj_names")),
     _prop_hj(_num_j),
-
     _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),
     _prop_ci(_num_c * _num_j),
     _ci_old(_num_c * _num_j),
     _ci_IC(getParam<std::vector<Real>>("ci_IC")),
 
+    ////////////////////////////////////// need change start
     _f1(getMaterial("F1_material")),
     _f2(getMaterial("F2_material")),
     _f3(getMaterial("F3_material")),
     // _f4(getMaterial("F4_material")),
     // _f5(getMaterial("F5_material")),
+    ////////////////////////////////////// need change end
 
     _Fi_names(getParam<std::vector<MaterialPropertyName>>("Fi_names")),
     _first_dFi(_num_j),
@@ -99,8 +98,6 @@ KKSPhaseConcentrationMultiPhaseMaterial::KKSPhaseConcentrationMultiPhaseMaterial
     _prop_ci[m] = &declareProperty<Real>(_ci_names[m]);
   }
 
-  // declare _prop_hj, the first derivatives, and the second derivatives of phase energy wrt phase
-  // concentrations
   for (unsigned int m = 0; m < _num_j; ++m)
   {
     _first_dFi[m].resize(_num_c);
@@ -135,6 +132,7 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
   // dynamicaly sized vector class from the Eigen library
   NestedSolve::Value<> solution(_num_c * _num_j);
 
+  ////////////////////////////////////// need change start
   // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp];
 
   // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
@@ -149,6 +147,7 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
   //     (*_ci_old[8])[_qp], (*_ci_old[9])[_qp], (*_ci_old[10])[_qp], (*_ci_old[11])[_qp],
   //     (*_ci_old[12])[_qp], (*_ci_old[13])[_qp], (*_ci_old[14])[_qp], (*_ci_old[15])[_qp],
   //     (*_ci_old[16])[_qp], (*_ci_old[17])[_qp], (*_ci_old[18])[_qp], (*_ci_old[19])[_qp];
+  ////////////////////////////////////// need change end
 
   _nested_solve.setAbsoluteTolerance(_abs_tol);
   _nested_solve.setRelativeTolerance(_rel_tol);
@@ -159,11 +158,13 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
     for (unsigned int m = 0; m < _num_c * _num_j; ++m)
       (*_prop_ci[m])[_qp] = guess(m);
 
+    ////////////////////////////////////// need change start
     _f1.computePropertiesAtQp(_qp);
     _f2.computePropertiesAtQp(_qp);
     _f3.computePropertiesAtQp(_qp);
     // _f4.computePropertiesAtQp(_qp);
     // _f5.computePropertiesAtQp(_qp);
+    ////////////////////////////////////// need change end
 
     // assign residual functions
     for (unsigned int m = 0; m < _num_c; ++m)

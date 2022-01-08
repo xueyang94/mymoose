@@ -57,7 +57,6 @@ KKSPhaseConcentrationMaterial::KKSPhaseConcentrationMaterial(const InputParamete
     _nested_solve(NestedSolve(parameters))
 
 {
-  // declare _prop_ci and _ci_old
   for (unsigned int m = 0; m < _num_c * 2; ++m)
   {
     _prop_ci[m] = &declareProperty<Real>(_ci_names[m]);
@@ -65,7 +64,6 @@ KKSPhaseConcentrationMaterial::KKSPhaseConcentrationMaterial(const InputParamete
     _ci_old[m] = &getMaterialPropertyOld<Real>(_ci_names[m]);
   }
 
-  // declare the second derivatives of phase energies wrt phase concentrations
   for (unsigned int m = 0; m < 2; ++m)
   {
     _first_dFi[m].resize(_num_c);
@@ -73,7 +71,6 @@ KKSPhaseConcentrationMaterial::KKSPhaseConcentrationMaterial(const InputParamete
 
     for (unsigned int n = 0; n < _num_c; ++n)
     {
-      // declare the first derivatives of phase energy wrt phase concentrations
       _first_dFi[m][n] = &getMaterialPropertyDerivative<Real>(_Fi_names[m], _ci_names[m + n * 2]);
 
       _second_dFi[m][n].resize(_num_c);

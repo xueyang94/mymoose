@@ -29,7 +29,6 @@ protected:
   const std::vector<VariableName> _eta_names;
   std::vector<MaterialPropertyName> _hj_names;
   std::vector<const MaterialProperty<Real> *> _prop_hj;
-
   std::vector<MaterialPropertyName> _ci_names;
   std::vector<MaterialProperty<Real> *> _prop_ci;
   std::vector<const MaterialProperty<Real> *> _ci_old;
@@ -44,7 +43,6 @@ protected:
   std::vector<MaterialPropertyName> _Fi_names;
   std::vector<std::vector<const MaterialProperty<Real> *>> _first_dFi;
   std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _second_dFi;
-
   MaterialProperty<Real> & _iter;
   const Real _abs_tol;
   const Real _rel_tol;

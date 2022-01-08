@@ -17,7 +17,7 @@ KKSMultiACBulkF::validParams()
   InputParameters params = KKSMultiACBulkBase::validParams();
   params.addClassDescription("KKS model kernel (part 1 of 2) for the Bulk Allen-Cahn. This "
                              "includes all terms NOT dependent on chemical potential.");
-  params.addRequiredCoupledVar("global_cs", "Global concentrations c, b, etc.");
+  params.addRequiredCoupledVar("global_cs", "Global concentrations, for example, c, b.");
   params.addRequiredCoupledVar("all_etas", "Order parameters for all phases.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "c1_names",
@@ -25,17 +25,14 @@ KKSMultiACBulkF::validParams()
       "example, c1, b1, etc.");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dcidb_names",
-      "The phase concentrations taken derivatives wrt global concentrations. i must match the "
-      "order of all_etas. ci and b must match the order of global_cs. First keep the same b and "
-      "loop "
-      "through ci for one species, for example, dc1dc, dc2dc, dc3dc, "
-      "dc1db, dc2db, dc3db, db1dc, db2dc, db3dc, db1db, db2db, db3db, etc.");
+      "The derivative of phase concentration wrt global concentration. They must have the same "
+      "order as Fj_names and ci_names, for example, dc1dc, dc2dc, dc1db, dc2db, db1dc, db2dc, "
+      "db1db, db2db.");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dcidetaj_names",
-      "The phase concentrations taken derivatives wrt kernel variable. ci must match the order in "
-      "global_cs and all_etas, and etaj must match the order in all_etas, for example, dc1deta1, "
-      "dc2deta1, "
-      "dc3deta1, dc1deta2...dc1deta3...db1deta1...db2deta1...db3deta1..., etc.");
+      "THe derivative of phase concentration wrt order parameter. ci must have the order as "
+      "global_c and all_etas, and etaj must match the order in all_etas, for example, dc1deta1, "
+      "dc2deta1, dc1deta2, dc2deta2, db1deta1, db2deta1, db1deta2, db2deta2.");
   params.addRequiredParam<Real>("wi", "Double well height parameter.");
   params.addRequiredParam<MaterialPropertyName>(
       "gi_name", "Base name for the double well function g_i(eta_i) for the given phase");
@@ -72,7 +69,6 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
       _k = i;
   }
 
-  // initialize _prop_dcidb
   for (unsigned int m = 0; m < _num_c; ++m)
   {
     _prop_dcidb[m].resize(_num_j);
@@ -83,23 +79,19 @@ KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
       _prop_dcidb[m][n].resize(_num_c);
       _prop_dcidetaj[m][n].resize(_num_j);
 
-      // initialize _prop_dcidb
       for (unsigned int l = 0; l < _num_c; ++l)
         _prop_dcidb[m][n][l] =
             &getMaterialPropertyByName<Real>(_dcidb_names[m * _num_j * _num_c + n + l * _num_j]);
 
-      // initialize _prop_dcidetaj
       for (unsigned int l = 0; l < _num_j; ++l)
         _prop_dcidetaj[m][n][l] =
             &getMaterialPropertyByName<Real>(_dcidetaj_names[m * _num_j * _num_j + n + l * _num_j]);
     }
   }
 
-  // initialize _dF1dc1 as dF1dc1, dF1db1, etc
   for (unsigned int i = 0; i < _num_c; ++i)
     _dF1dc1[i] = &getMaterialPropertyDerivative<Real>(_Fj_names[0], _c1_names[i]);
 
-  // initialize _d2hjdetaidetap
   for (unsigned int m = 0; m < _num_j; ++m)
   {
     _d2hjdetaidetap[m].resize(_num_j);

@@ -17,23 +17,22 @@ KKSACBulkC::validParams()
   InputParameters params = KKSACBulkBase::validParams();
   params.addClassDescription("KKS model kernel (part 2 of 2) for the Bulk Allen-Cahn. This "
                              "includes all terms dependent on chemical potential.");
-  params.addRequiredCoupledVar(
-      "global_cs",
-      "The global concentration of the component corresponding to ci_names, for example, c, b.");
-  params.addRequiredCoupledVar("eta", "eta");
+  params.addRequiredCoupledVar("global_cs", "Global concentrations, for example, c, b.");
+  params.addRequiredCoupledVar("eta", "Order parameter");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "ci_names",
       "Phase concentrations. These must have the same order as Fj_names and global_cs, for "
       "example, c1, c2, b1, b2.");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dcidb_names",
-      "Coupled dcidb in the order of dc1dc, dc2dc, dc1db, dc2db, db1dc, db2dc, db1db, db2db. These "
-      "must have the same order as Fj_names and ci_names");
+      "The derivative of phase concentration wrt global concentration. They must have the same "
+      "order as Fj_names and ci_names, for example, dc1dc, dc2dc, dc1db, dc2db, db1dc, db2dc, "
+      "db1db, db2db.");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dcideta_names",
-      "The phase concentrations taken derivatives wrt kernel variable. ci must match the order in "
-      "ci_names, for example, dc1deta, dc2deta, db1deta, db2deta, etc");
-  params.addRequiredParam<MaterialPropertyName>("L_name", "The name of the Allen-Cahn mobility");
+      "The derivative of phase concentration wrt order parameter. They must have the same order "
+      "as ci_names, for example, dc1deta, dc2deta, db1deta, db2deta.");
+  params.addRequiredParam<MaterialPropertyName>("L_name", "Allen-Cahn mobility");
   return params;
 }
 
@@ -53,7 +52,7 @@ KKSACBulkC::KKSACBulkC(const InputParameters & parameters)
     _d2F1dc1db1(_num_c),
     _L(getMaterialProperty<Real>("L_name"))
 {
-  // initialize _prop_ci to be a matrix for easy reference
+  // declare _prop_ci to be a matrix for easy reference
   for (unsigned int m = 0; m < _num_c; ++m)
   {
     _prop_ci[m].resize(2);
@@ -69,15 +68,13 @@ KKSACBulkC::KKSACBulkC(const InputParameters & parameters)
 
     for (unsigned int n = 0; n < 2; ++n)
     {
-      // declare _prop_dcideta. m is te numerator species (ci or bi), n is the phase of the
-      // numerator
-      // i
+      // declare _prop_dcideta. m is the numerator species, n is the phase of the numerator i
       _prop_dcideta[m][n] = &getMaterialPropertyByName<Real>(_dcideta_names[m * 2 + n]);
 
       _prop_dcidb[m][n].resize(_num_c);
 
-      // declare _prop_dcidb. m is the numerator species (ci or bi), n is the phase of the numerator
-      // i, l is the denominator species (c or b)
+      // declare _prop_dcidb. m is the numerator species, n is the phase of the numerator i, l is
+      // the denominator species
       for (unsigned int l = 0; l < _num_c; ++l)
         _prop_dcidb[m][n][l] =
             &getMaterialPropertyByName<Real>(_dcidb_names[m * 2 * _num_c + n + l * 2]);
@@ -86,12 +83,11 @@ KKSACBulkC::KKSACBulkC(const InputParameters & parameters)
 
   for (unsigned int m = 0; m < _num_c; ++m)
   {
-    // initialize _first_dFa
     _first_dFa[m] = &getMaterialPropertyDerivative<Real>(_Fa_name, _ci_names[m * 2]);
 
     _d2F1dc1db1[m].resize(_num_c);
 
-    // initialize _d2F1dc1db1[m][n]. m is the species of c1, n is the species of b1
+    // declare _d2F1dc1db1[m][n]. m is the species of c1, n is the species of b1
     for (unsigned int n = 0; n < _num_c; ++n)
       _d2F1dc1db1[m][n] =
           &getMaterialPropertyDerivative<Real>(_Fa_name, _ci_names[m * 2], _ci_names[n * 2]);
@@ -137,7 +133,8 @@ KKSACBulkC::computeDFDOP(PFFunctionType type)
   mooseError("Invalid type passed in");
 }
 
-Real KKSACBulkC::computeQpOffDiagJacobian(unsigned int jvar) // needs to multiply the mobility L
+Real
+KKSACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
 {
   // c is the coupled variable
   auto compvar = mapJvarToCvar(jvar, _c_map);

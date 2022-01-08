@@ -9,7 +9,6 @@
 
 #pragma once
 
-// #include "SplitCHBase.h"
 #include "JvarMapInterface.h"
 #include "DerivativeMaterialInterface.h"
 
@@ -29,7 +28,6 @@
  */
 
 class KKSSplitCHCRes : public DerivativeMaterialInterface<JvarMapKernelInterface<Kernel>>
-// class KKSSplitCHCRes : public DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>
 {
 public:
   static InputParameters validParams();

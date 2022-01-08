@@ -17,25 +17,25 @@ KKSACBulkF::validParams()
   InputParameters params = KKSACBulkBase::validParams();
   params.addClassDescription("KKS model kernel (part 1 of 2) for the Bulk Allen-Cahn. This "
                              "includes all terms NOT dependent on chemical potential.");
-  params.addRequiredCoupledVar("global_cs", "Global concentrations c, b, etc.");
+  params.addRequiredCoupledVar("global_cs", "Global concentrations, for example, c, b.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "ci_names",
       "Phase concentrations. These must have the same order as Fj_names and global_cs, for "
       "example, c1, c2, b1, b2.");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dcidb_names",
-      "Coupled dcidb in the order of dc1dc, dc2dc, dc1db, dc2db, db1dc, db2dc, db1db, db2db. These "
-      "must have the same order as Fj_names and ci_names");
+      "The derivative of phase concentration wrt global concentration. They must have the same "
+      "order as Fj_names and ci_names, for example, dc1dc, dc2dc, dc1db, dc2db, db1dc, db2dc, "
+      "db1db, db2db.");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dcideta_names",
-      "The phase concentrations taken derivatives wrt kernel variable. ci must match the order in "
-      "ci_names, for example, dc1deta, dc2deta, db1deta, db2deta, etc");
+      "The derivative of phase concentration wrt order parameter. They must have the same order "
+      "as ci_names, for example, dc1deta, dc2deta, db1deta, db2deta.");
   params.addRequiredParam<MaterialPropertyName>(
-      "fb_name",
-      "Base name of the free energy function F (f_base in the corresponding KKSBaseMaterial)");
+      "fb_name", "Free energy function Fb (fa_name is in the KKSACBulkBase).");
   params.addParam<MaterialPropertyName>(
       "g_name", "g", "Base name for the double well function g(eta)");
-  params.addRequiredParam<MaterialPropertyName>("L_name", "The name of the Allen-Cahn mobility");
+  params.addRequiredParam<MaterialPropertyName>("L_name", "Allen-Cahn mobility");
   params.addRequiredParam<Real>("w", "Double well height parameter");
   return params;
 }
@@ -67,14 +67,13 @@ KKSACBulkF::KKSACBulkF(const InputParameters & parameters)
 
     for (unsigned int n = 0; n < 2; ++n)
     {
-      // declare _prop_dcideta. m is te numerator species (ci or bi), n is the phase of the
-      // numerator i
+      // declare _prop_dcideta. m is te numerator species, n is the phase of the numerator i
       _prop_dcideta[m][n] = &getMaterialPropertyByName<Real>(_dcideta_names[m * 2 + n]);
 
       _prop_dcidb[m][n].resize(_num_c);
 
-      // declare _prop_dcidb. m is the numerator species (ci or bi), n is the phase of the numerator
-      // i, l is the denominator species (c or b)
+      // declare _prop_dcidb. m is the numerator species, n is the phase of the numerator i, l is
+      // the denominator species
       for (unsigned int l = 0; l < _num_c; ++l)
         _prop_dcidb[m][n][l] =
             &getMaterialPropertyByName<Real>(_dcidb_names[m * 2 * _num_c + n + l * 2]);
