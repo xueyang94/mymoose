@@ -15,21 +15,20 @@ InputParameters
 KKSSplitCHCRes::validParams()
 {
   InputParameters params = JvarMapKernelInterface<Kernel>::validParams();
-  // InputParameters params = SplitCHBase::validParams();
   params.addClassDescription(
       "KKS model kernel for the split Bulk Cahn-Hilliard term. This kernel operates on the "
       "physical concentration 'c' as the non-linear variable");
   params.addCoupledVar("all_etas", "Order parameters for all phases.");
-  params.addCoupledVar("global_cs", "Global concentrations c, b, etc.");
+  params.addRequiredCoupledVar("global_cs", "Global concentrations, for example, c, b.");
   params.addCoupledVar("w", "Chemical potential non-linear helper variable for the split solve");
   params.addParam<std::vector<MaterialPropertyName>>(
       "c1_names",
       "Phase concentrations in the frist phase of all_etas. The order must match global_cs, for "
-      "example, c1, b1, etc.");
+      "example, c1, b1");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dc1db_names",
       "The phase concentrations of the frist phase in Fj_names taken derivatives wrt global "
-      "concentrations.  c1 and b must match the order of global_c. First keep the same c1 and loop "
+      "concentrations. c1 and b must match the order of global_c. First keep the same c1 and loop "
       "through b for one species, for example, dc1dc, dc1db, db1dc, db1db");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dc1detaj_names",
@@ -42,7 +41,6 @@ KKSSplitCHCRes::validParams()
 
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
   : DerivativeMaterialInterface<JvarMapKernelInterface<Kernel>>(parameters),
-    // : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
     _eta_names(coupledComponents("all_etas")),
     _eta_map(getParameterJvarMap("all_etas")),
     _num_j(_eta_names.size()),
@@ -72,21 +70,17 @@ KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
     _prop_dc1db[m].resize(_num_c);
     _prop_dc1detaj[m].resize(_num_j);
 
-    // initialize _prop_dc1db
     for (unsigned int n = 0; n < _num_c; ++n)
       _prop_dc1db[m][n] = &getMaterialPropertyByName<Real>(_dc1db_names[m * _num_c + n]);
 
-    // initialize _prop_dc1detaj
     for (unsigned int n = 0; n < _num_j; ++n)
       _prop_dc1detaj[m][n] = &getMaterialPropertyByName<Real>(_dc1detaj_names[m * _num_j + n]);
   }
 
   for (unsigned int i = 0; i < _num_c; ++i)
   {
-    // initialize _prop_dF1dc1
     _prop_dF1dc1[i] = &getMaterialPropertyDerivative<Real>(_F1_name, _c1_names[i]);
 
-    // initialize _prop_d2F1dc1db1
     _prop_d2F1dc1db1[i] =
         &getMaterialPropertyDerivative<Real>(_F1_name, _c1_names[_o], _c1_names[i]);
   }

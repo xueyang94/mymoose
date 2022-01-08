@@ -17,25 +17,23 @@ KKSMultiACBulkC::validParams()
   InputParameters params = KKSMultiACBulkBase::validParams();
   params.addClassDescription("Multi-phase KKS model kernel (part 2 of 2) for the Bulk Allen-Cahn. "
                              "This includes all terms dependent on chemical potential.");
-  params.addRequiredCoupledVar(
-      "global_cs",
-      "The global concentration of the component corresponding to ci_names, for example, c, b.");
+  params.addRequiredCoupledVar("global_cs", "Global concentrations, for example, c, b.");
   params.addRequiredCoupledVar(
       "all_etas", "Order parameters for all phases. Place in the same order as Fj_names.");
   params.addRequiredParam<std::vector<MaterialPropertyName>>(
       "ci_names",
-      "Phase concentrations. The phase order must match all_etas and global_cs. First keep the "
-      "same global_cs and loop through all_etas, for example, c1, c2, c3, b1, b2, b3, etc");
+      "Phase concentrations. These must have the same order as Fj_names and global_cs, for "
+      "example, c1, c2, b1, b2.");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dcidb_names",
-      "Coupled dcidb in the order of dc1db, dc2db, dc3db, etc. These must have the same order as "
-      "Fj_names");
+      "The derivative of phase concentration wrt global concentration. They must have the same "
+      "order as Fj_names and ci_names, for example, dc1dc, dc2dc, dc1db, dc2db, db1dc, db2dc, "
+      "db1db, db2db.");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dcidetaj_names",
-      "The phase concentrations taken derivatives wrt kernel variable. ci must match the order in "
+      "THe derivative of phase concentration wrt order parameter. ci must have the order as "
       "global_c and all_etas, and etaj must match the order in all_etas, for example, dc1deta1, "
-      "dc2deta1, "
-      "dc3deta1, dc1deta2...dc1deta3...db1deta1...db2deta1...db3deta1..., etc.");
+      "dc2deta1, dc1deta2, dc2deta2, db1deta1, db2deta1, db1deta2, db2deta2.");
   return params;
 }
 
@@ -92,14 +90,14 @@ KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
       _prop_dcidb[m][n].resize(_num_c);
       _prop_dcidetaj[m][n].resize(_num_j);
 
-      // declare _prop_dcidb. m is the numerator species (ci or bi), n is the phase of the numerator
-      // i, l is the denominator species (c or b)
+      // declare _prop_dcidb. m is the numerator species, n is the phase of the numerator i, l is
+      // the denominator species
       for (unsigned int l = 0; l < _num_c; ++l)
         _prop_dcidb[m][n][l] =
             &getMaterialPropertyByName<Real>(_dcidb_names[m * _num_j * _num_c + n + l * _num_j]);
 
-      // declare _prop_dcidetaj. m is te numerator species (ci or bi), n is the phase of the
-      // numerator i, l is the phase of denominator j
+      // declare _prop_dcidetaj. m is te numerator species, n is the phase of the numerator i, l is
+      // the phase of denominator j
       for (unsigned int l = 0; l < _num_j; ++l)
         _prop_dcidetaj[m][n][l] =
             &getMaterialPropertyByName<Real>(_dcidetaj_names[m * _num_j * _num_j + n + l * _num_j]);
