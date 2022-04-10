@@ -38,7 +38,6 @@ KKSACBulkC::validParams()
 
 KKSACBulkC::KKSACBulkC(const InputParameters & parameters)
   : KKSACBulkBase(parameters),
-    _c_names(coupledComponents("global_cs")),
     _c_map(getParameterJvarMap("global_cs")),
     _num_c(coupledComponents("global_cs")),
     _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),

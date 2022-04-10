@@ -83,7 +83,6 @@ KKSACBulkF::KKSACBulkF(const InputParameters & parameters)
   for (unsigned int m = 0; m < _num_c; ++m)
   {
     _first_dFa[m] = &getMaterialPropertyDerivative<Real>(_Fa_name, _ci_names[m * 2]);
-
     _first_dFb[m] = &getMaterialPropertyDerivative<Real>(_Fb_name, _ci_names[m * 2 + 1]);
   }
 }

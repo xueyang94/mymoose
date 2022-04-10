@@ -32,7 +32,6 @@ protected:
   virtual Real computeDFDOP(PFFunctionType type);
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-  std::vector<VariableName> _c_names;
   const JvarMap & _c_map;
   const unsigned int _num_c;
   std::vector<MaterialPropertyName> _ci_names;

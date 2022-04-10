@@ -46,8 +46,6 @@ KKSPhaseConcentrationMaterial::KKSPhaseConcentrationMaterial(const InputParamete
     _prop_ci(_num_c * 2),
     _ci_old(_num_c * 2),
     _ci_IC(getParam<std::vector<Real>>("ci_IC")),
-    _f1(getMaterial("F1_material")),
-    _f2(getMaterial("F2_material")),
     _Fi_names(getParam<std::vector<MaterialPropertyName>>("Fi_names")),
     _first_dFi(2),
     _second_dFi(2),
@@ -90,6 +88,13 @@ KKSPhaseConcentrationMaterial::initQpStatefulProperties()
 }
 
 void
+KKSPhaseConcentrationMaterial::initialSetup()
+{
+  _f1 = &getMaterial("F1_material");
+  _f2 = &getMaterial("F2_material");
+}
+
+void
 KKSPhaseConcentrationMaterial::computeQpProperties()
 {
   NestedSolve::Value<> solution(_num_c * 2); // dynamicaly sized vector class from the Eigen library
@@ -105,8 +110,8 @@ KKSPhaseConcentrationMaterial::computeQpProperties()
     for (unsigned int m = 0; m < _num_c * 2; ++m)
       (*_prop_ci[m])[_qp] = guess(m);
 
-    _f1.computePropertiesAtQp(_qp);
-    _f2.computePropertiesAtQp(_qp);
+    _f1->computePropertiesAtQp(_qp);
+    _f2->computePropertiesAtQp(_qp);
 
     // assign residual functions
     for (unsigned int m = 0; m < _num_c; ++m)

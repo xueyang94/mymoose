@@ -34,7 +34,6 @@ protected:
 
   const JvarMap & _c_map;
   const unsigned int _num_c;
-
   std::vector<MaterialPropertyName> _ci_names;
   std::vector<MaterialPropertyName> _dcidb_names;
   std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _prop_dcidb;

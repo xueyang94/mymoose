@@ -41,7 +41,7 @@ KKSSplitCHCRes::validParams()
 
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
   : DerivativeMaterialInterface<JvarMapKernelInterface<Kernel>>(parameters),
-    _eta_names(coupledComponents("all_etas")),
+    _eta_names(coupledNames("all_etas")),
     _eta_map(getParameterJvarMap("all_etas")),
     _num_j(_eta_names.size()),
     _c_map(getParameterJvarMap("global_cs")),

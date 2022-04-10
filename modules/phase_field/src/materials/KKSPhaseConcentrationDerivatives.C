@@ -44,7 +44,6 @@ KKSPhaseConcentrationDerivatives::KKSPhaseConcentrationDerivatives(
     const InputParameters & parameters)
   : DerivativeMaterialInterface<Material>(parameters),
     _num_c(coupledComponents("global_cs")),
-    _c_names(coupledComponents("global_cs")),
     _prop_ci(_num_c * 2),
     _eta_name(getVar("eta", 0)->name()),
     _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),
