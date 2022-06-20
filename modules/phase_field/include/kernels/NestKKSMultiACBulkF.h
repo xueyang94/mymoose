@@ -14,38 +14,41 @@
 // Forward Declarations
 
 /**
- * KKSACBulkBase child class for the phase concentration term
- * \f$ - \sum_j \frac{dF_1}{dc_1} \frac{dh_j}{d\eta_i} (c_j) \f$
- * in the the Allen-Cahn bulk residual.
+ * KKSMultiACBulkBase child class for the free energy term
+ * \f$ \sum_j \frac{\partial h_j}{\partial \eta_i} F_j + w_i \frac{dg}{d\eta_i}
+ * \f$ in the the Allen-Cahn bulk residual.
  *
- * The non-linear variable for this Kernel is the order parameter 'eta_i'.
+ * The non-linear variable for this Kernel is the order parameter \f$ eta_i \f$.
  */
-class KKSMultiACBulkC : public KKSMultiACBulkBase
-{
+class NestKKSMultiACBulkF : public KKSMultiACBulkBase {
 public:
   static InputParameters validParams();
 
-  KKSMultiACBulkC(const InputParameters & parameters);
+  NestKKSMultiACBulkF(const InputParameters &parameters);
 
 protected:
   virtual Real computeDFDOP(PFFunctionType type);
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
   std::vector<VariableName> _c_names;
-  const JvarMap & _c_map;
+  const JvarMap &_c_map;
   unsigned int _num_c;
   std::vector<VariableName> _eta_names;
-  const JvarMap & _eta_map;
+  const JvarMap &_eta_map;
   /// Position of the nonlinear variable in the list of cj's
   int _k;
   std::vector<MaterialPropertyName> _ci_names;
-  std::vector<std::vector<MaterialPropertyName>> _ci_name_matrix;
-  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_ci;
-  std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _dcidetaj;
+
+  std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>>
+      _dcidetaj;
   std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _dcidb;
 
-  std::vector<std::vector<const MaterialProperty<Real> *>> _prop_d2hjdetaidetap;
+  /// double well height parameter
+  Real _wi;
+  MaterialPropertyName _gi_name;
+  const MaterialProperty<Real> &_dgi;
+  const MaterialProperty<Real> &_d2gi;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _d2hjdetaidetap;
   std::vector<const MaterialProperty<Real> *> _dF1dc1;
-  std::vector<std::vector<const MaterialProperty<Real> *>> _d2F1dc1db1;
-  std::vector<std::vector<const MaterialProperty<Real> *>> _d2F1dc1darg;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _dFidarg;
 };

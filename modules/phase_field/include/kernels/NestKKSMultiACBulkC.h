@@ -20,28 +20,28 @@
  *
  * The non-linear variable for this Kernel is the order parameter 'eta_i'.
  */
-class KKSMultiACBulkC : public KKSMultiACBulkBase
-{
+class NestKKSMultiACBulkC : public KKSMultiACBulkBase {
 public:
   static InputParameters validParams();
 
-  KKSMultiACBulkC(const InputParameters & parameters);
+  NestKKSMultiACBulkC(const InputParameters &parameters);
 
 protected:
   virtual Real computeDFDOP(PFFunctionType type);
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
   std::vector<VariableName> _c_names;
-  const JvarMap & _c_map;
+  const JvarMap &_c_map;
   unsigned int _num_c;
   std::vector<VariableName> _eta_names;
-  const JvarMap & _eta_map;
+  const JvarMap &_eta_map;
   /// Position of the nonlinear variable in the list of cj's
   int _k;
   std::vector<MaterialPropertyName> _ci_names;
   std::vector<std::vector<MaterialPropertyName>> _ci_name_matrix;
   std::vector<std::vector<const MaterialProperty<Real> *>> _prop_ci;
-  std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _dcidetaj;
+  std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>>
+      _dcidetaj;
   std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _dcidb;
 
   std::vector<std::vector<const MaterialProperty<Real> *>> _prop_d2hjdetaidetap;

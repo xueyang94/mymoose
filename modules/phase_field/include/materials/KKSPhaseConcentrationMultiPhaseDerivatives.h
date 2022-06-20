@@ -27,13 +27,11 @@ protected:
   const unsigned int _num_j;
   std::vector<const MaterialProperty<Real> *> _prop_ci;
   std::vector<MaterialPropertyName> _ci_names;
-  std::vector<MaterialPropertyName> _dcidb_names;
-  std::vector<std::vector<std::vector<MaterialProperty<Real> *>>> _prop_dcidb;
-  std::vector<MaterialPropertyName> _dcidetaj_names;
-  std::vector<std::vector<std::vector<MaterialProperty<Real> *>>> _prop_dcidetaj;
+  std::vector<std::vector<std::vector<MaterialProperty<Real> *>>> _dcidetaj;
+  std::vector<std::vector<std::vector<MaterialProperty<Real> *>>> _dcidb;
+  std::vector<MaterialName> _Fj_names;
+  std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _d2Fidcidbi;
   std::vector<MaterialPropertyName> _hj_names;
   std::vector<const MaterialProperty<Real> *> _prop_hj;
-  std::vector<std::vector<const MaterialProperty<Real> *>> _dhjdetap;
-  std::vector<MaterialPropertyName> _Fj_names;
-  std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _d2Fjdcjdbj;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _dhjdetai;
 };

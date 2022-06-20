@@ -9,8 +9,6 @@
 
 #include "KKSPhaseConcentrationMultiPhaseMaterial.h"
 #include "MatrixTools.h"
-#include <Eigen/Dense>
-#include <Eigen/Core>
 
 registerMooseObject("PhaseFieldApp", KKSPhaseConcentrationMultiPhaseMaterial);
 
@@ -31,21 +29,13 @@ KKSPhaseConcentrationMultiPhaseMaterial::validParams()
       "example, c1, c2, b1, b2.");
   params.addRequiredParam<std::vector<Real>>("ci_IC",
                                              "Initial values of ci in the same order of ci_names");
-
-  params.addRequiredParam<MaterialName>("F1_material", "F1");
-  params.addRequiredParam<MaterialName>("F2_material", "F2");
-  params.addRequiredParam<MaterialName>("F3_material", "F3");
-  // params.addRequiredParam<MaterialName>("F4_material", "F4");
-  // params.addRequiredParam<MaterialName>("F5_material", "F5");
-
-  params.addRequiredParam<std::vector<MaterialPropertyName>>(
-      "Fi_names", "Phase energies in the same order as all_etas");
+  params.addRequiredParam<std::vector<MaterialName>>("Fj_material",
+                                                     "Free energy material objects.");
   params.addParam<MaterialPropertyName>(
-      "nested_iterations", "The number of nested Newton iterations at each quadrature point");
-  params.set<unsigned int>("min_iterations") = 10;
-  params.set<unsigned int>("max_iterations") = 1000;
-  params.set<Real>("absolute_tolerance") = 1e-13;
-  params.set<Real>("relative_tolerance") = 1e-8;
+      "nested_iterations",
+      "The output number of nested Newton iterations at each quadrature point");
+  params.addCoupledVar("args", "The coupled variables of free energy.");
+  params += NestedSolve::validParams();
   return params;
 }
 
@@ -63,35 +53,26 @@ KKSPhaseConcentrationMultiPhaseMaterial::KKSPhaseConcentrationMultiPhaseMaterial
     _ci_old(_num_c * _num_j),
     _ci_IC(getParam<std::vector<Real>>("ci_IC")),
 
-    ////////////////////////////////////// need change start
-    _f1(getMaterial("F1_material")),
-    _f2(getMaterial("F2_material")),
-    _f3(getMaterial("F3_material")),
-    // _f4(getMaterial("F4_material")),
-    // _f5(getMaterial("F5_material")),
-    ////////////////////////////////////// need change end
+    _Fj_names(getParam<std::vector<MaterialName>>("Fj_material")),
 
-    _Fi_names(getParam<std::vector<MaterialPropertyName>>("Fi_names")),
-    _first_dFi(_num_j),
-    _second_dFi(_num_j),
-
+    _prop_Fi(_num_j),
+    _Fi_copy(_num_j),
+    _dFidci(_num_j),
+    _dFidci_copy(_num_j),
+    _d2Fidcidbi(_num_j),
+    _d2Fidcidbi_copy(_num_j),
+    _args_names(coupledNames("args")),
+    _n_args(coupledComponents("args")),
+    _dFidarg(_num_j),
+    _dFidarg_copy(_num_j),
+    _d2F1dc1darg(_num_c),
+    _d2F1dc1darg_copy(_num_c),
     _iter(declareProperty<Real>("nested_iterations")),
     _abs_tol(getParam<Real>("absolute_tolerance")),
     _rel_tol(getParam<Real>("relative_tolerance")),
     _nested_solve(NestedSolve(parameters))
 
 {
-  // // error check parameters
-  // if (_hj_names.size() != 0 && _hj_names.size() != _num_j)
-  //   paramError("hj_names",
-  //              "Specify either as many entries are eta values or none at all for auto-naming the
-  //              " "hj material properties.");
-  //
-  // if (_ci_names.size() != 0 && _ci_names.size() != _num_j)
-  //   paramError("ci_names",
-  //              "Specify either as many entries are eta values or none at all for auto-naming the
-  //              " "ci material properties.");
-
   for (unsigned int m = 0; m < _num_c * _num_j; ++m)
   {
     _ci_old[m] = &getMaterialPropertyOld<Real>(_ci_names[m]);
@@ -100,21 +81,63 @@ KKSPhaseConcentrationMultiPhaseMaterial::KKSPhaseConcentrationMultiPhaseMaterial
 
   for (unsigned int m = 0; m < _num_j; ++m)
   {
-    _first_dFi[m].resize(_num_c);
-    _second_dFi[m].resize(_num_c);
+    _prop_Fi[m] = &getMaterialPropertyByName<Real>(_Fj_names[m]);
+    _Fi_copy[m] = &declareProperty<Real>("cp" + _Fj_names[m]);
+  }
 
+  for (unsigned int m = 0; m < _num_j; ++m)
+  {
     _prop_hj[m] = &getMaterialPropertyByName<Real>(_hj_names[m]);
+
+    _dFidci[m].resize(_num_c);
+    _dFidci_copy[m].resize(_num_c);
+    _d2Fidcidbi[m].resize(_num_c);
+    _d2Fidcidbi_copy[m].resize(_num_c);
 
     for (unsigned int n = 0; n < _num_c; ++n)
     {
-      _first_dFi[m][n] =
-          &getMaterialPropertyDerivative<Real>(_Fi_names[m], _ci_names[m + n * _num_j]);
+      _dFidci[m][n] = &getMaterialPropertyDerivative<Real>(_Fj_names[m], _ci_names[m + n * _num_j]);
+      _dFidci_copy[m][n] =
+          &declarePropertyDerivative<Real>("cp" + _Fj_names[m], _ci_names[m + n * _num_j]);
 
-      _second_dFi[m][n].resize(_num_c);
+      _d2Fidcidbi[m][n].resize(_num_c);
+      _d2Fidcidbi_copy[m][n].resize(_num_c);
 
       for (unsigned int l = 0; l < _num_c; ++l)
-        _second_dFi[m][n][l] = &getMaterialPropertyDerivative<Real>(
-            _Fi_names[m], _ci_names[m + n * _num_j], _ci_names[m + l * _num_j]);
+      {
+        _d2Fidcidbi[m][n][l] = &getMaterialPropertyDerivative<Real>(
+            _Fj_names[m], _ci_names[m + n * _num_j], _ci_names[m + l * _num_j]);
+        _d2Fidcidbi_copy[m][n][l] = &declarePropertyDerivative<Real>(
+            "cp" + _Fj_names[m], _ci_names[m + n * _num_j], _ci_names[m + l * _num_j]);
+      }
+    }
+  }
+
+  // partial derivative of Fi wrt coupled variables, to be passed to kernels
+  for (unsigned int m = 0; m < _num_j; ++m)
+  {
+    _dFidarg[m].resize(_n_args);
+    _dFidarg_copy[m].resize(_n_args);
+
+    for (unsigned int n = 0; n < _n_args; ++n)
+    {
+      _dFidarg[m][n] = &getMaterialPropertyDerivative<Real>(_Fj_names[m], _args_names[n]);
+      _dFidarg_copy[m][n] = &declarePropertyDerivative<Real>("cp" + _Fj_names[m], _args_names[n]);
+    }
+  }
+
+  // second partial derivatives of F1 wrt c1 and another coupled variable, to be passed to kernels
+  for (unsigned int m = 0; m < _num_c; ++m)
+  {
+    _d2F1dc1darg[m].resize(_n_args);
+    _d2F1dc1darg_copy[m].resize(_n_args);
+
+    for (unsigned int n = 0; n < _n_args; ++n)
+    {
+      _d2F1dc1darg[m][n] =
+          &getMaterialPropertyDerivative<Real>(_Fj_names[0], _ci_names[m * _num_j], _args_names[n]);
+      _d2F1dc1darg_copy[m][n] = &declarePropertyDerivative<Real>(
+          "cp" + _Fj_names[0], _ci_names[m * _num_j], _args_names[n]);
     }
   }
 }
@@ -127,27 +150,20 @@ KKSPhaseConcentrationMultiPhaseMaterial::initQpStatefulProperties()
 }
 
 void
+KKSPhaseConcentrationMultiPhaseMaterial::initialSetup()
+{
+  for (unsigned int m = 0; m < _num_j; ++m)
+    _Fj_mat[m] = &getMaterialByName(_Fj_names[m]);
+}
+
+void
 KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
 {
-  // dynamicaly sized vector class from the Eigen library
+  // parameters for nested Newton iteration
   NestedSolve::Value<> solution(_num_c * _num_j);
 
-  ////////////////////////////////////// need change start
-  // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp];
-
-  // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
-  //     (*_ci_old[4])[_qp], (*_ci_old[5])[_qp];
-
-  solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
-      (*_ci_old[4])[_qp], (*_ci_old[5])[_qp], (*_ci_old[6])[_qp], (*_ci_old[7])[_qp],
-      (*_ci_old[8])[_qp], (*_ci_old[9])[_qp], (*_ci_old[10])[_qp], (*_ci_old[11])[_qp];
-
-  // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
-  //     (*_ci_old[4])[_qp], (*_ci_old[5])[_qp], (*_ci_old[6])[_qp], (*_ci_old[7])[_qp],
-  //     (*_ci_old[8])[_qp], (*_ci_old[9])[_qp], (*_ci_old[10])[_qp], (*_ci_old[11])[_qp],
-  //     (*_ci_old[12])[_qp], (*_ci_old[13])[_qp], (*_ci_old[14])[_qp], (*_ci_old[15])[_qp],
-  //     (*_ci_old[16])[_qp], (*_ci_old[17])[_qp], (*_ci_old[18])[_qp], (*_ci_old[19])[_qp];
-  ////////////////////////////////////// need change end
+  for (unsigned int m = 0; m < _num_c * _num_j; ++m)
+    solution(m) = (*_ci_old[m])[_qp];
 
   _nested_solve.setAbsoluteTolerance(_abs_tol);
   _nested_solve.setRelativeTolerance(_rel_tol);
@@ -158,19 +174,14 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
     for (unsigned int m = 0; m < _num_c * _num_j; ++m)
       (*_prop_ci[m])[_qp] = guess(m);
 
-    ////////////////////////////////////// need change start
-    _f1.computePropertiesAtQp(_qp);
-    _f2.computePropertiesAtQp(_qp);
-    _f3.computePropertiesAtQp(_qp);
-    // _f4.computePropertiesAtQp(_qp);
-    // _f5.computePropertiesAtQp(_qp);
-    ////////////////////////////////////// need change end
+    for (unsigned int m = 0; m < _num_j; ++m)
+      _Fj_mat[m]->computePropertiesAtQp(_qp);
 
     // assign residual functions
     for (unsigned int m = 0; m < _num_c; ++m)
     {
       for (unsigned int n = 0; n < _num_j - 1; ++n)
-        residual(m * _num_j + n) = (*_first_dFi[n][m])[_qp] - (*_first_dFi[n + 1][m])[_qp];
+        residual(m * _num_j + n) = (*_dFidci[n][m])[_qp] - (*_dFidci[n + 1][m])[_qp];
 
       residual((m + 1) * _num_j - 1) = -(*_prop_c[m])[_qp];
 
@@ -196,8 +207,8 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
         // loop through the lth chain rule terms in one constrain equation
         for (unsigned int l = 0; l < _num_c; ++l)
         {
-          jacobian(m * _num_j + n, n + l * _num_j) = (*_second_dFi[n][m][l])[_qp];
-          jacobian(m * _num_j + n, n + l * _num_j + 1) = -(*_second_dFi[n + 1][m][l])[_qp];
+          jacobian(m * _num_j + n, n + l * _num_j) = (*_d2Fidcidbi[n][m][l])[_qp];
+          jacobian(m * _num_j + n, n + l * _num_j + 1) = -(*_d2Fidcidbi[n + 1][m][l])[_qp];
         }
       }
     }
@@ -214,11 +225,36 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
   _iter[_qp] = _nested_solve.getIterations();
 
   if (_nested_solve.getState() == NestedSolve::State::NOT_CONVERGED)
-  {
-    std::cout << "Newton iteration did not converge." << std::endl;
-  }
+    mooseError("Nested Newton iteration did not converge.");
 
   // assign solution to ci
   for (unsigned int m = 0; m < _num_c * _num_j; ++m)
     (*_prop_ci[m])[_qp] = solution[m];
+
+  // assign to the copied parameters to be used in kernels
+  for (unsigned int m = 0; m < _num_j; ++m)
+    (*_Fi_copy[m])[_qp] = (*_prop_Fi[m])[_qp];
+
+  for (unsigned int m = 0; m < _num_j; ++m)
+  {
+    for (unsigned int n = 0; n < _num_c; ++n)
+    {
+      (*_dFidci_copy[m][n])[_qp] = (*_dFidci[m][n])[_qp];
+
+      for (unsigned int l = 0; l < _num_c; ++l)
+        (*_d2Fidcidbi_copy[m][n][l])[_qp] = (*_d2Fidcidbi[m][n][l])[_qp];
+    }
+  }
+
+  for (unsigned int m = 0; m < _num_j; ++m)
+  {
+    for (unsigned int n = 0; n < _n_args; ++n)
+      (*_dFidarg_copy[m][n])[_qp] = (*_dFidarg[m][n])[_qp];
+  }
+
+  for (unsigned int m = 0; m < _num_c; ++m)
+  {
+    for (unsigned int n = 0; n < _num_j; ++n)
+      (*_d2F1dc1darg_copy[m][n])[_qp] = (*_d2F1dc1darg[m][n])[_qp];
+  }
 }

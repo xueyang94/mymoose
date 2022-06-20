@@ -17,113 +17,28 @@ KKSMultiACBulkC::validParams()
   InputParameters params = KKSMultiACBulkBase::validParams();
   params.addClassDescription("Multi-phase KKS model kernel (part 2 of 2) for the Bulk Allen-Cahn. "
                              "This includes all terms dependent on chemical potential.");
-  params.addRequiredCoupledVar("global_cs", "Global concentrations, for example, c, b.");
   params.addRequiredCoupledVar(
-      "all_etas", "Order parameters for all phases. Place in the same order as Fj_names.");
-  params.addRequiredParam<std::vector<MaterialPropertyName>>(
-      "ci_names",
-      "Phase concentrations. These must have the same order as Fj_names and global_cs, for "
-      "example, c1, c2, b1, b2.");
-  params.addParam<std::vector<MaterialPropertyName>>(
-      "dcidb_names",
-      "The derivative of phase concentration wrt global concentration. They must have the same "
-      "order as Fj_names and ci_names, for example, dc1dc, dc2dc, dc1db, dc2db, db1dc, db2dc, "
-      "db1db, db2db.");
-  params.addParam<std::vector<MaterialPropertyName>>(
-      "dcidetaj_names",
-      "THe derivative of phase concentration wrt order parameter. ci must have the order as "
-      "global_c and all_etas, and etaj must match the order in all_etas, for example, dc1deta1, "
-      "dc2deta1, dc1deta2, dc2deta2, db1deta1, db2deta1, db1deta2, db2deta2.");
+      "cj_names", "Array of phase concentrations cj. Place in same order as Fj_names!");
   return params;
 }
 
 KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
   : KKSMultiACBulkBase(parameters),
-    _c_names(coupledComponents("global_cs")),
-    _c_map(getParameterJvarMap("global_cs")),
-    _num_c(coupledComponents("global_cs")),
-    _eta_names(coupledComponents("all_etas")),
-    _eta_map(getParameterJvarMap("all_etas")),
-    _k(-1),
-    _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),
-    _ci_name_matrix(_num_c),
-    _prop_ci(_num_c),
-    _dcidb_names(getParam<std::vector<MaterialPropertyName>>("dcidb_names")),
-    _prop_dcidb(_num_c),
-    _dcidetaj_names(getParam<std::vector<MaterialPropertyName>>("dcidetaj_names")),
-    _prop_dcidetaj(_num_c),
-    _prop_d2hjdetaidetap(_num_j),
-    _first_df1(_num_c),
-    _d2F1dc1db1(_num_c)
+    _c1_name(getVar("cj_names", 0)
+                 ->name()), // Can use any dFj/dcj since they are equal so pick first cj in the list
+    _cjs(coupledValues("cj_names")),
+    _cjs_var(coupledIndices("cj_names")),
+    _prop_dF1dc1(getMaterialPropertyDerivative<Real>(_Fj_names[0],
+                                                     _c1_name)), // Use first Fj in list for dFj/dcj
+    _prop_d2F1dc12(getMaterialPropertyDerivative<Real>(_Fj_names[0], _c1_name, _c1_name)),
+    _prop_d2F1dc1darg(_n_args)
 {
-  for (unsigned int i = 0; i < _num_j; ++i)
-  {
-    // get order parameter names and variable indices
-    _eta_names[i] = getVar("all_etas", i)->name();
+  if (_num_j != coupledComponents("cj_names"))
+    paramError("cj_names", "Need to pass in as many cj_names as Fj_names");
 
-    // Set _k to the position of the nonlinear variable in the list of etaj's
-    if (coupled("all_etas", i) == _var.number())
-      _k = i;
-  }
-
-  // initialize _ci_name_matrix and _prop_ci for easy reference
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
-    _ci_name_matrix[m].resize(_num_j);
-    _prop_ci[m].resize(_num_j);
-
-    for (unsigned int n = 0; n < _num_j; ++n)
-    {
-      _ci_name_matrix[m][n] = _ci_names[m * _num_j + n];
-
-      _prop_ci[m][n] = &getMaterialPropertyByName<Real>(_ci_name_matrix[m][n]);
-    }
-  }
-
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
-    _prop_dcidb[m].resize(_num_j);
-    _prop_dcidetaj[m].resize(_num_j);
-
-    for (unsigned int n = 0; n < _num_j; ++n)
-    {
-      _prop_dcidb[m][n].resize(_num_c);
-      _prop_dcidetaj[m][n].resize(_num_j);
-
-      // declare _prop_dcidb. m is the numerator species, n is the phase of the numerator i, l is
-      // the denominator species
-      for (unsigned int l = 0; l < _num_c; ++l)
-        _prop_dcidb[m][n][l] =
-            &getMaterialPropertyByName<Real>(_dcidb_names[m * _num_j * _num_c + n + l * _num_j]);
-
-      // declare _prop_dcidetaj. m is te numerator species, n is the phase of the numerator i, l is
-      // the phase of denominator j
-      for (unsigned int l = 0; l < _num_j; ++l)
-        _prop_dcidetaj[m][n][l] =
-            &getMaterialPropertyByName<Real>(_dcidetaj_names[m * _num_j * _num_j + n + l * _num_j]);
-    }
-  }
-
-  for (unsigned int m = 0; m < _num_j; ++m)
-  {
-    _prop_d2hjdetaidetap[m].resize(_num_j);
-
-    for (unsigned int n = 0; n < _num_j; ++n)
-      _prop_d2hjdetaidetap[m][n] =
-          &getMaterialPropertyDerivative<Real>(_hj_names[m], _eta_names[_k], _eta_names[n]);
-  }
-
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
-    _first_df1[m] = &getMaterialPropertyDerivative<Real>(_Fj_names[0], _ci_name_matrix[m][0]);
-
-    _d2F1dc1db1[m].resize(_num_c);
-
-    // initialize _d2F1dc1db1[m][n]. m is the species of c1, n is the species of b1
-    for (unsigned int n = 0; n < _num_c; ++n)
-      _d2F1dc1db1[m][n] = &getMaterialPropertyDerivative<Real>(
-          _Fj_names[0], _ci_name_matrix[m][0], _ci_name_matrix[n][0]);
-  }
+  // get second partial derivatives wrt c1 and other coupled variable
+  for (unsigned int i = 0; i < _n_args; ++i)
+    _prop_d2F1dc1darg[i] = &getMaterialPropertyDerivative<Real>(_Fj_names[0], _c1_name, i);
 }
 
 Real
@@ -134,18 +49,10 @@ KKSMultiACBulkC::computeDFDOP(PFFunctionType type)
   switch (type)
   {
     case Residual:
+      for (unsigned int n = 0; n < _num_j; ++n)
+        sum += (*_prop_dhjdetai[n])[_qp] * (*_cjs[n])[_qp];
 
-      for (unsigned int m = 0; m < _num_c; ++m)
-      {
-        Real sum1 = 0.0;
-
-        for (unsigned int n = 0; n < _num_j; ++n)
-          sum1 += (*_prop_dhjdetai[n])[_qp] * (*_prop_ci[m][n])[_qp];
-
-        sum += (*_first_df1[m])[_qp] * sum1;
-      }
-
-      return -sum;
+      return -_prop_dF1dc1[_qp] * sum;
 
     case Jacobian:
       // For when this kernel is used in the Lagrange multiplier equation
@@ -153,27 +60,11 @@ KKSMultiACBulkC::computeDFDOP(PFFunctionType type)
       if (_etai_var != _var.number())
         return 0.0;
 
-      for (unsigned int m = 0; m < _num_c; ++m)
-      {
-        Real sum1 = 0.0;
-        Real sum2 = 0.0;
-        Real sum3 = 0.0;
+      // For when eta_i is the nonlinear variable
+      for (unsigned int n = 0; n < _num_j; ++n)
+        sum += (*_prop_d2hjdetai2[n])[_qp] * (*_cjs[n])[_qp];
 
-        for (unsigned int n = 0; n < _num_c; ++n)
-          sum1 += (*_d2F1dc1db1[m][n])[_qp] * (*_prop_dcidetaj[n][0][_k])[_qp];
-
-        for (unsigned int l = 0; l < _num_j; ++l)
-        {
-          sum2 += (*_prop_dhjdetai[l])[_qp] * (*_prop_ci[m][l])[_qp];
-
-          sum3 += (*_prop_d2hjdetaidetap[l][_k])[_qp] * (*_prop_ci[m][l])[_qp] +
-                  (*_prop_dhjdetai[l])[_qp] * (*_prop_dcidetaj[m][l][_k])[_qp];
-        }
-
-        sum += sum1 * sum2 + (*_first_df1[m])[_qp] * sum3;
-      }
-
-      return -sum * _phi[_j][_qp];
+      return -_phi[_j][_qp] * _prop_dF1dc1[_qp] * sum;
   }
 
   mooseError("Invalid type passed in");
@@ -182,65 +73,41 @@ KKSMultiACBulkC::computeDFDOP(PFFunctionType type)
 Real
 KKSMultiACBulkC::computeQpOffDiagJacobian(unsigned int jvar)
 {
-  // first get dependence of mobility _L on other variables using parent class member function Real
+  // first get dependence of mobility _L on other variables using parent class
+  // member function
   Real res = ACBulk<Real>::computeQpOffDiagJacobian(jvar);
 
   Real sum = 0.0;
-
-  // if other cs are the coupled variables
-  auto compvar = mapJvarToCvar(jvar, _c_map);
-  if (compvar >= 0)
+  // Then add dependence of KKSACBulkC on other variables
+  // Treat cj variables specially, as they appear in the residual
+  if (jvar == _cjs_var[0])
   {
-    for (unsigned int m = 0; m < _num_c; ++m)
-    {
-      Real sum1 = 0.0;
-      Real sum2 = 0.0;
-      Real sum3 = 0.0;
+    for (unsigned int n = 0; n < _num_j; ++n)
+      sum += (*_prop_dhjdetai[n])[_qp] * (*_cjs[n])[_qp];
 
-      for (unsigned int n = 0; n < _num_c; ++n)
-        sum1 += (*_d2F1dc1db1[m][n])[_qp] * (*_prop_dcidb[n][0][compvar])[_qp];
-
-      for (unsigned int l = 0; l < _num_j; ++l)
-      {
-        sum2 += (*_prop_dhjdetai[l])[_qp] * (*_prop_ci[m][l])[_qp];
-
-        sum3 += (*_prop_dhjdetai[l])[_qp] * (*_prop_dcidb[m][l][compvar])[_qp];
-      }
-
-      sum += sum1 * sum2 + (*_first_df1[m])[_qp] * sum3;
-    }
-
-    res += -_L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
-
+    res -= _L[_qp] * (sum * _prop_d2F1dc12[_qp] + _prop_dF1dc1[_qp] * (*_prop_dhjdetai[0])[_qp]) *
+           _phi[_j][_qp] * _test[_i][_qp];
     return res;
   }
 
-  // if order parameters are the coupled variables
-  auto etavar = mapJvarToCvar(jvar, _eta_map);
-  if (etavar >= 0)
+  for (unsigned int i = 1; i < _num_j; ++i)
   {
-    for (unsigned int m = 0; m < _num_c; ++m)
+    if (jvar == _cjs_var[i])
     {
-      Real sum1 = 0.0;
-      Real sum2 = 0.0;
-      Real sum3 = 0.0;
-
-      for (unsigned int n = 0; n < _num_c; ++n)
-        sum1 += (*_d2F1dc1db1[m][n])[_qp] * (*_prop_dcidetaj[n][0][etavar])[_qp];
-
-      for (unsigned int l = 0; l < _num_j; ++l)
-      {
-        sum2 += (*_prop_dhjdetai[l])[_qp] * (*_prop_ci[m][l])[_qp];
-
-        sum3 += (*_prop_d2hjdetaidetap[l][etavar])[_qp] * (*_prop_ci[m][l])[_qp] +
-                (*_prop_dhjdetai[l])[_qp] * (*_prop_dcidetaj[m][l][etavar])[_qp];
-      }
-
-      sum += sum1 * sum2 + (*_first_df1[m])[_qp] * sum3;
+      res -=
+          _L[_qp] * _prop_dF1dc1[_qp] * (*_prop_dhjdetai[i])[_qp] * _phi[_j][_qp] * _test[_i][_qp];
+      return res;
     }
-
-    res += -_L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
   }
+
+  //  for all other vars get the coupled variable jvar is referring to
+  const unsigned int cvar = mapJvarToCvar(jvar);
+
+  for (unsigned int n = 0; n < _num_j; ++n)
+    sum += _prop_dF1dc1[_qp] * (*_prop_d2hjdetaidarg[n][cvar])[_qp] * (*_cjs[n])[_qp] +
+           (*_prop_d2F1dc1darg[cvar])[_qp] * (*_prop_dhjdetai[n])[_qp] * (*_cjs[n])[_qp];
+
+  res -= _L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
 
   return res;
 }

@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "JvarMapInterface.h"
 #include "DerivativeMaterialInterface.h"
+#include "JvarMapInterface.h"
 
 // Forward Declarations
 
@@ -23,16 +23,16 @@
  * \f$ dF/dc = dF_a/dc_a (= dF_b/dc_b) \f$
  *
  * The non-linear variable for this Kernel is the concentration 'c'.
- * The user picks one phase free energy \f$ F_a \f$ (f_base) and its corresponding
- * phase concentration \f$ c_a \f$
+ * The user picks one phase free energy \f$ F_a \f$ (f_base) and its
+ * corresponding phase concentration \f$ c_a \f$
  */
 
-class KKSSplitCHCRes : public DerivativeMaterialInterface<JvarMapKernelInterface<Kernel>>
-{
+class NestKKSSplitCHCRes
+    : public DerivativeMaterialInterface<JvarMapKernelInterface<Kernel>> {
 public:
   static InputParameters validParams();
 
-  KKSSplitCHCRes(const InputParameters & parameters);
+  NestKKSSplitCHCRes(const InputParameters &parameters);
 
 protected:
   virtual Real computeQpResidual() override;
@@ -44,18 +44,18 @@ protected:
 
   /// Number of phase parameters
   const unsigned int _num_j;
-  const JvarMap & _eta_map;
+  const JvarMap &_eta_map;
 
   /// Global concentrations
   const std::vector<VariableName> _c_names;
 
   /// Number of global concentrations
   const unsigned int _num_c;
-  const JvarMap & _c_map;
+  const JvarMap &_c_map;
   int _o;
   /// Chemical potential
   const unsigned int _w_var;
-  const VariableValue & _w;
+  const VariableValue &_w;
 
   /// Phase concentration of the first phase in _eta_names
   const std::vector<MaterialPropertyName> _c1_names;
@@ -66,15 +66,19 @@ protected:
   /// Derivative of the free energy function \f$ \frac d{dc_1} F_1 \f$
   std::vector<const MaterialProperty<Real> *> _dF1dc1;
 
-  /// Second derivative of the free energy function \f$ \frac {d^2}{dc_1 db_1} F_1 \f$
+  /// Second derivative of the free energy function \f$ \frac {d^2}{dc_1 db_1}
+  /// F_1 \f$
   std::vector<const MaterialProperty<Real> *> _d2F1dc1db1;
 
-  /// Derivative of the phase concentrations wrt global concentrations \f$ \frac d{db} c_1 \f$
+  /// Derivative of the phase concentrations wrt global concentrations \f$ \frac
+  /// d{db} c_1 \f$
   std::vector<std::vector<const MaterialProperty<Real> *>> _dc1db;
 
-  /// Derivative of the phase concentrations wrt phase parameter \f$ \frac d{d{eta}} c_1 \f$
+  /// Derivative of the phase concentrations wrt phase parameter \f$ \frac
+  /// d{d{eta}} c_1 \f$
   std::vector<std::vector<const MaterialProperty<Real> *>> _dc1detaj;
 
-  /// Second derivative of the free energy function wrt phase concentration and a coupled variable
+  /// Second derivative of the free energy function wrt phase concentration and
+  /// a coupled variable
   std::vector<const MaterialProperty<Real> *> _d2F1dc1darg;
 };

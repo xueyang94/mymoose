@@ -14,125 +14,82 @@ registerMooseObject("PhaseFieldApp", KKSSplitCHCRes);
 InputParameters
 KKSSplitCHCRes::validParams()
 {
-  InputParameters params = JvarMapKernelInterface<Kernel>::validParams();
+  InputParameters params = SplitCHBase::validParams();
   params.addClassDescription(
       "KKS model kernel for the split Bulk Cahn-Hilliard term. This kernel operates on the "
       "physical concentration 'c' as the non-linear variable");
-  params.addCoupledVar("all_etas", "Order parameters for all phases.");
-  params.addRequiredCoupledVar("global_cs", "Global concentrations, for example, c, b.");
-  params.addCoupledVar("w", "Chemical potential non-linear helper variable for the split solve");
-  params.addParam<std::vector<MaterialPropertyName>>(
-      "c1_names",
-      "Phase concentrations in the frist phase of all_etas. The order must match global_cs, for "
-      "example, c1, b1");
-  params.addParam<std::vector<MaterialPropertyName>>(
-      "dc1db_names",
-      "The phase concentrations of the frist phase in Fj_names taken derivatives wrt global "
-      "concentrations. c1 and b must match the order of global_c. First keep the same c1 and loop "
-      "through b for one species, for example, dc1dc, dc1db, db1dc, db1db");
-  params.addParam<std::vector<MaterialPropertyName>>(
-      "dc1detaj_names",
-      "The phase concentrations of the first phase in Fj_names taken derivatives wrt all_etas. c1 "
-      "must match the order in global_c, and etaj must match the order in all_etas. First keep the "
-      "same c1 and loop through eta, for example, dc1deta1, dc1deta2, db1deta1, db1deta2.");
-  params.addParam<MaterialPropertyName>("F1_name", "F1");
+  params.addRequiredParam<MaterialPropertyName>(
+      "fa_name",
+      "Base name of an arbitrary phase free energy function F (f_base in the corresponding "
+      "KKSBaseMaterial)");
+  params.addRequiredCoupledVar(
+      "ca", "phase concentration corresponding to the non-linear variable of this kernel");
+  params.addCoupledVar("args_a", "Vector of additional arguments to Fa");
+  params.addRequiredCoupledVar("w",
+                               "Chemical potential non-linear helper variable for the split solve");
   return params;
 }
 
 KKSSplitCHCRes::KKSSplitCHCRes(const InputParameters & parameters)
-  : DerivativeMaterialInterface<JvarMapKernelInterface<Kernel>>(parameters),
-    _eta_names(coupledNames("all_etas")),
-    _eta_map(getParameterJvarMap("all_etas")),
-    _num_j(_eta_names.size()),
-    _c_map(getParameterJvarMap("global_cs")),
-    _num_c(coupledComponents("global_cs")),
-    _o(-1), // position of nonlinear variable c in the list of global_cs
+  : DerivativeMaterialInterface<JvarMapKernelInterface<SplitCHBase>>(parameters),
+    _ca_var(coupled("ca")),
+    _ca_name(getVar("ca", 0)->name()),
+    _dFadca(getMaterialPropertyDerivative<Real>("fa_name", _ca_name)),
+    _d2Fadcadarg(_n_args),
     _w_var(coupled("w")),
-    _w(coupledValue("w")),
-    _c1_names(getParam<std::vector<MaterialPropertyName>>("c1_names")),
-    _dc1db_names(getParam<std::vector<MaterialPropertyName>>("dc1db_names")),
-    _prop_dc1db(_num_c),
-    _dc1detaj_names(getParam<std::vector<MaterialPropertyName>>("dc1detaj_names")),
-    _prop_dc1detaj(_num_c),
-    _F1_name(getParam<MaterialPropertyName>("F1_name")),
-    _prop_dF1dc1(_num_c),
-    _prop_d2F1dc1db1(_num_c)
+    _w(coupledValue("w"))
 {
-  for (unsigned int i = 0; i < _num_c; ++i)
-  {
-    // Set _o to the position of the nonlinear variable in the list of global_cs
-    if (coupled("global_cs", i) == _var.number())
-      _o = i;
-  }
+  // get the second derivative material property
+  for (unsigned int i = 0; i < _n_args; ++i)
+    _d2Fadcadarg[i] = &getMaterialPropertyDerivative<Real>("fa_name", _ca_name, i);
+}
 
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
-    _prop_dc1db[m].resize(_num_c);
-    _prop_dc1detaj[m].resize(_num_j);
-
-    for (unsigned int n = 0; n < _num_c; ++n)
-      _prop_dc1db[m][n] = &getMaterialPropertyByName<Real>(_dc1db_names[m * _num_c + n]);
-
-    for (unsigned int n = 0; n < _num_j; ++n)
-      _prop_dc1detaj[m][n] = &getMaterialPropertyByName<Real>(_dc1detaj_names[m * _num_j + n]);
-  }
-
-  for (unsigned int i = 0; i < _num_c; ++i)
-  {
-    _prop_dF1dc1[i] = &getMaterialPropertyDerivative<Real>(_F1_name, _c1_names[i]);
-
-    _prop_d2F1dc1db1[i] =
-        &getMaterialPropertyDerivative<Real>(_F1_name, _c1_names[_o], _c1_names[i]);
-  }
+void
+KKSSplitCHCRes::initialSetup()
+{
+  validateNonlinearCoupling<Real>("fa_name");
+  validateDerivativeMaterialPropertyBase<Real>("fa_name");
 }
 
 Real
 KKSSplitCHCRes::computeQpResidual()
 {
-  return ((*_prop_dF1dc1[_o])[_qp] - _w[_qp]) * _test[_i][_qp];
+  Real residual = SplitCHBase::computeQpResidual();
+  residual += -_w[_qp] * _test[_i][_qp];
+
+  return residual;
 }
 
+/**
+ * Note that per product and chain rules:
+ * \f$ \frac{d}{du_j}\left(F(u)\nabla u\right) = \nabla u \frac {dF(u)}{du}\frac{du}{du_j} +
+ * F(u)\frac{d\nabla u}{du_j} \f$
+ * which is:
+ * \f$ \nabla u \frac {dF(u)}{du} \phi_j + F(u) \nabla \phi_j \f$
+ */
 Real
-KKSSplitCHCRes::computeQpJacobian()
+KKSSplitCHCRes::computeDFDC(PFFunctionType type)
 {
-  Real sum = 0.0;
+  switch (type)
+  {
+    case Residual:
+      return _dFadca[_qp]; // dFa/dca ( = dFb/dcb = dF/dc)
 
-  for (unsigned int m = 0; m < _num_c; ++m)
-    sum += (*_prop_d2F1dc1db1[m])[_qp] * (*_prop_dc1db[m][_o])[_qp];
+    case Jacobian:
+      return 0.0;
+  }
 
-  return sum * _phi[_j][_qp] * _test[_i][_qp];
+  mooseError("Invalid type passed in");
 }
 
 Real
 KKSSplitCHCRes::computeQpOffDiagJacobian(unsigned int jvar)
 {
-  Real sum = 0.0;
-
   // treat w variable explicitly
   if (jvar == _w_var)
     return -_phi[_j][_qp] * _test[_i][_qp];
 
-  // if b is the coupled variable
-  auto compvar = mapJvarToCvar(jvar, _c_map);
-  if (compvar >= 0)
-  {
-    // This can be further improve by not looping the nonlinear variable c because dRdc is
-    // on-diagonal
-    for (unsigned int m = 0; m < _num_c; ++m)
-      sum += (*_prop_d2F1dc1db1[m])[_qp] * (*_prop_dc1db[m][compvar])[_qp];
-
-    return sum * _phi[_j][_qp] * _test[_i][_qp];
-  }
-
-  // if order parameters are the coupled variables
-  auto etavar = mapJvarToCvar(jvar, _eta_map);
-  if (etavar >= 0)
-  {
-    for (unsigned int m = 0; m < _num_c; ++m)
-      sum += (*_prop_d2F1dc1db1[m])[_qp] * (*_prop_dc1detaj[m][etavar])[_qp];
-
-    return sum * _phi[_j][_qp] * _test[_i][_qp];
-  }
-
-  return 0.0;
+  // get the coupled variable jvar is referring to
+  const unsigned int cvar = mapJvarToCvar(jvar);
+  return _phi[_j][_qp] * _test[_i][_qp] * (*_d2Fadcadarg[cvar])[_qp];
 }

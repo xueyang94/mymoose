@@ -17,89 +17,18 @@ KKSMultiACBulkF::validParams()
   InputParameters params = KKSMultiACBulkBase::validParams();
   params.addClassDescription("KKS model kernel (part 1 of 2) for the Bulk Allen-Cahn. This "
                              "includes all terms NOT dependent on chemical potential.");
-  params.addRequiredCoupledVar("global_cs", "Global concentrations, for example, c, b.");
-  params.addRequiredCoupledVar("all_etas", "Order parameters for all phases.");
-  params.addRequiredParam<std::vector<MaterialPropertyName>>(
-      "c1_names",
-      "Phase concentrations in the frist phase of all_etas. The order must match global_cs, for "
-      "example, c1, b1, etc.");
-  params.addParam<std::vector<MaterialPropertyName>>(
-      "dcidb_names",
-      "The derivative of phase concentration wrt global concentration. They must have the same "
-      "order as Fj_names and ci_names, for example, dc1dc, dc2dc, dc1db, dc2db, db1dc, db2dc, "
-      "db1db, db2db.");
-  params.addParam<std::vector<MaterialPropertyName>>(
-      "dcidetaj_names",
-      "THe derivative of phase concentration wrt order parameter. ci must have the order as "
-      "global_c and all_etas, and etaj must match the order in all_etas, for example, dc1deta1, "
-      "dc2deta1, dc1deta2, dc2deta2, db1deta1, db2deta1, db1deta2, db2deta2.");
-  params.addRequiredParam<Real>("wi", "Double well height parameter.");
+  params.addRequiredParam<Real>("wi", "Double well height parameter");
   params.addRequiredParam<MaterialPropertyName>(
-      "gi_name", "Base name for the double well function g_i(eta_i) for the given phase");
+      "gi_name", "Base name for the double well function g_i(eta_i)");
   return params;
 }
 
 KKSMultiACBulkF::KKSMultiACBulkF(const InputParameters & parameters)
   : KKSMultiACBulkBase(parameters),
-    _c_names(coupledComponents("global_cs")),
-    _c_map(getParameterJvarMap("global_cs")),
-    _num_c(coupledComponents("global_cs")),
-    _eta_names(coupledComponents("all_etas")),
-    _eta_map(getParameterJvarMap("all_etas")),
-    _k(-1),
-    _c1_names(getParam<std::vector<MaterialPropertyName>>("c1_names")),
-    _dcidb_names(getParam<std::vector<MaterialPropertyName>>("dcidb_names")),
-    _prop_dcidb(_num_c),
-    _dcidetaj_names(getParam<std::vector<MaterialPropertyName>>("dcidetaj_names")),
-    _prop_dcidetaj(_num_c),
     _wi(getParam<Real>("wi")),
-    _gi_name(getParam<MaterialPropertyName>("gi_name")),
-    _dgi(getMaterialPropertyDerivative<Real>("gi_name", _etai_name)),
-    _d2gi(getMaterialPropertyDerivative<Real>("gi_name", _etai_name, _etai_name)),
-    _d2hjdetaidetap(_num_j),
-    _dF1dc1(_num_c)
+    _prop_dgi(getMaterialPropertyDerivative<Real>("gi_name", _etai_name)),
+    _prop_d2gi(getMaterialPropertyDerivative<Real>("gi_name", _etai_name, _etai_name))
 {
-  for (unsigned int i = 0; i < _num_j; ++i)
-  {
-    // get order parameter names and variable indices
-    _eta_names[i] = getVar("all_etas", i)->name();
-
-    // Set _k to the position of the nonlinear variable in the list of etaj's
-    if (coupled("all_etas", i) == _var.number())
-      _k = i;
-  }
-
-  for (unsigned int m = 0; m < _num_c; ++m)
-  {
-    _prop_dcidb[m].resize(_num_j);
-    _prop_dcidetaj[m].resize(_num_j);
-
-    for (unsigned int n = 0; n < _num_j; ++n)
-    {
-      _prop_dcidb[m][n].resize(_num_c);
-      _prop_dcidetaj[m][n].resize(_num_j);
-
-      for (unsigned int l = 0; l < _num_c; ++l)
-        _prop_dcidb[m][n][l] =
-            &getMaterialPropertyByName<Real>(_dcidb_names[m * _num_j * _num_c + n + l * _num_j]);
-
-      for (unsigned int l = 0; l < _num_j; ++l)
-        _prop_dcidetaj[m][n][l] =
-            &getMaterialPropertyByName<Real>(_dcidetaj_names[m * _num_j * _num_j + n + l * _num_j]);
-    }
-  }
-
-  for (unsigned int i = 0; i < _num_c; ++i)
-    _dF1dc1[i] = &getMaterialPropertyDerivative<Real>(_Fj_names[0], _c1_names[i]);
-
-  for (unsigned int m = 0; m < _num_j; ++m)
-  {
-    _d2hjdetaidetap[m].resize(_num_j);
-
-    for (unsigned int n = 0; n < _num_j; ++n)
-      _d2hjdetaidetap[m][n] =
-          &getMaterialPropertyDerivative<Real>(_hj_names[m], _eta_names[_k], _eta_names[n]);
-  }
 }
 
 Real
@@ -110,10 +39,10 @@ KKSMultiACBulkF::computeDFDOP(PFFunctionType type)
   switch (type)
   {
     case Residual:
-      for (unsigned int m = 0; m < _num_j; ++m)
-        sum += (*_prop_dhjdetai[m])[_qp] * (*_prop_Fj[m])[_qp];
+      for (unsigned int n = 0; n < _num_j; ++n)
+        sum += (*_prop_dhjdetai[n])[_qp] * (*_prop_Fj[n])[_qp];
 
-      return sum + _wi * _dgi[_qp];
+      return sum + _wi * _prop_dgi[_qp];
 
     case Jacobian:
       // For when this kernel is used in the Lagrange multiplier equation
@@ -122,18 +51,10 @@ KKSMultiACBulkF::computeDFDOP(PFFunctionType type)
         return 0.0;
 
       // For when eta_i is the nonlinear variable
-      for (unsigned int m = 0; m < _num_j; ++m)
-      {
-        Real sum1 = 0.0;
+      for (unsigned int n = 0; n < _num_j; ++n)
+        sum += (*_prop_d2hjdetai2[n])[_qp] * (*_prop_Fj[n])[_qp];
 
-        for (unsigned int n = 0; n < _num_c; ++n)
-          sum1 += (*_dF1dc1[n])[_qp] * (*_prop_dcidetaj[n][m][_k])[_qp];
-
-        sum +=
-            (*_d2hjdetaidetap[m][_k])[_qp] * (*_prop_Fj[m])[_qp] + (*_prop_dhjdetai[m])[_qp] * sum1;
-      }
-
-      return _phi[_j][_qp] * (sum + _wi * _d2gi[_qp]);
+      return _phi[_j][_qp] * (sum + _wi * _prop_d2gi[_qp]);
   }
 
   mooseError("Invalid type passed in");
@@ -142,66 +63,26 @@ KKSMultiACBulkF::computeDFDOP(PFFunctionType type)
 Real
 KKSMultiACBulkF::computeQpOffDiagJacobian(unsigned int jvar)
 {
-  // first get dependence of mobility _L on other variables using parent class member function Real
+  // get the coupled variable jvar is referring to
+  const unsigned int cvar = mapJvarToCvar(jvar);
+
+  // first get dependence of mobility _L on other variables using parent class
+  // member function
   Real res = ACBulk<Real>::computeQpOffDiagJacobian(jvar);
 
+  // Then add dependence of KKSMultiACBulkF on other variables
   Real sum = 0.0;
-
-  // if concentrations are the coupled variables
-  auto compvar = mapJvarToCvar(jvar, _c_map);
-  if (compvar >= 0)
-  {
-    for (unsigned int m = 0; m < _num_j; ++m)
-    {
-      Real sum1 = 0.0;
-
-      for (unsigned int n = 0; n < _num_c; ++n)
-        sum1 += (*_dF1dc1[n])[_qp] * (*_prop_dcidb[n][m][compvar])[_qp];
-
-      sum += (*_prop_dhjdetai[m])[_qp] * sum1;
-    }
-
-    res += _L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
-
-    return res;
-  }
-
-  // if order parameters are the coupled variables
-  auto etavar = mapJvarToCvar(jvar, _eta_map);
-  if (etavar >= 0)
-  {
-    for (unsigned int m = 0; m < _num_j; ++m)
-    {
-      Real sum1 = 0.0;
-
-      for (unsigned int n = 0; n < _num_c; ++n)
-        sum1 += (*_dF1dc1[n])[_qp] * (*_prop_dcidetaj[n][m][etavar])[_qp];
-
-      sum += (*_d2hjdetaidetap[m][etavar])[_qp] * (*_prop_Fj[m])[_qp] +
-             (*_prop_dhjdetai[m])[_qp] * sum1;
-    }
-
-    res += _L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
-
-    return res;
-  }
-
-  // // get the coupled variable jvar is referring to
-  // const unsigned int cvar = mapJvarToCvar(jvar);
-  // // add dependence of KKSMultiACBulkF on other variables
-  // for (unsigned int n = 0; n < _num_j; ++n)
-  //   sum += (*_prop_d2hjdetaidarg[n][cvar])[_qp] * (*_prop_Fj[n])[_qp] +
-  //          (*_prop_dhjdetai[n])[_qp] * (*_prop_dFjdarg[n][cvar])[_qp];
+  for (unsigned int n = 0; n < _num_j; ++n)
+    sum += (*_prop_d2hjdetaidarg[n][cvar])[_qp] * (*_prop_Fj[n])[_qp] +
+           (*_prop_dhjdetai[n])[_qp] * (*_prop_dFjdarg[n][cvar])[_qp];
 
   // Handle the case when this kernel is used in the Lagrange multiplier equation
   // In this case the second derivative of the barrier function contributes
   // to the off-diagonal Jacobian
   if (jvar == _etai_var)
-  {
-    sum += _wi * _d2gi[_qp];
+    sum += _wi * _prop_d2gi[_qp];
 
-    res += _L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
-  }
+  res += _L[_qp] * sum * _phi[_j][_qp] * _test[_i][_qp];
 
   return res;
 }
