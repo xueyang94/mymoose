@@ -38,7 +38,7 @@ FVElementalKernel::FVElementalKernel(const InputParameters & parameters)
     MaterialPropertyInterface(this, blockIDs(), Moose::EMPTY_BOUNDARY_IDS),
     _var(*mooseVariableFV()),
     _u(_var.adSln()),
-    _u_functor(_var),
+    _u_functor(getFunctor<ADReal>(_var.name())),
     _current_elem(_assembly.elem()),
     _q_point(_assembly.qPoints())
 {
@@ -59,13 +59,27 @@ FVElementalKernel::computeResidual()
 }
 
 void
+FVElementalKernel::computeResidualAndJacobian()
+{
+#ifdef MOOSE_GLOBAL_AD_INDEXING
+  const auto r = computeQpResidual() * _assembly.elemVolume();
+  const auto dof_index = _var.dofIndices()[0];
+  _assembly.processJacobian(r, dof_index, _matrix_tags);
+  _assembly.processResidual(r.value(), dof_index, _vector_tags);
+#else
+  mooseError("computing residual and Jacobian together only supported for global AD indexing");
+#endif
+}
+
+void
 FVElementalKernel::computeJacobian()
 {
   const auto r = computeQpResidual() * _assembly.elemVolume();
 
   mooseAssert(_var.dofIndices().size() == 1, "We're currently built to use CONSTANT MONOMIALS");
 
-  auto local_functor = [&](const ADReal & residual, dof_id_type, const std::set<TagID> &) {
+  auto local_functor = [&](const ADReal & residual, dof_id_type, const std::set<TagID> &)
+  {
     prepareMatrixTag(_assembly, _var.number(), _var.number());
     auto dofs_per_elem = _subproblem.systemBaseNonlinear().getMaxVarNDofsPerElem();
     auto ad_offset = Moose::adOffset(_var.number(), dofs_per_elem);
@@ -77,7 +91,7 @@ FVElementalKernel::computeJacobian()
     accumulateTaggedLocalMatrix();
   };
 
-  _assembly.processDerivatives(r, _var.dofIndices()[0], _matrix_tags, local_functor);
+  _assembly.processJacobian(r, _var.dofIndices()[0], _matrix_tags, local_functor);
 }
 
 void
@@ -87,7 +101,8 @@ FVElementalKernel::computeOffDiagJacobian()
 
   mooseAssert(_var.dofIndices().size() == 1, "We're currently built to use CONSTANT MONOMIALS");
 
-  auto local_functor = [&](const ADReal & residual, dof_id_type, const std::set<TagID> &) {
+  auto local_functor = [&](const ADReal & residual, dof_id_type, const std::set<TagID> &)
+  {
     auto & ce = _assembly.couplingEntries();
     for (const auto & it : ce)
     {
@@ -129,5 +144,11 @@ FVElementalKernel::computeOffDiagJacobian()
     }
   };
 
-  _assembly.processDerivatives(r, _var.dofIndices()[0], _matrix_tags, local_functor);
+  _assembly.processJacobian(r, _var.dofIndices()[0], _matrix_tags, local_functor);
+}
+
+void
+FVElementalKernel::computeOffDiagJacobian(unsigned int)
+{
+  mooseError("FVElementalKernel::computeOffDiagJacobian should be called with no arguments");
 }

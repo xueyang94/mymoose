@@ -32,7 +32,4 @@ protected:
 
   /// fluid properties user object
   const SinglePhaseFluidProperties & _fluid;
-
-  /// the density to be computed
-  FunctorMaterialProperty<ADReal> & _rho;
 };

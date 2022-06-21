@@ -18,8 +18,6 @@
 
 registerMooseAction("MooseApp", MeshOnlyAction, "mesh_only");
 
-defineLegacyParams(MeshOnlyAction);
-
 InputParameters
 MeshOnlyAction::validParams()
 {
@@ -72,6 +70,9 @@ MeshOnlyAction::act()
     ExodusII_IO exio(mesh_ptr->getMesh());
 
     Exodus::setOutputDimensionInExodusWriter(exio, *mesh_ptr);
+
+    // Default to non-HDF5 output for wider compatibility
+    exio.set_hdf5_writing(false);
 
     exio.write(mesh_file);
   }

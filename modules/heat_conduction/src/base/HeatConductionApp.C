@@ -16,7 +16,7 @@
 InputParameters
 HeatConductionApp::validParams()
 {
-  InputParameters params = ::validParams<MooseApp>();
+  InputParameters params = MooseApp::validParams();
 
   params.set<bool>("use_legacy_material_output") = false;
 
@@ -73,6 +73,13 @@ associateSyntaxInner(Syntax & syntax, ActionFactory & /*action_factory*/)
   registerSyntaxTask("RadiationTransferAction", "GrayDiffuseRadiation/*", "add_bc");
   registerSyntaxTask(
       "RadiationTransferAction", "GrayDiffuseRadiation/*", "add_ray_boundary_condition");
+
+  registerSyntaxTask(
+      "MortarGapHeatTransferAction", "MortarGapHeatTransfer/*", "append_mesh_generator");
+  registerSyntaxTask(
+      "MortarGapHeatTransferAction", "MortarGapHeatTransfer/*", "add_mortar_variable");
+  registerSyntaxTask("MortarGapHeatTransferAction", "MortarGapHeatTransfer/*", "add_constraint");
+  registerSyntaxTask("MortarGapHeatTransferAction", "MortarGapHeatTransfer/*", "add_user_object");
 }
 
 void

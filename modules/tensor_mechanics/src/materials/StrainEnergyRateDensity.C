@@ -38,13 +38,17 @@ StrainEnergyRateDensityTempl<is_ad>::StrainEnergyRateDensityTempl(
     const InputParameters & parameters)
   : DerivativeMaterialInterface<Material>(parameters),
     _base_name(isParamValid("base_name") ? getParam<std::string>("base_name") + "_" : ""),
-    _strain_energy_rate_density(
-        declareGenericProperty<Real, is_ad>(_base_name + "strain_energy_rate_density")),
+    _strain_energy_rate_density(declareProperty<Real>(_base_name + "strain_energy_rate_density")),
     _stress(getGenericMaterialProperty<RankTwoTensor, is_ad>(_base_name + "stress")),
     _strain_rate(getGenericMaterialProperty<RankTwoTensor, is_ad>(_base_name + "strain_rate")),
     _num_models(getParam<std::vector<MaterialName>>("inelastic_models").size())
 {
+}
 
+template <bool is_ad>
+void
+StrainEnergyRateDensityTempl<is_ad>::initialSetup()
+{
   std::vector<MaterialName> models = getParam<std::vector<MaterialName>>("inelastic_models");
 
   // Store inelastic models as generic StressUpdateBase.
@@ -56,12 +60,6 @@ StrainEnergyRateDensityTempl<is_ad>::StrainEnergyRateDensityTempl(
     if (inelastic_model_stress_update)
       _inelastic_models.push_back(inelastic_model_stress_update);
   }
-}
-
-template <bool is_ad>
-void
-StrainEnergyRateDensityTempl<is_ad>::initialSetup()
-{
 }
 
 template <bool is_ad>
@@ -78,7 +76,7 @@ StrainEnergyRateDensityTempl<is_ad>::computeQpProperties()
   for (unsigned int i = 0; i < _inelastic_models.size(); ++i)
   {
     _inelastic_models[i]->setQp(_qp);
-    _strain_energy_rate_density[_qp] =
-        _inelastic_models[i]->computeStrainEnergyRateDensity(_stress, _strain_rate);
+    _strain_energy_rate_density[_qp] = MetaPhysicL::raw_value(
+        _inelastic_models[i]->computeStrainEnergyRateDensity(_stress, _strain_rate));
   }
 }

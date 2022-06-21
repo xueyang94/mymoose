@@ -13,8 +13,6 @@
 #include "MooseMeshUtils.h"
 #include "CastUniquePointer.h"
 
-defineLegacyParams(ElementDeletionGeneratorBase);
-
 InputParameters
 ElementDeletionGeneratorBase::validParams()
 {
@@ -39,6 +37,10 @@ std::unique_ptr<MeshBase>
 ElementDeletionGeneratorBase::generate()
 {
   std::unique_ptr<MeshBase> mesh = std::move(_input);
+
+  // Make sure that the mesh is prepared
+  if (!mesh->is_prepared())
+    mesh->prepare_for_use();
 
   // Elements that the deleter will remove
   std::set<Elem *> deleteable_elems;
@@ -140,8 +142,8 @@ ElementDeletionGeneratorBase::generate()
           queries[pid].push_back(std::make_pair(elem->id(), n));
     }
 
-    Parallel::MessageTag queries_tag = mesh->comm().get_unique_tag(42),
-                         replies_tag = mesh->comm().get_unique_tag(6 * 9);
+    const auto queries_tag = mesh->comm().get_unique_tag(),
+               replies_tag = mesh->comm().get_unique_tag();
 
     std::vector<Parallel::Request> query_requests(my_n_proc - 1), reply_requests(my_n_proc - 1);
 

@@ -12,8 +12,6 @@
 
 registerMooseObject("MooseApp", BoolFunctionControl);
 
-defineLegacyParams(BoolFunctionControl);
-
 InputParameters
 BoolFunctionControl::validParams()
 {
@@ -37,6 +35,6 @@ BoolFunctionControl::BoolFunctionControl(const InputParameters & parameters)
 void
 BoolFunctionControl::execute()
 {
-  Real value = _function.value(_t, Point());
+  Real value = _function.value(_t);
   setControllableValue<bool>("parameter", value != 0.);
 }

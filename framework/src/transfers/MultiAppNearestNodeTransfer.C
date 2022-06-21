@@ -27,8 +27,6 @@
 
 registerMooseObject("MooseApp", MultiAppNearestNodeTransfer);
 
-defineLegacyParams(MultiAppNearestNodeTransfer);
-
 InputParameters
 MultiAppNearestNodeTransfer::validParams()
 {
@@ -79,7 +77,8 @@ MultiAppNearestNodeTransfer::MultiAppNearestNodeTransfer(const InputParameters &
 void
 MultiAppNearestNodeTransfer::execute()
 {
-  _console << "Beginning NearestNodeTransfer " << name() << std::endl;
+  TIME_SECTION(
+      "MultiAppNearestNodeTransfer::execute()", 5, "Transferring variables based on nearest nodes");
 
   getAppInfo();
 
@@ -351,8 +350,8 @@ MultiAppNearestNodeTransfer::execute()
 
     // Quadrature points I will receive from remote processors
     std::map<processor_id_type, std::vector<Point>> incoming_qps;
-    auto qps_action_functor = [&incoming_qps](processor_id_type pid,
-                                              const std::vector<Point> & qps) {
+    auto qps_action_functor = [&incoming_qps](processor_id_type pid, const std::vector<Point> & qps)
+    {
       // Quadrature points from processor 'pid'
       auto & incoming_qps_from_pid = incoming_qps[pid];
       // Store data for late use
@@ -460,8 +459,9 @@ MultiAppNearestNodeTransfer::execute()
     }
   }
 
-  auto evals_action_functor = [&incoming_evals](processor_id_type pid,
-                                                const std::vector<Real> & evals) {
+  auto evals_action_functor =
+      [&incoming_evals](processor_id_type pid, const std::vector<Real> & evals)
+  {
     // evals for processor 'pid'
     auto & incoming_evals_for_pid = incoming_evals[pid];
     // Copy evals for late use
@@ -645,7 +645,6 @@ MultiAppNearestNodeTransfer::execute()
   if (_fixed_meshes)
     _neighbors_cached = true;
 
-  _console << "Finished NearestNodeTransfer " << name() << std::endl;
 
   postExecute();
 }
@@ -755,7 +754,7 @@ MultiAppNearestNodeTransfer::getLocalEntitiesAndComponents(
 {
   mooseAssert(mesh, "mesh should not be a nullptr");
   mooseAssert(local_entities.empty(), "local_entities should be empty");
-  const MeshBase & mesh_base = mesh->getMesh();
+  MeshBase & mesh_base = mesh->getMesh();
 
   if (isParamValid("source_boundary"))
   {
@@ -845,7 +844,7 @@ MultiAppNearestNodeTransfer::getLocalEntities(
     MooseMesh * mesh, std::vector<std::pair<Point, DofObject *>> & local_entities, bool is_nodal)
 {
   mooseAssert(local_entities.empty(), "local_entities should be empty");
-  const MeshBase & mesh_base = mesh->getMesh();
+  MeshBase & mesh_base = mesh->getMesh();
 
   if (isParamValid("source_boundary"))
   {
@@ -888,7 +887,7 @@ const std::vector<Node *> &
 MultiAppNearestNodeTransfer::getTargetLocalNodes(const unsigned int to_problem_id)
 {
   _target_local_nodes.clear();
-  const MeshBase & to_mesh = _to_meshes[to_problem_id]->getMesh();
+  MeshBase & to_mesh = _to_meshes[to_problem_id]->getMesh();
 
   if (isParamValid("target_boundary"))
   {

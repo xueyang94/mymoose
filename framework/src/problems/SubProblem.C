@@ -19,12 +19,11 @@
 #include "Assembly.h"
 #include "MooseObjectName.h"
 #include "RelationshipManager.h"
+#include "MooseUtils.h"
 
 #include "libmesh/equation_systems.h"
 #include "libmesh/system.h"
 #include "libmesh/dof_map.h"
-
-defineLegacyParams(SubProblem);
 
 InputParameters
 SubProblem::validParams()
@@ -48,8 +47,8 @@ SubProblem::SubProblem(const InputParameters & parameters)
     _nonlocal_cm(),
     _requires_nonlocal_coupling(false),
     _default_ghosting(getParam<bool>("default_ghosting")),
-    _rz_coord_axis(1), // default to RZ rotation around y-axis
     _currently_computing_jacobian(false),
+    _currently_computing_residual_and_jacobian(false),
     _computing_nonlinear_residual(false),
     _currently_computing_residual(false),
     _safe_access_tagged_matrices(false),
@@ -67,7 +66,6 @@ SubProblem::SubProblem(const InputParameters & parameters)
   _active_sc_var_coupleable_matrix_tags.resize(n_threads);
   _active_sc_var_coupleable_vector_tags.resize(n_threads);
 
-  _functor_material_properties.resize(n_threads);
   _functors.resize(n_threads);
 }
 
@@ -398,31 +396,6 @@ SubProblem::clearActiveElementalMooseVariables(THREAD_ID tid)
 {
   _has_active_elemental_moose_variables[tid] = 0;
   _active_elemental_moose_variables[tid].clear();
-}
-
-void
-SubProblem::setActiveMaterialProperties(const std::set<unsigned int> & mat_prop_ids, THREAD_ID tid)
-{
-  if (!mat_prop_ids.empty())
-    _active_material_property_ids[tid] = mat_prop_ids;
-}
-
-const std::set<unsigned int> &
-SubProblem::getActiveMaterialProperties(THREAD_ID tid) const
-{
-  return _active_material_property_ids[tid];
-}
-
-bool
-SubProblem::hasActiveMaterialProperties(THREAD_ID tid) const
-{
-  return !_active_material_property_ids[tid].empty();
-}
-
-void
-SubProblem::clearActiveMaterialProperties(THREAD_ID tid)
-{
-  _active_material_property_ids[tid].clear();
 }
 
 std::set<SubdomainID>
@@ -762,10 +735,7 @@ SubProblem::setCurrentBoundaryID(BoundaryID bid, THREAD_ID tid)
 unsigned int
 SubProblem::getAxisymmetricRadialCoord() const
 {
-  if (_rz_coord_axis == 0)
-    return 1; // if the rotation axis is x (0), then the radial direction is y (1)
-  else
-    return 0; // otherwise the radial direction is assumed to be x, i.e., the rotation axis is y
+  return mesh().getAxisymmetricRadialCoord();
 }
 
 MooseVariableFEBase &
@@ -1035,43 +1005,38 @@ SubProblem::clearAllDofIndices()
 void
 SubProblem::timestepSetup()
 {
-  for (auto & map : _functor_material_properties)
+  for (auto & map : _functors)
     for (auto & pr : map)
-      pr.second.second->timestepSetup();
+      pr.second->timestepSetup();
 }
 
 void
 SubProblem::residualSetup()
 {
-  for (auto & map : _functor_material_properties)
+  for (auto & map : _functors)
     for (auto & pr : map)
-      pr.second.second->residualSetup();
+      pr.second->residualSetup();
 }
 
 void
 SubProblem::jacobianSetup()
 {
-  for (auto & map : _functor_material_properties)
+  for (auto & map : _functors)
     for (auto & pr : map)
-      pr.second.second->jacobianSetup();
+      pr.second->jacobianSetup();
 }
 
 void
 SubProblem::initialSetup()
 {
-  for (const auto & functor_props : _functor_material_properties)
-    for (const auto & key_value : functor_props)
-      if (!key_value.second.first)
-        mooseError("Functor material property ", key_value.first, " has no declaration anywhere.");
-}
-
-void
-SubProblem::addFunctor(const std::string & name,
-                       const Moose::FunctorBase * functor,
-                       const THREAD_ID tid)
-{
-  mooseAssert(tid < _functors.size(), "Too large a thread ID");
-  _functors[tid].emplace(std::make_pair(name, functor));
+  for (const auto & functors : _functors)
+    for (const auto & pr : functors)
+      if (pr.second->wrapsNull())
+        mooseError("No functor ever provided with name '",
+                   removeSubstring(pr.first, "wraps_"),
+                   "', which was requested by '",
+                   MooseUtils::join(libmesh_map_find(_functor_to_requestors, pr.first), ","),
+                   "'.");
 }
 
 bool
@@ -1079,5 +1044,11 @@ SubProblem::hasFunctor(const std::string & name, const THREAD_ID tid) const
 {
   mooseAssert(tid < _functors.size(), "Too large a thread ID");
   auto & functors = _functors[tid];
-  return (functors.find(name) != functors.end());
+  return (functors.find("wraps_" + name) != functors.end());
+}
+
+Moose::CoordinateSystemType
+SubProblem::getCoordSystem(SubdomainID sid) const
+{
+  return mesh().getCoordSystem(sid);
 }

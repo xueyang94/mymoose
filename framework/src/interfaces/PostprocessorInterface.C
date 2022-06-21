@@ -25,6 +25,13 @@ PostprocessorInterface::PostprocessorInterface(const MooseObject * moose_object)
 {
 }
 
+PostprocessorInterface::PostprocessorInterface(const FEProblemBase * problem)
+  : _ppi_moose_object(*problem),
+    _ppi_params(_ppi_moose_object.parameters()),
+    _ppi_feproblem(*problem)
+{
+}
+
 const PostprocessorValue &
 PostprocessorInterface::getPostprocessorValue(const std::string & param_name,
                                               const unsigned int index /* = 0 */) const
@@ -222,7 +229,7 @@ PostprocessorInterface::getPostprocessorValueInternal(const std::string & param_
   {
     const auto value = getDefaultPostprocessorValueByName(name);
     const auto & value_ref =
-        *_default_values.emplace(name, libmesh_make_unique<PostprocessorValue>(value))
+        *_default_values.emplace(name, std::make_unique<PostprocessorValue>(value))
              .first->second; // first is inserted pair, second is value in pair
     mooseAssert(value == value_ref, "Inconsistent default value");
     return value_ref;

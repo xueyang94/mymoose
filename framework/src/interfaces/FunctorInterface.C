@@ -8,6 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "FunctorInterface.h"
+#include "MooseFunctor.h"
 
 InputParameters
 FunctorInterface::validParams()
@@ -26,24 +27,29 @@ FunctorInterface::FunctorInterface(const MooseObject * const moose_object)
 std::string
 FunctorInterface::deduceFunctorName(const std::string & name, const InputParameters & params)
 {
-  if (params.have_parameter<MooseFunctorName>(name))
-    return params.get<MooseFunctorName>(name);
-  // variables, functor material properties, and functions are also functors
-  else if (params.have_parameter<MaterialPropertyName>(name))
-    return params.get<MaterialPropertyName>(name);
-  else if (params.have_parameter<VariableName>(name))
-    return params.get<VariableName>(name);
-  else if (params.have_parameter<std::vector<VariableName>>(name))
+  if (params.isParamValid(name))
   {
-    const auto & var_names = params.get<std::vector<VariableName>>(name);
-    if (var_names.size() != 1)
-      mooseError("We only support a single variable name for retrieving a functor");
-    return var_names[0];
+    if (params.have_parameter<MooseFunctorName>(name))
+      return params.get<MooseFunctorName>(name);
+    // variables, functor material properties, and functions are also functors
+    else if (params.have_parameter<MaterialPropertyName>(name))
+      return params.get<MaterialPropertyName>(name);
+    else if (params.have_parameter<VariableName>(name))
+      return params.get<VariableName>(name);
+    else if (params.have_parameter<std::vector<VariableName>>(name))
+    {
+      const auto & var_names = params.get<std::vector<VariableName>>(name);
+      if (var_names.size() != 1)
+        mooseError("We only support a single variable name for retrieving a functor");
+      return var_names[0];
+    }
+    else if (params.have_parameter<NonlinearVariableName>(name))
+      return params.get<NonlinearVariableName>(name);
+    else if (params.have_parameter<FunctionName>(name))
+      return params.get<FunctionName>(name);
+    else
+      mooseError("Invalid parameter type for retrieving a functor");
   }
-  else if (params.have_parameter<NonlinearVariableName>(name))
-    return params.get<NonlinearVariableName>(name);
-  else if (params.have_parameter<FunctionName>(name))
-    return params.get<FunctionName>(name);
   else
     return name;
 }
@@ -64,8 +70,8 @@ FunctorInterface::defaultFunctor(const std::string & name)
   // check if the string parsed cleanly into a Real number
   if (ss >> real_value && ss.eof())
   {
-    _default_real_functors.emplace_back(
-        libmesh_make_unique<Moose::ConstantFunctor<Real>>(real_value));
+    _default_real_functors.emplace_back(std::make_unique<Moose::Functor<Real>>(
+        std::make_unique<Moose::ConstantFunctor<Real>>(real_value)));
     auto & default_property = _default_real_functors.back();
     return default_property.get();
   }
@@ -83,8 +89,8 @@ FunctorInterface::defaultFunctor(const std::string & name)
   // check if the string parsed cleanly into a Real number
   if (ss >> real_value && ss.eof())
   {
-    _default_ad_real_functors.emplace_back(
-        libmesh_make_unique<Moose::ConstantFunctor<ADReal>>(real_value));
+    _default_ad_real_functors.emplace_back(std::make_unique<Moose::Functor<ADReal>>(
+        std::make_unique<Moose::ConstantFunctor<ADReal>>(real_value)));
     auto & default_property = _default_ad_real_functors.back();
     return default_property.get();
   }
@@ -99,4 +105,10 @@ FunctorInterface::isFunctor(const std::string & name) const
   std::string functor_name = deduceFunctorName(name);
 
   return _fi_subproblem.hasFunctor(functor_name, _fi_tid);
+}
+
+Moose::ElemArg
+FunctorInterface::makeElemArg(const Elem * const elem, const bool correct_skewness) const
+{
+  return {elem, correct_skewness};
 }

@@ -82,6 +82,11 @@ public:
    */
   virtual SNES getSNES() override;
 
+  /**
+   * Retrieve EPS (SLEPc eigen solver)
+   */
+  virtual EPS getEPS();
+
   EigenSystem & sys() { return _eigen_sys; }
 
   /**
@@ -160,6 +165,8 @@ public:
   Preconditioner<Number> * preconditioner() const { return _preconditioner; }
 
   virtual void turnOffJacobian() override;
+
+  void residualAndJacobianTogether() override;
 
 protected:
   virtual void postAddResidualObject(ResidualObject & object) override;

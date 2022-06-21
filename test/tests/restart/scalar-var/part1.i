@@ -6,9 +6,8 @@
 
 [Variables]
   [v]
-    family = MONOMIAL
-    order = CONSTANT
-    fv = true
+    type = MooseVariableFVReal
+    two_term_boundary_expansion = false
   []
   [lambda]
     family = SCALAR
@@ -23,15 +22,11 @@
     velocity = '1 0 0'
   []
   [lambda]
-    type = FVScalarLagrangeMultiplier
+    type = FVIntegralValueConstraint
     variable = v
     lambda = lambda
     phi0 = 1
   []
-[]
-
-[Problem]
-  kernel_coverage_check = off
 []
 
 [Executioner]

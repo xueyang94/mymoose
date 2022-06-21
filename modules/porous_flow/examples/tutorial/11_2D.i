@@ -27,8 +27,8 @@
   []
   [rename]
     type = RenameBlockGenerator
-    old_block_id = '0 1'
-    new_block_name = 'caps aquifer'
+    old_block = '0 1'
+    new_block = 'caps aquifer'
     input = 'injection_area'
   []
 []
@@ -242,7 +242,6 @@
     type = Pressure
     boundary = injection_area
     variable = disp_r
-    component = 0
     postprocessor = constrained_effective_fluid_pressure_at_wellbore
     use_displaced_mesh = false
   []

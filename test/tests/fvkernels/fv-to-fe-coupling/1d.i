@@ -104,10 +104,6 @@
   []
 []
 
-[Problem]
-  kernel_coverage_check = off
-[]
-
 [Executioner]
   type = Steady
   solve_type = 'NEWTON'
@@ -118,8 +114,4 @@
 
 [Outputs]
   exodus = true
-  [dof]
-    type = DOFMap
-    execute_on = 'initial'
-  []
 []

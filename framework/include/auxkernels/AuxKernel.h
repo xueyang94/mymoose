@@ -44,15 +44,6 @@ class AuxiliarySystem;
 class SystemBase;
 class MooseMesh;
 
-template <>
-InputParameters validParams<AuxKernel>();
-
-template <>
-InputParameters validParams<VectorAuxKernel>();
-
-template <>
-InputParameters validParams<ArrayAuxKernel>();
-
 /**
  * Base class for creating new auxiliary kernels and auxiliary boundary conditions.
  *
@@ -71,7 +62,7 @@ class AuxKernelTempl : public MooseObject,
                        public PostprocessorInterface,
                        public DependencyResolverInterface,
                        public RandomInterface,
-                       protected GeometricSearchInterface,
+                       public GeometricSearchInterface,
                        public Restartable,
                        public MeshChangedInterface,
                        protected VectorPostprocessorInterface,
@@ -93,6 +84,11 @@ public:
    * @return true if this is a nodal kernel, otherwise false
    */
   bool isNodal() const { return _nodal; }
+
+  /**
+   * @return whether this is a mortar auxiliary kernel
+   */
+  bool isMortar();
 
   /**
    * Get a reference to a variable this kernel is action on
@@ -217,9 +213,6 @@ protected:
 
   /// reference to the solution vector of auxiliary system
   NumericVector<Number> & _solution;
-
-  /// Flag indicating if this aux kernel is boundary restricted
-  const bool _boundary_restricted;
 
   /// Quadrature point index
   unsigned int _qp;

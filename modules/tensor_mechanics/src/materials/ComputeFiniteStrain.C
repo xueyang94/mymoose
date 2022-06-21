@@ -48,15 +48,16 @@ ComputeFiniteStrain::computeProperties()
   for (_qp = 0; _qp < _qrule->n_points(); ++_qp)
   {
     // Deformation gradient
-    RankTwoTensor A((*_grad_disp[0])[_qp],
-                    (*_grad_disp[1])[_qp],
-                    (*_grad_disp[2])[_qp]); // Deformation gradient
-    RankTwoTensor Fbar((*_grad_disp_old[0])[_qp],
-                       (*_grad_disp_old[1])[_qp],
-                       (*_grad_disp_old[2])[_qp]); // Old Deformation gradient
+    auto A = RankTwoTensor::initializeFromRows(
+        (*_grad_disp[0])[_qp], (*_grad_disp[1])[_qp], (*_grad_disp[2])[_qp]);
 
+    // Old Deformation gradient
+    auto Fbar = RankTwoTensor::initializeFromRows(
+        (*_grad_disp_old[0])[_qp], (*_grad_disp_old[1])[_qp], (*_grad_disp_old[2])[_qp]);
+
+    // Gauss point deformation gradient
     _deformation_gradient[_qp] = A;
-    _deformation_gradient[_qp].addIa(1.0); // Gauss point deformation gradient
+    _deformation_gradient[_qp].addIa(1.0);
 
     // A = gradU - gradUold
     A -= Fbar;
@@ -219,7 +220,7 @@ ComputeFiniteStrain::computeQpIncrements(RankTwoTensor & total_strain_increment,
     case DecompMethod::EigenSolution:
     {
       std::vector<Real> e_value(3);
-      RankTwoTensor e_vector, N1, N2, N3;
+      RankTwoTensor e_vector;
 
       RankTwoTensor Chat = _Fhat[_qp].transpose() * _Fhat[_qp];
       Chat.symmetricEigenvaluesEigenvectors(e_value, e_vector);
@@ -228,9 +229,9 @@ ComputeFiniteStrain::computeQpIncrements(RankTwoTensor & total_strain_increment,
       const Real lambda2 = std::sqrt(e_value[1]);
       const Real lambda3 = std::sqrt(e_value[2]);
 
-      N1.vectorOuterProduct(e_vector.column(0), e_vector.column(0));
-      N2.vectorOuterProduct(e_vector.column(1), e_vector.column(1));
-      N3.vectorOuterProduct(e_vector.column(2), e_vector.column(2));
+      const auto N1 = RankTwoTensor::selfOuterProduct(e_vector.column(0));
+      const auto N2 = RankTwoTensor::selfOuterProduct(e_vector.column(1));
+      const auto N3 = RankTwoTensor::selfOuterProduct(e_vector.column(2));
 
       const RankTwoTensor Uhat = N1 * lambda1 + N2 * lambda2 + N3 * lambda3;
       const RankTwoTensor invUhat(Uhat.inverse());

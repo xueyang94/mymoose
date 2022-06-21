@@ -14,8 +14,6 @@
 
 registerMooseObject("MooseApp", LeastSquaresFitHistory);
 
-defineLegacyParams(LeastSquaresFitHistory);
-
 InputParameters
 LeastSquaresFitHistory::validParams()
 {
@@ -73,6 +71,7 @@ LeastSquaresFitHistory::LeastSquaresFitHistory(const InputParameters & parameter
 void
 LeastSquaresFitHistory::initialize()
 {
+  // no reset/clear needed since contains complete history
 }
 
 void

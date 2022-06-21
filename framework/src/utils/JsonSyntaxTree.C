@@ -147,6 +147,7 @@ JsonSyntaxTree::setParams(InputParameters * params, bool search_match, nlohmann:
     std::string doc = params->getDocString(iter.first);
     MooseUtils::escape(doc);
     param_json["description"] = doc;
+    param_json["controllable"] = params->isControllable(iter.first);
     param_json["deprecated"] = params->isParamDeprecated(iter.first);
     all_params[iter.first] = param_json;
   }
@@ -159,7 +160,7 @@ JsonSyntaxTree::addGlobal()
   // If they are doing a search they probably don't want to see this
   if (_search.empty())
   {
-    auto params = validParams<Action>();
+    auto params = Action::validParams();
     nlohmann::json jparams;
     setParams(&params, true, jparams);
     _root["global"]["parameters"] = jparams;
@@ -235,10 +236,12 @@ std::string
 JsonSyntaxTree::buildOptions(const std::iterator_traits<InputParameters::iterator>::value_type & p,
                              bool & out_of_range_allowed)
 {
+  libMesh::Parameters::Value * val = MooseUtils::get(p.second);
+
   std::string options;
   {
     InputParameters::Parameter<MooseEnum> * enum_type =
-        dynamic_cast<InputParameters::Parameter<MooseEnum> *>(p.second);
+        dynamic_cast<InputParameters::Parameter<MooseEnum> *>(val);
     if (enum_type)
     {
       out_of_range_allowed = enum_type->get().isOutOfRangeAllowed();
@@ -247,7 +250,7 @@ JsonSyntaxTree::buildOptions(const std::iterator_traits<InputParameters::iterato
   }
   {
     InputParameters::Parameter<MultiMooseEnum> * enum_type =
-        dynamic_cast<InputParameters::Parameter<MultiMooseEnum> *>(p.second);
+        dynamic_cast<InputParameters::Parameter<MultiMooseEnum> *>(val);
     if (enum_type)
     {
       out_of_range_allowed = enum_type->get().isOutOfRangeAllowed();
@@ -256,7 +259,7 @@ JsonSyntaxTree::buildOptions(const std::iterator_traits<InputParameters::iterato
   }
   {
     InputParameters::Parameter<ExecFlagEnum> * enum_type =
-        dynamic_cast<InputParameters::Parameter<ExecFlagEnum> *>(p.second);
+        dynamic_cast<InputParameters::Parameter<ExecFlagEnum> *>(val);
     if (enum_type)
     {
       out_of_range_allowed = enum_type->get().isOutOfRangeAllowed();
@@ -265,7 +268,7 @@ JsonSyntaxTree::buildOptions(const std::iterator_traits<InputParameters::iterato
   }
   {
     InputParameters::Parameter<std::vector<MooseEnum>> * enum_type =
-        dynamic_cast<InputParameters::Parameter<std::vector<MooseEnum>> *>(p.second);
+        dynamic_cast<InputParameters::Parameter<std::vector<MooseEnum>> *>(val);
     if (enum_type)
     {
       out_of_range_allowed = (enum_type->get())[0].isOutOfRangeAllowed();
@@ -279,14 +282,15 @@ std::string
 JsonSyntaxTree::buildOutputString(
     const std::iterator_traits<InputParameters::iterator>::value_type & p)
 {
+  libMesh::Parameters::Value * val = MooseUtils::get(p.second);
+
   // Account for Point
   std::stringstream str;
-  InputParameters::Parameter<Point> * ptr0 =
-      dynamic_cast<InputParameters::Parameter<Point> *>(p.second);
+  InputParameters::Parameter<Point> * ptr0 = dynamic_cast<InputParameters::Parameter<Point> *>(val);
 
   // Account for RealVectorValues
   InputParameters::Parameter<RealVectorValue> * ptr1 =
-      dynamic_cast<InputParameters::Parameter<RealVectorValue> *>(p.second);
+      dynamic_cast<InputParameters::Parameter<RealVectorValue> *>(val);
 
   // Output the Point components
   if (ptr0)
@@ -300,7 +304,7 @@ JsonSyntaxTree::buildOutputString(
 
   // General case, call the print operator
   else
-    p.second->print(str);
+    val->print(str);
 
   // remove additional '\n' possibly generated in output (breaks JSON parsing)
   std::string tmp_str = str.str();

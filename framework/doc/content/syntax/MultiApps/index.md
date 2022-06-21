@@ -43,7 +43,7 @@ To enforce the ordering of execution, users can use multi-level MultiApps or set
 If a `MultiApp` is set to be executed on timestep_begin or timestep_end, the formed loosely-coupled systems of fully-coupled
 equations can be solved with [Fixed Point iterations](syntax/Executioner/index.md).
 
-!listing multiapps/transient_multiapp/dt_from_master.i block=MultiApps
+!listing multiapps/transient_multiapp/dt_from_parent.i block=MultiApps
 
 ## Positions id=multiapp-positions
 
@@ -67,6 +67,17 @@ a large number of positions a file can be provided instead using the
        caption=Example of MultiApp object position.
 
 If this parameter is not provided, a single position (0,0,0) will be used.
+
+## Mesh optimizations
+
+The [!param](/MultiApps/TransientMultiApp/clone_parent_mesh) parameter allows for re-using the
+main application mesh in the sub-app. This avoids repeating mesh creation operations. This does
+not automatically transfer the mesh modifications performed by [Adaptivity](syntax/Adaptivity/index.md)
+on either the main or sub-app, though it does transfer initial mesh modification work such as uniform
+refinement.
+
+When using the same mesh between two applications, the [MultiAppCopyTransfer.md] may be
+utilized for more efficient transfers of field variables.
 
 ## Parallel Execution
 

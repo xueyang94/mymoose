@@ -51,8 +51,8 @@ name = 'finite_rr'
   [block_rename]
     type = RenameBlockGenerator
     input = combined
-    old_block_id = '1 2'
-    new_block_name = 'plank block'
+    old_block = '1 2'
+    new_block = 'plank block'
   []
 []
 
@@ -91,11 +91,9 @@ name = 'finite_rr'
 
 [Contact]
   [frictionless]
-    mesh = block_rename
     primary = plank_right
     secondary = block_left
     formulation = mortar
-    mortar_approach = legacy
     c_normal = 1e0
   []
 []
@@ -163,7 +161,7 @@ name = 'finite_rr'
   petsc_options = '-snes_converged_reason -ksp_converged_reason'
   petsc_options_iname = '-pc_type -mat_mffd_err -pc_factor_shift_type -pc_factor_shift_amount'
   petsc_options_value = 'lu       1e-5          NONZERO               1e-15'
-  end_time = 13.5
+  end_time = 5.0
   dt = 0.1
   dtmin = 0.1
   timestep_tolerance = 1e-6
@@ -226,7 +224,6 @@ name = 'finite_rr'
 []
 
 [Outputs]
-  exodus = true
   file_base = ${name}
   [comp]
     type = CSV

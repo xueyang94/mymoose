@@ -9,15 +9,7 @@
 
 #pragma once
 
-// MOOSE includes
-#include "MooseEnum.h"
 #include "PetscExternalPartitioner.h"
-
-class BlockWeightedPartitioner;
-class MooseMesh;
-
-template <>
-InputParameters validParams<BlockWeightedPartitioner>();
 
 /**
  * Partition a mesh by weighting blocks. The motivation is that differenct
@@ -36,9 +28,17 @@ public:
 
   virtual dof_id_type computeElementWeight(Elem & elm) override;
 
+  /**
+   * Fills _blocks_to_weights before performing the partition
+   */
+  void initialize(MeshBase & mesh) override;
+
 private:
+  /// Vector the block names supplied by the user via the input file
+  const std::vector<SubdomainName> & _blocks;
+  // Block weights
+  const std::vector<dof_id_type> & _weights;
+
   /// A map from subdomain to weight
   std::unordered_map<SubdomainID, dof_id_type> _blocks_to_weights;
-  /// Moose mesh
-  MooseMesh & _mesh;
 };

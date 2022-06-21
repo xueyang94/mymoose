@@ -11,9 +11,6 @@
 #include "MaterialPropertyInterface.h"
 #include "MooseApp.h"
 #include "MaterialBase.h"
-#include "FEProblemBase.h"
-
-defineLegacyParams(MaterialPropertyInterface);
 
 InputParameters
 MaterialPropertyInterface::validParams()
@@ -46,6 +43,7 @@ MaterialPropertyInterface::MaterialPropertyInterface(const MooseObject * moose_o
     _mi_block_ids(block_ids),
     _mi_boundary_ids(boundary_ids)
 {
+  moose_object->getMooseApp().registerInterfaceObject(*this);
 
   // Set the MaterialDataType flag
   if (_mi_params.isParamValid("_material_data_type"))
@@ -64,7 +62,7 @@ MaterialPropertyInterface::MaterialPropertyInterface(const MooseObject * moose_o
 std::string
 MaterialPropertyInterface::deducePropertyName(const std::string & name) const
 {
-  if (_mi_params.have_parameter<MaterialPropertyName>(name))
+  if (_mi_params.have_parameter<MaterialPropertyName>(name) && _mi_params.isParamValid(name))
     return _mi_params.get<MaterialPropertyName>(name);
   else
     return name;
@@ -80,7 +78,7 @@ MaterialPropertyInterface::defaultMaterialProperty(const std::string & name)
   // check if the string parsed cleanly into a Real number
   if (ss >> real_value && ss.eof())
   {
-    _default_real_properties.emplace_back(libmesh_make_unique<MaterialProperty<Real>>());
+    _default_real_properties.emplace_back(std::make_unique<MaterialProperty<Real>>());
     auto & default_property = _default_real_properties.back();
 
     // resize to accommodate maximum number of qpoints
@@ -108,7 +106,7 @@ MaterialPropertyInterface::defaultADMaterialProperty(const std::string & name)
   // check if the string parsed cleanly into a Real number
   if (ss >> real_value && ss.eof())
   {
-    _default_ad_real_properties.emplace_back(libmesh_make_unique<ADMaterialProperty<Real>>());
+    _default_ad_real_properties.emplace_back(std::make_unique<ADMaterialProperty<Real>>());
     auto & default_property = _default_ad_real_properties.back();
 
     // resize to accommodate maximum number of qpoints
@@ -142,7 +140,7 @@ MaterialPropertyInterface::defaultMaterialProperty(const std::string & name)
   if (ss >> real_value && ss.eof())
   {
     _default_real_vector_properties.emplace_back(
-        libmesh_make_unique<MaterialProperty<RealVectorValue>>());
+        std::make_unique<MaterialProperty<RealVectorValue>>());
     auto & default_property = _default_real_vector_properties.back();
 
     // resize to accomodate maximum number obf qpoints
@@ -171,7 +169,7 @@ MaterialPropertyInterface::defaultADMaterialProperty(const std::string & name)
   if (ss >> real_value && ss.eof())
   {
     _default_ad_real_vector_properties.emplace_back(
-        libmesh_make_unique<ADMaterialProperty<RealVectorValue>>());
+        std::make_unique<ADMaterialProperty<RealVectorValue>>());
     auto & default_property = _default_ad_real_vector_properties.back();
 
     // resize to accomodate maximum number obf qpoints
@@ -316,4 +314,11 @@ MaterialPropertyInterface::checkExecutionStage()
   if (_mi_feproblem.startedInitialSetup())
     mooseError("Material properties must be retrieved during object construction. This is a code "
                "problem.");
+}
+
+void
+MaterialPropertyInterface::resolveOptionalProperties()
+{
+  for (auto & proxy : _optional_property_proxies)
+    proxy->resolve(*this);
 }

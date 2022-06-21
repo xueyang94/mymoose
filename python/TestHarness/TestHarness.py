@@ -250,6 +250,7 @@ class TestHarness:
         checks = {}
         checks['platform'] = util.getPlatforms()
         checks['submodules'] = util.getInitializedSubmodules(self.run_tests_dir)
+        checks['installed'] = util.checkInstalled(self.run_tests_dir)
         checks['exe_objects'] = None # This gets calculated on demand
         checks['registered_apps'] = None # This gets extracted on demand
 
@@ -260,6 +261,8 @@ class TestHarness:
             checks['petsc_version'] = 'N/A'
             checks['petsc_version_release'] = 'N/A'
             checks['slepc_version'] = 'N/A'
+            checks['exodus_version'] = 'N/A'
+            checks['vtk_version'] = 'N/A'
             checks['library_mode'] = set(['ALL'])
             checks['mesh_mode'] = set(['ALL'])
             checks['ad_mode'] = set(['ALL'])
@@ -286,11 +289,15 @@ class TestHarness:
             checks['boost'] = set(['ALL'])
             checks['fparser_jit'] = set(['ALL'])
             checks['libpng'] = set(['ALL'])
+            checks['liborch'] = set(['ALL'])
+            checks['libtorch_version'] = 'N/A'
         else:
             checks['compiler'] = util.getCompilers(self.libmesh_dir)
             checks['petsc_version'] = util.getPetscVersion(self.libmesh_dir)
             checks['petsc_version_release'] = util.getLibMeshConfigOption(self.libmesh_dir, 'petsc_version_release')
             checks['slepc_version'] = util.getSlepcVersion(self.libmesh_dir)
+            checks['exodus_version'] = util.getExodusVersion(self.libmesh_dir)
+            checks['vtk_version'] = util.getVTKVersion(self.libmesh_dir)
             checks['library_mode'] = util.getSharedOption(self.libmesh_dir)
             checks['mesh_mode'] = util.getLibMeshConfigOption(self.libmesh_dir, 'mesh_mode')
             checks['ad_mode'] = util.getMooseConfigOption(self.moose_dir, 'ad_mode')
@@ -317,6 +324,8 @@ class TestHarness:
             checks['boost'] =  util.getLibMeshConfigOption(self.libmesh_dir, 'boost')
             checks['fparser_jit'] =  util.getLibMeshConfigOption(self.libmesh_dir, 'fparser_jit')
             checks['libpng'] = util.getMooseConfigOption(self.moose_dir, 'libpng')
+            checks['libtorch'] = util.getMooseConfigOption(self.moose_dir, 'libtorch')
+            checks['libtorch_version'] = util.getLibtorchVersion(self.moose_dir)
 
         # Override the MESH_MODE option if using the '--distributed-mesh'
         # or (deprecated) '--parallel-mesh' option.
@@ -411,7 +420,7 @@ class TestHarness:
                             # Get the testers for this test
                             testers = self.createTesters(dirpath, file, find_only, testroot_params)
 
-                            # Schedule the testers for immediate execution
+                            # Schedule the testers (non blocking)
                             self.scheduler.schedule(testers)
 
                             # record these launched test to prevent this test from launching again
@@ -421,7 +430,7 @@ class TestHarness:
                             os.chdir(saved_cwd)
                             sys.path.pop()
 
-            # Wait for all the tests to complete
+            # Wait for all the tests to complete (blocking)
             self.scheduler.waitFinish()
 
             # TODO: this DOES NOT WORK WITH MAX FAILES (max failes is considered a scheduler error at the moment)
@@ -724,6 +733,29 @@ class TestHarness:
                         print(util.formatResult(job, options_with_timing, caveats=True))
                 if len(sorted_tups) == 0 or float(sorted_tups[0][0].getTiming()) == 0:
                     print('No jobs were completed.')
+
+                # The TestHarness receives individual jobs out of order (can't realistically use self.test_table)
+                tester_dirs = {}
+                dag_table = []
+                for jobs, dag, thread_lock in self.scheduler.retrieveDAGs():
+                    original_dag = dag.getOriginalDAG()
+                    total_time = float(0.0)
+                    for tester in dag.topological_sort(original_dag):
+                        if not tester.isSkip():
+                            total_time += tester.getTiming()
+                    tester_dirs[tester.getTestDir()] = (tester_dirs.get(tester.getTestDir(), 0) + total_time)
+                for k, v in tester_dirs.items():
+                    rel_spec_path = f'{os.path.sep}'.join(k.split(os.path.sep)[-2:])
+                    dag_table.append([f'{rel_spec_path}{os.path.sep}{self._infiles[0]}', f'{v:.3f}'])
+
+                sorted_table = sorted(dag_table, key=lambda dag_table: float(dag_table[1]), reverse=True)
+                if sorted_table[0:self.options.longest_jobs]:
+                    print(f'\n{self.options.longest_jobs} longest running folders:')
+                    print(('-' * (util.TERM_COLS)))
+                    # We can't use util.formatResults, as we are representing a group of testers
+                    for group in sorted_table[0:self.options.longest_jobs]:
+                        print(str(group[0]).ljust((util.TERM_COLS - (len(group[1]) + 4)), ' '), f'[{group[1]}s]')
+                    print('\n')
 
             # Perform any write-to-disc operations
             self.writeResults()

@@ -13,16 +13,11 @@
 
 #include <string>
 
-// Forward Declarations
-class FunctionIC;
 class Function;
 class InputParameters;
 
 template <typename T>
 InputParameters validParams();
-
-template <>
-InputParameters validParams<FunctionIC>();
 
 /**
  * Defines a boundary condition that forces the value to be a user specified
@@ -34,6 +29,11 @@ public:
   static InputParameters validParams();
 
   FunctionIC(const InputParameters & parameters);
+
+  /**
+   * @returns The function name
+   */
+  const FunctionName functionName() const;
 
 protected:
   /**
@@ -51,5 +51,9 @@ protected:
    */
   virtual RealGradient gradient(const Point & p) override;
 
+  /// Function to evaluate to form the initial condition
   const Function & _func;
+
+  /// Scaling factor, to be able to use a function with multiple ICs
+  const Real _scaling;
 };

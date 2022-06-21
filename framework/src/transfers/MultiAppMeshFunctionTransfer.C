@@ -26,7 +26,6 @@
 #include "timpi/communicator.h"
 #include "timpi/parallel_sync.h"
 
-defineLegacyParams(MultiAppMeshFunctionTransfer);
 registerMooseObject("MooseApp", MultiAppMeshFunctionTransfer);
 
 InputParameters
@@ -56,7 +55,8 @@ MultiAppMeshFunctionTransfer::MultiAppMeshFunctionTransfer(const InputParameters
 void
 MultiAppMeshFunctionTransfer::execute()
 {
-  _console << "Beginning MeshFunctionTransfer " << name() << std::endl;
+  TIME_SECTION(
+      "MultiAppMeshFunctionTransfer::execute()", 5, "Transferring variables via a mesh function");
 
   getAppInfo();
 
@@ -64,7 +64,6 @@ MultiAppMeshFunctionTransfer::execute()
   for (unsigned int i = 0; i < _var_size; ++i)
     transferVariable(i);
 
-  _console << "Finished MeshFunctionTransfer " << name() << std::endl;
 
   postExecute();
 }
@@ -268,31 +267,41 @@ MultiAppMeshFunctionTransfer::transferVariable(unsigned int i)
       [this, &local_meshfuns, &local_bboxes](
           processor_id_type /*pid*/,
           const std::vector<Point> & incoming_points,
-          std::vector<std::pair<Real, unsigned int>> & vals_ids_for_incoming_points) {
-        vals_ids_for_incoming_points.resize(incoming_points.size(),
-                                            std::make_pair(OutOfMeshValue, 0));
-        for (MooseIndex(incoming_points.size()) i_pt = 0; i_pt < incoming_points.size(); ++i_pt)
-        {
-          Point pt = incoming_points[i_pt];
+          std::vector<std::pair<Real, unsigned int>> & vals_ids_for_incoming_points)
+  {
+    vals_ids_for_incoming_points.resize(incoming_points.size(), std::make_pair(OutOfMeshValue, 0));
+    for (MooseIndex(incoming_points.size()) i_pt = 0; i_pt < incoming_points.size(); ++i_pt)
+    {
+      Point pt = incoming_points[i_pt];
 
-          // Loop until we've found the lowest-ranked app that actually contains
-          // the quadrature point.
-          for (MooseIndex(_from_problems.size()) i_from = 0;
-               i_from < _from_problems.size() &&
-               vals_ids_for_incoming_points[i_pt].first == OutOfMeshValue;
-               ++i_from)
+      // Loop until we've found the lowest-ranked app that actually contains
+      // the quadrature point.
+      for (MooseIndex(_from_problems.size()) i_from = 0;
+           i_from < _from_problems.size() &&
+           vals_ids_for_incoming_points[i_pt].first == OutOfMeshValue;
+           ++i_from)
+      {
+        if (local_bboxes[i_from].contains_point(pt))
+        {
+          // Use mesh funciton to compute interpolation values
+          vals_ids_for_incoming_points[i_pt].first =
+              (*local_meshfuns[i_from])(pt - _from_positions[i_from]);
+          // Record problem ID as well
+          switch (_current_direction)
           {
-            if (local_bboxes[i_from].contains_point(pt))
-            {
-              // Use mesh funciton to compute interpolation values
-              vals_ids_for_incoming_points[i_pt].first =
-                  (*local_meshfuns[i_from])(pt - _from_positions[i_from]);
-              // Record problem ID as well
-              vals_ids_for_incoming_points[i_pt].second = _local2global_map[i_from];
-            }
+            case FROM_MULTIAPP:
+              vals_ids_for_incoming_points[i_pt].second = _from_local2global_map[i_from];
+              break;
+            case TO_MULTIAPP:
+              vals_ids_for_incoming_points[i_pt].second = _to_local2global_map[i_from];
+              break;
+            default:
+              mooseError("Unsupported direction");
           }
         }
-      };
+      }
+    }
+  };
 
   // Incoming values and APP ids for outgoing points
   std::map<processor_id_type, std::vector<std::pair<Real, unsigned int>>> incoming_vals_ids;
@@ -301,14 +310,15 @@ MultiAppMeshFunctionTransfer::transferVariable(unsigned int i)
       [&incoming_vals_ids](
           processor_id_type pid,
           const std::vector<Point> & /*my_outgoing_points*/,
-          const std::vector<std::pair<Real, unsigned int>> & vals_ids_for_outgoing_points) {
-        // This lamda function might be called multiple times
-        incoming_vals_ids[pid].reserve(vals_ids_for_outgoing_points.size());
-        // Copy data for processor 'pid'
-        std::copy(vals_ids_for_outgoing_points.begin(),
-                  vals_ids_for_outgoing_points.end(),
-                  std::back_inserter(incoming_vals_ids[pid]));
-      };
+          const std::vector<std::pair<Real, unsigned int>> & vals_ids_for_outgoing_points)
+  {
+    // This lamda function might be called multiple times
+    incoming_vals_ids[pid].reserve(vals_ids_for_outgoing_points.size());
+    // Copy data for processor 'pid'
+    std::copy(vals_ids_for_outgoing_points.begin(),
+              vals_ids_for_outgoing_points.end(),
+              std::back_inserter(incoming_vals_ids[pid]));
+  };
 
   // We assume incoming_vals_ids is ordered in the same way as outgoing_points
   // Hopefully, pull_parallel_vector_data will not mess up this

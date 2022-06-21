@@ -24,7 +24,7 @@ registerMooseObject("TensorMechanicsApp", ADComputeShellStress);
 InputParameters
 ADComputeShellStress::validParams()
 {
-  InputParameters params = ADMaterial::validParams();
+  InputParameters params = Material::validParams();
   params.addClassDescription("Compute in-plane stress using elasticity for shell");
   params.addRequiredParam<std::string>("through_thickness_order",
                                        "Quadrature order in out of plane direction");
@@ -32,10 +32,10 @@ ADComputeShellStress::validParams()
 }
 
 ADComputeShellStress::ADComputeShellStress(const InputParameters & parameters)
-  : ADMaterial(parameters)
+  : Material(parameters)
 {
   // get number of quadrature points along thickness based on order
-  std::unique_ptr<QGauss> t_qrule = libmesh_make_unique<QGauss>(
+  std::unique_ptr<QGauss> t_qrule = std::make_unique<QGauss>(
       1, Utility::string_to_enum<Order>(getParam<std::string>("through_thickness_order")));
   _t_points = t_qrule->get_points();
   _elasticity_tensor.resize(_t_points.size());

@@ -51,18 +51,19 @@ ADNodalBCTempl<T>::ADNodalBCTempl(const InputParameters & parameters)
   addMooseVariableDependency(this->mooseVariable());
 }
 
-template <typename T>
-T &
-conversionHelper(T & value, const unsigned int &)
+namespace
+{
+const ADReal &
+conversionHelper(const ADReal & value, const unsigned int)
 {
   return value;
 }
 
-template <typename T>
-T &
-conversionHelper(libMesh::VectorValue<T> & value, const unsigned int & i)
+const ADReal &
+conversionHelper(const libMesh::VectorValue<ADReal> & value, const unsigned int i)
 {
   return value(i);
+}
 }
 
 template <typename T>
@@ -70,6 +71,8 @@ void
 ADNodalBCTempl<T>::computeResidual()
 {
   const std::vector<dof_id_type> & dof_indices = _var.dofIndices();
+  if (dof_indices.empty())
+    return;
 
   mooseAssert(dof_indices.size() <= _set_components.size(),
               "The number of dof indices must be less than the number of settable components");
@@ -87,12 +90,15 @@ template <typename T>
 void
 ADNodalBCTempl<T>::computeJacobian()
 {
+  const std::vector<dof_id_type> & cached_rows = _var.dofIndices();
+  if (cached_rows.empty())
+    return;
+
 #ifndef MOOSE_GLOBAL_AD_INDEXING
   auto ad_offset = Moose::adOffset(_var.number(), _sys.getMaxVarNDofsPerNode());
 #endif
 
   auto residual = computeQpResidual();
-  const std::vector<dof_id_type> & cached_rows = _var.dofIndices();
 
   mooseAssert(cached_rows.size() <= _set_components.size(),
               "The number of dof indices must be less than the number of settable components");
@@ -123,17 +129,49 @@ ADNodalBCTempl<T>::computeJacobian()
 
 template <typename T>
 void
+ADNodalBCTempl<T>::computeResidualAndJacobian()
+{
+  const auto residual = computeQpResidual();
+  const std::vector<dof_id_type> & cached_rows = _var.dofIndices();
+
+  mooseAssert(cached_rows.size() <= _set_components.size(),
+              "The number of dof indices must be less than the number of settable components");
+
+  // First the residuals
+  for (auto tag_id : _vector_tags)
+    if (_sys.hasVector(tag_id))
+      for (const auto i : index_range(cached_rows))
+        if (_set_components[i])
+          _sys.getVector(tag_id).set(cached_rows[i], raw_value(conversionHelper(residual, i)));
+
+  // Cache the user's computeQpJacobian() value for later use.
+  for (auto tag_id : _matrix_tags)
+    if (_sys.hasMatrix(tag_id))
+      for (const auto i : index_range(cached_rows))
+        if (_set_components[i])
+          _fe_problem.assembly(0).cacheJacobian(
+              cached_rows[i],
+              cached_rows[i],
+              conversionHelper(residual, i).derivatives()[cached_rows[i]],
+              tag_id);
+}
+
+template <typename T>
+void
 ADNodalBCTempl<T>::computeOffDiagJacobian(const unsigned int jvar_num)
 {
   if (jvar_num == _var.number())
     computeJacobian();
   else
   {
+    const std::vector<dof_id_type> & cached_rows = _var.dofIndices();
+    if (cached_rows.empty())
+      return;
+
 #ifndef MOOSE_GLOBAL_AD_INDEXING
     auto ad_offset = Moose::adOffset(jvar_num, _sys.getMaxVarNDofsPerNode());
 #endif
     auto residual = computeQpResidual();
-    const std::vector<dof_id_type> & cached_rows = _var.dofIndices();
 
     mooseAssert(cached_rows.size() <= _set_components.size(),
                 "The number of dof indices must be less than the number of settable components");

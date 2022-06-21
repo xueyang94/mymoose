@@ -14,7 +14,6 @@
   [diff]
     type = Diffusion
     variable = u
-    #    coef = 0.1
   []
   [time]
     type = TimeDerivative
@@ -27,13 +26,13 @@
     type = DirichletBC
     variable = u
     boundary = left
-    value = 0
+    value = 0.0
   []
   [right]
     type = DirichletBC
     variable = u
     boundary = right
-    value = 1
+    value = 1.0
   []
 []
 
@@ -57,9 +56,4 @@
   [stochastic]
     type = SamplerReceiver
   []
-[]
-
-[Outputs]
-  # perf_graph = false
-  exodus = true
 []

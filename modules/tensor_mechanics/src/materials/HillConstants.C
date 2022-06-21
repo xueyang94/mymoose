@@ -14,7 +14,7 @@ registerMooseObject("TensorMechanicsApp", HillConstants);
 InputParameters
 HillConstants::validParams()
 {
-  InputParameters params = ADMaterial::validParams();
+  InputParameters params = Material::validParams();
   params.addClassDescription("Build and rotate the Hill Tensor. It can be used with other Hill "
                              "plasticity and creep materials.");
   params.addParam<std::string>("base_name",
@@ -43,7 +43,7 @@ HillConstants::validParams()
 }
 
 HillConstants::HillConstants(const InputParameters & parameters)
-  : ADMaterial(parameters),
+  : Material(parameters),
     _base_name(isParamValid("base_name") ? getParam<std::string>("base_name") + "_" : ""),
     _use_large_rotation(getParam<bool>("use_large_rotation")),
     _rotation_total_hill(_use_large_rotation
@@ -119,10 +119,8 @@ HillConstants::computeQpProperties()
   {
     _hill_constant_material[_qp].resize(6);
 
-    const Point p;
     for (unsigned int i = 0; i < 6; i++)
-      _hill_constant_material[_qp][i] =
-          _functions[i]->value(MetaPhysicL::raw_value(_temperature[_qp]), p);
+      _hill_constant_material[_qp][i] = _functions[i]->value(_temperature[_qp]);
   }
 
   // We need to update the coefficients whether we use temperature dependency or large rotation
@@ -182,7 +180,9 @@ HillConstants::rotateHillConstants(const std::vector<Real> & hill_constants_inpu
   _hill_tensor(5, 5) = 2.0 * M;
 
   // Transformed the Hill tensor given the total rotation matrix
-  // https://scicomp.stackexchange.com/questions/35600/4th-order-tensor-rotation-sources-to-refer
+  // MEHRABADI, MORTEZA M.; COWIN, STEPHEN C.  (1990). EIGENTENSORS OF LINEAR ANISOTROPIC ELASTIC
+  // MATERIALS. The Quarterly Journal of Mechanics and Applied Mathematics, 43(1), 15-41.
+  // doi:10.1093/qjmam/43.1.15
   DenseMatrix<Real> transformation_matrix_n(6, 6);
   const static std::array<std::size_t, 3> a = {{1, 0, 0}};
   const static std::array<std::size_t, 3> b = {{2, 2, 1}};

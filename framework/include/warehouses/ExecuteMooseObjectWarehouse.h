@@ -42,7 +42,7 @@ public:
    * Adds an object to the storage structure.
    * @param object A shared pointer to the object being added
    */
-  virtual void addObject(std::shared_ptr<T> object, THREAD_ID tid = 0, bool recurse = true);
+  void addObject(std::shared_ptr<T> object, THREAD_ID tid = 0, bool recurse = true) override;
   void addObjectMask(std::shared_ptr<T> object,
                      THREAD_ID tid = 0,
                      std::uint16_t flag_mask = std::numeric_limits<std::uint16_t>::max());
@@ -73,7 +73,7 @@ public:
   /**
    * Updates the active objects storage.
    */
-  virtual void updateActive(THREAD_ID tid = 0);
+  void updateActive(THREAD_ID tid = 0) override;
 
   ///@{
   /**
@@ -81,8 +81,8 @@ public:
    *
    * Limits call to these methods only to objects being executed on linear/nonlinear iterations.
    */
-  void jacobianSetup(THREAD_ID tid = 0) const;
-  void residualSetup(THREAD_ID tid = 0) const;
+  void jacobianSetup(THREAD_ID tid = 0) const override;
+  void residualSetup(THREAD_ID tid = 0) const override;
   void setup(const ExecFlagType & exec_flag, THREAD_ID tid = 0) const;
   ///@}
 
@@ -91,6 +91,8 @@ public:
    * @param tid The thread id to access.
    */
   void sort(THREAD_ID tid = 0);
+
+  bool hasExecType(const ExecFlagType & exec_flag) { return _execute_objects.count(exec_flag) > 0; }
 
 protected:
   // Map of execute objects to storage containers for MooseObjects
@@ -118,8 +120,8 @@ ExecuteMooseObjectWarehouse<T>::~ExecuteMooseObjectWarehouse()
 }
 
 template <typename T>
-const MooseObjectWarehouse<T> & ExecuteMooseObjectWarehouse<T>::
-operator[](ExecFlagType exec_flag) const
+const MooseObjectWarehouse<T> &
+ExecuteMooseObjectWarehouse<T>::operator[](ExecFlagType exec_flag) const
 {
   // Use find to avoid accidental insertion
   const auto iter = _execute_objects.find(exec_flag);
@@ -134,7 +136,8 @@ operator[](ExecFlagType exec_flag) const
 }
 
 template <typename T>
-MooseObjectWarehouse<T> & ExecuteMooseObjectWarehouse<T>::operator[](ExecFlagType exec_flag)
+MooseObjectWarehouse<T> &
+ExecuteMooseObjectWarehouse<T>::operator[](ExecFlagType exec_flag)
 {
   // Use find to avoid accidental insertion
   const auto iter = _execute_objects.find(exec_flag);
@@ -243,4 +246,3 @@ ExecuteMooseObjectWarehouse<T>::sort(THREAD_ID tid /* = 0*/)
   for (auto & object_pair : _execute_objects)
     object_pair.second.sort(tid);
 }
-

@@ -11,12 +11,6 @@
 
 #include "AuxKernel.h"
 
-// Forward Declarations
-class VectorPostprocessorVisualizationAux;
-
-template <>
-InputParameters validParams<VectorPostprocessorVisualizationAux>();
-
 /**
  * Read values from a VectorPostprocessor that is producing vectors that are "number of processors"
  * in length.  Puts the value for each processor into an elemental auxiliary field.
@@ -52,4 +46,3 @@ protected:
   /// Optimization
   processor_id_type _my_pid;
 };
-

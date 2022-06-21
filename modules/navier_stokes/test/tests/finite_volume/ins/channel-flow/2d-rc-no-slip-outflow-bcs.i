@@ -3,6 +3,19 @@ rho=1.1
 advected_interp_method='average'
 velocity_interp_method='rc'
 
+[GlobalParams]
+  rhie_chow_user_object = 'rc'
+[]
+
+[UserObjects]
+  [rc]
+    type = INSFVRhieChowInterpolator
+    u = vel_x
+    v = vel_y
+    pressure = pressure
+  []
+[]
+
 [Mesh]
   [gen]
     type = GeneratedMeshGenerator
@@ -21,11 +34,11 @@ velocity_interp_method='rc'
 []
 
 [Variables]
-  [u]
+  [vel_x]
     type = INSFVVelocityVariable
     initial_condition = 1
   []
-  [v]
+  [vel_y]
     type = INSFVVelocityVariable
     initial_condition = 1
   []
@@ -40,60 +53,47 @@ velocity_interp_method='rc'
     variable = pressure
     advected_interp_method = ${advected_interp_method}
     velocity_interp_method = ${velocity_interp_method}
-    vel = 'velocity'
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
   []
 
   [u_advection]
     type = INSFVMomentumAdvection
-    variable = u
-    advected_quantity = 'rhou'
-    vel = 'velocity'
+    variable = vel_x
     advected_interp_method = ${advected_interp_method}
     velocity_interp_method = ${velocity_interp_method}
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
+    momentum_component = 'x'
   []
   [u_viscosity]
-    type = FVDiffusion
-    variable = u
-    coeff = ${mu}
+    type = INSFVMomentumDiffusion
+    variable = vel_x
+    mu = ${mu}
+    momentum_component = 'x'
   []
   [u_pressure]
     type = INSFVMomentumPressure
-    variable = u
+    variable = vel_x
     momentum_component = 'x'
     pressure = pressure
   []
 
   [v_advection]
     type = INSFVMomentumAdvection
-    variable = v
-    advected_quantity = 'rhov'
-    vel = 'velocity'
+    variable = vel_y
     advected_interp_method = ${advected_interp_method}
     velocity_interp_method = ${velocity_interp_method}
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
+    momentum_component = 'y'
   []
   [v_viscosity]
-    type = FVDiffusion
-    variable = v
-    coeff = ${mu}
+    type = INSFVMomentumDiffusion
+    variable = vel_y
+    mu = ${mu}
+    momentum_component = 'y'
   []
   [v_pressure]
     type = INSFVMomentumPressure
-    variable = v
+    variable = vel_y
     momentum_component = 'y'
     pressure = pressure
   []
@@ -103,62 +103,50 @@ velocity_interp_method='rc'
   [inlet-u]
     type = INSFVInletVelocityBC
     boundary = 'left'
-    variable = u
+    variable = vel_x
     function = '1'
   []
   [inlet-v]
     type = INSFVInletVelocityBC
     boundary = 'left'
-    variable = v
+    variable = vel_y
     function = '0'
   []
   [walls-u]
     type = INSFVNoSlipWallBC
     boundary = 'top bottom'
-    variable = u
+    variable = vel_x
     function = 0
   []
   [walls-v]
     type = INSFVNoSlipWallBC
     boundary = 'top bottom'
-    variable = v
+    variable = vel_y
     function = 0
   []
   [outlet_u]
     type = INSFVMomentumAdvectionOutflowBC
-    variable = u
-    advected_quantity = 'rhou'
-    vel = 'velocity'
-    advected_interp_method = ${advected_interp_method}
-    u = u
-    v = v
+    variable = vel_x
+    u = vel_x
+    v = vel_y
     boundary = 'right'
+    momentum_component = 'x'
+    rho = ${rho}
   []
   [outlet_v]
     type = INSFVMomentumAdvectionOutflowBC
-    variable = v
-    advected_quantity = 'rhov'
-    vel = 'velocity'
-    advected_interp_method = ${advected_interp_method}
-    u = u
-    v = v
+    variable = vel_y
+    u = vel_x
+    v = vel_y
     boundary = 'right'
+    momentum_component = 'y'
+    rho = ${rho}
   []
   [outlet_p]
     type = INSFVOutletPressureBC
     boundary = 'right'
     variable = pressure
     function = '0'
-  []
-[]
-
-[Materials]
-  [ins_fv]
-    type = INSFVMaterial
-    u = 'u'
-    v = 'v'
-    pressure = 'pressure'
-    rho = ${rho}
   []
 []
 

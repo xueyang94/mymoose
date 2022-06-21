@@ -12,13 +12,12 @@
 
 registerMooseObject("MooseApp", NodalL2Error);
 
-defineLegacyParams(NodalL2Error);
-
 InputParameters
 NodalL2Error::validParams()
 {
   InputParameters params = NodalVariablePostprocessor::validParams();
-  params.addClassDescription("The L2-norm computed at nodes.");
+  params.addClassDescription(
+      "The L2-norm of the difference between a variable and a function computed at nodes.");
   params.addRequiredParam<FunctionName>("function", "The analytic solution to compare against");
 
   return params;

@@ -12,14 +12,14 @@
 
 registerMooseObject("MooseApp", ElementW1pError);
 
-defineLegacyParams(ElementW1pError);
-
 InputParameters
 ElementW1pError::validParams()
 {
   InputParameters params = ElementIntegralVariablePostprocessor::validParams();
   params.addRangeCheckedParam<Real>("p", 2.0, "p>=1", "The exponent used in the norm.");
   params.addRequiredParam<FunctionName>("function", "The analytic solution to compare against");
+  params.addClassDescription("Computes the W1p norm of the difference between a variable and an "
+                             "analytic solution, as a function");
   return params;
 }
 
@@ -46,7 +46,7 @@ ElementW1pError::computeQpIntegral()
   Real val = std::pow(std::abs(funcdiff), _p);
 
   // Add all of the absolute gradient component differences to the pth power
-  for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+  for (const auto i : make_range(Moose::dim))
     val += std::pow(std::abs(graddiff(i)), _p);
 
   return val;

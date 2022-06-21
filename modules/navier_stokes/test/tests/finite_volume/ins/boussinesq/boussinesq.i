@@ -3,12 +3,24 @@ rho = 1
 k = 1
 cp = 1
 alpha = 1
-vel = 'velocity'
 velocity_interp_method = 'rc'
 advected_interp_method = 'upwind'
 rayleigh=1e3
 hot_temp=${rayleigh}
 temp_ref=${fparse hot_temp / 2.}
+
+[GlobalParams]
+  rhie_chow_user_object = 'rc'
+[]
+
+[UserObjects]
+  [rc]
+    type = INSFVRhieChowInterpolator
+    u = vel_x
+    v = vel_y
+    pressure = pressure
+  []
+[]
 
 [Mesh]
   [gen]
@@ -24,16 +36,16 @@ temp_ref=${fparse hot_temp / 2.}
 []
 
 [Variables]
-  [u]
+  [vel_x]
     type = INSFVVelocityVariable
   []
-  [v]
+  [vel_y]
     type = INSFVVelocityVariable
   []
   [pressure]
     type = INSFVPressureVariable
   []
-  [T]
+  [T_fluid]
     type = INSFVEnergyVariable
     scaling = 1e-4
   []
@@ -43,104 +55,44 @@ temp_ref=${fparse hot_temp / 2.}
   []
 []
 
-[AuxVariables]
-  [U]
-    order = CONSTANT
-    family = MONOMIAL
-    fv = true
-  []
-  [vel_x]
-    order = FIRST
-    family = MONOMIAL
-  []
-  [vel_y]
-    order = FIRST
-    family = MONOMIAL
-  []
-  [viz_T]
-    order = FIRST
-    family = MONOMIAL
-  []
-[]
-
-[AuxKernels]
-  [mag]
-    type = VectorMagnitudeAux
-    variable = U
-    x = u
-    y = v
-    execute_on = 'initial timestep_end'
-  []
-  [vel_x]
-    type = ParsedAux
-    variable = vel_x
-    function = 'u'
-    execute_on = 'initial timestep_end'
-    args = 'u'
-  []
-  [vel_y]
-    type = ParsedAux
-    variable = vel_y
-    function = 'v'
-    execute_on = 'initial timestep_end'
-    args = 'v'
-  []
-  [viz_T]
-    type = ParsedAux
-    variable = viz_T
-    function = 'T'
-    execute_on = 'initial timestep_end'
-    args = 'T'
-  []
-[]
-
 [FVKernels]
   [mass]
     type = INSFVMassAdvection
     variable = pressure
-    vel = ${vel}
     advected_interp_method = ${advected_interp_method}
     velocity_interp_method = ${velocity_interp_method}
-    u = u
-    v = v
-    pressure = pressure
-    mu = ${mu}
     rho = ${rho}
   []
   [mean_zero_pressure]
-    type = FVScalarLagrangeMultiplier
+    type = FVIntegralValueConstraint
     variable = pressure
     lambda = lambda
   []
 
   [u_advection]
     type = INSFVMomentumAdvection
-    variable = u
-    advected_quantity = 'rhou'
-    vel = ${vel}
+    variable = vel_x
     velocity_interp_method = ${velocity_interp_method}
     advected_interp_method = ${advected_interp_method}
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
+    momentum_component = 'x'
   []
   [u_viscosity]
-    type = FVDiffusion
-    variable = u
-    coeff = ${mu}
+    type = INSFVMomentumDiffusion
+    variable = vel_x
+    mu = ${mu}
+    momentum_component = 'x'
   []
   [u_pressure]
     type = INSFVMomentumPressure
-    variable = u
+    variable = vel_x
     momentum_component = 'x'
     pressure = pressure
   []
   [u_buoyancy]
     type = INSFVMomentumBoussinesq
-    variable = u
-    temperature = T
+    variable = vel_x
+    T_fluid = T_fluid
     gravity = '0 -1 0'
     rho = ${rho}
     ref_temperature = ${temp_ref}
@@ -148,7 +100,7 @@ temp_ref=${fparse hot_temp / 2.}
   []
   [u_gravity]
     type = INSFVMomentumGravity
-    variable = u
+    variable = vel_x
     gravity = '0 -1 0'
     rho = ${rho}
     momentum_component = 'x'
@@ -156,32 +108,28 @@ temp_ref=${fparse hot_temp / 2.}
 
   [v_advection]
     type = INSFVMomentumAdvection
-    variable = v
-    advected_quantity = 'rhov'
-    vel = ${vel}
+    variable = vel_y
     velocity_interp_method = ${velocity_interp_method}
     advected_interp_method = ${advected_interp_method}
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
+    momentum_component = 'y'
   []
   [v_viscosity]
-    type = FVDiffusion
-    variable = v
-    coeff = ${mu}
+    type = INSFVMomentumDiffusion
+    variable = vel_y
+    mu = ${mu}
+    momentum_component = 'y'
   []
   [v_pressure]
     type = INSFVMomentumPressure
-    variable = v
+    variable = vel_y
     momentum_component = 'y'
     pressure = pressure
   []
   [v_buoyancy]
     type = INSFVMomentumBoussinesq
-    variable = v
-    temperature = T
+    variable = vel_y
+    T_fluid = T_fluid
     gravity = '0 -1 0'
     rho = ${rho}
     ref_temperature = ${temp_ref}
@@ -189,7 +137,7 @@ temp_ref=${fparse hot_temp / 2.}
   []
   [v_gravity]
     type = INSFVMomentumGravity
-    variable = v
+    variable = vel_y
     gravity = '0 -1 0'
     rho = ${rho}
     momentum_component = 'y'
@@ -198,76 +146,62 @@ temp_ref=${fparse hot_temp / 2.}
   [temp_conduction]
     type = FVDiffusion
     coeff = 'k'
-    variable = T
+    variable = T_fluid
   []
   [temp_advection]
     type = INSFVEnergyAdvection
-    variable = T
-    vel = ${vel}
+    variable = T_fluid
     velocity_interp_method = ${velocity_interp_method}
     advected_interp_method = ${advected_interp_method}
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
-    rho = ${rho}
   []
 []
 
 [FVBCs]
   [top_x]
     type = INSFVNoSlipWallBC
-    variable = u
+    variable = vel_x
     boundary = 'top'
     function = 'lid_function'
   []
 
   [no_slip_x]
     type = INSFVNoSlipWallBC
-    variable = u
+    variable = vel_x
     boundary = 'left right bottom'
     function = 0
   []
 
   [no_slip_y]
     type = INSFVNoSlipWallBC
-    variable = v
+    variable = vel_y
     boundary = 'left right top bottom'
     function = 0
   []
 
   [T_hot]
     type = FVDirichletBC
-    variable = T
+    variable = T_fluid
     boundary = left
     value = ${hot_temp}
   []
 
   [T_cold]
     type = FVDirichletBC
-    variable = T
+    variable = T_fluid
     boundary = right
     value = 0
   []
 []
 
 [Materials]
-  [const]
-    type = ADGenericConstantMaterial
-    prop_names = 'alpha'
-    prop_values = '${alpha}'
-  []
   [const_functor]
-    type = ADGenericConstantFunctorMaterial
-    prop_names = 'cp k'
-    prop_values = '${cp} ${k}'
+    type = ADGenericFunctorMaterial
+    prop_names = 'alpha_b cp k'
+    prop_values = '${alpha} ${cp} ${k}'
   []
   [ins_fv]
-    type = INSFVMaterial
-    u = 'u'
-    v = 'v'
-    pressure = 'pressure'
-    temperature = 'T'
+    type = INSFVEnthalpyMaterial
+    temperature = 'T_fluid'
     rho = ${rho}
   []
 []

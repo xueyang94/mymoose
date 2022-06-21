@@ -136,13 +136,13 @@
 
 [Postprocessors]
   [./disp_1]
-    type = NodalMaxValue
+    type = NodalExtremeValue
     variable = disp_x
     boundary = 101
   [../]
 
   [./disp_2]
-    type = NodalMaxValue
+    type = NodalExtremeValue
     variable = disp_x
     boundary = 102
   [../]
@@ -160,8 +160,4 @@
   start_time = 0.0
   end_time = 1.0
   dt = 0.1
-[]
-
-[Outputs]
-  csv = true
 []

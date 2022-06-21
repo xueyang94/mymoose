@@ -19,6 +19,7 @@
 #include "ThreadedElementLoop.h"
 #include "MaterialData.h"
 #include "ComputeResidualThread.h"
+#include "ComputeResidualAndJacobianThread.h"
 #include "ComputeFVFluxThread.h"
 #include "ComputeJacobianThread.h"
 #include "ComputeJacobianForScalingThread.h"
@@ -71,7 +72,7 @@
 #include "ConsoleStream.h"
 #include "MooseError.h"
 #include "FVElementalKernel.h"
-#include "FVScalarLagrangeMultiplier.h"
+#include "FVScalarLagrangeMultiplierConstraint.h"
 #include "FVFluxKernel.h"
 #include "UserObject.h"
 #include "OffDiagonalScalingMatrix.h"
@@ -97,12 +98,10 @@
 #include <ios>
 
 #include "petscsnes.h"
-#if !PETSC_VERSION_LESS_THAN(3, 3, 0)
 #include <PetscDMMoose.h>
 EXTERN_C_BEGIN
 extern PetscErrorCode DMCreate_Moose(DM);
 EXTERN_C_END
-#endif
 
 NonlinearSystemBase::NonlinearSystemBase(FEProblemBase & fe_problem,
                                          System & sys,
@@ -296,7 +295,10 @@ NonlinearSystemBase::initialSetup()
         _fe_problem.getMortarInterfaces(/*displaced=*/false);
     for (const auto & mortar_interface : undisplaced_mortar_interfaces)
     {
-      auto primary_secondary_boundary_pair = mortar_interface.first;
+      const auto primary_secondary_boundary_pair = mortar_interface.first;
+      if (!_constraints.hasActiveMortarConstraints(primary_secondary_boundary_pair, false))
+        continue;
+
       const auto & mortar_generation_object = mortar_interface.second;
 
       auto & mortar_constraints = _constraints.getActiveMortarConstraints(
@@ -315,7 +317,10 @@ NonlinearSystemBase::initialSetup()
     {
       mooseAssert(_fe_problem.getDisplacedProblem(),
                   "Cannot create displaced mortar functors when the displaced problem is null");
-      auto primary_secondary_boundary_pair = mortar_interface.first;
+      const auto primary_secondary_boundary_pair = mortar_interface.first;
+      if (!_constraints.hasActiveMortarConstraints(primary_secondary_boundary_pair, true))
+        continue;
+
       const auto & mortar_generation_object = mortar_interface.second;
 
       auto & mortar_constraints = _constraints.getActiveMortarConstraints(
@@ -333,9 +338,9 @@ NonlinearSystemBase::initialSetup()
   if (_automatic_scaling)
   {
     if (_off_diagonals_in_auto_scaling)
-      _scaling_matrix = libmesh_make_unique<OffDiagonalScalingMatrix<Number>>(_communicator);
+      _scaling_matrix = std::make_unique<OffDiagonalScalingMatrix<Number>>(_communicator);
     else
-      _scaling_matrix = libmesh_make_unique<DiagonalMatrix<Number>>(_communicator);
+      _scaling_matrix = std::make_unique<DiagonalMatrix<Number>>(_communicator);
   }
 }
 
@@ -735,23 +740,6 @@ NonlinearSystemBase::computeResidualTags(const std::set<TagID> & tags)
   try
   {
     zeroTaggedVectors(tags);
-
-    // Residual contributions from UOs - for now this is used for ray tracing
-    // and ray kernels that contribute to the residual (think line sources)
-    std::vector<UserObject *> uos;
-    _fe_problem.theWarehouse()
-        .query()
-        .condition<AttribSystem>("UserObject")
-        .condition<AttribExecOns>(EXEC_PRE_KERNELS)
-        .queryInto(uos);
-    for (auto & uo : uos)
-      uo->residualSetup();
-    for (auto & uo : uos)
-    {
-      uo->initialize();
-      uo->execute();
-    }
-
     computeResidualInternal(tags);
     closeTaggedVectors(tags);
 
@@ -797,6 +785,42 @@ NonlinearSystemBase::computeResidualTags(const std::set<TagID> & tags)
   activeAllMatrixTags();
 
   _fe_problem.setCurrentlyComputingResidual(false);
+}
+
+void
+NonlinearSystemBase::computeResidualAndJacobianTags(const std::set<TagID> & vector_tags,
+                                                    const std::set<TagID> & matrix_tags)
+{
+  const bool required_residual =
+      vector_tags.find(residualVectorTag()) == vector_tags.end() ? false : true;
+
+  try
+  {
+    zeroTaggedVectors(vector_tags);
+    computeResidualAndJacobianInternal(vector_tags, matrix_tags);
+    closeTaggedVectors(vector_tags);
+    closeTaggedMatrices(matrix_tags);
+
+    if (required_residual)
+    {
+      auto & residual = getVector(residualVectorTag());
+      if (_time_integrator)
+        _time_integrator->postResidual(residual);
+      else
+        residual += *_Re_non_time;
+      residual.close();
+    }
+
+    computeNodalBCsResidualAndJacobian();
+    closeTaggedVectors(vector_tags);
+    closeTaggedMatrices(matrix_tags);
+  }
+  catch (MooseException & e)
+  {
+    // The buck stops here, we have already handled the exception by
+    // calling stopSolve(), it is now up to PETSc to return a
+    // "diverged" reason during the next solve.
+  }
 }
 
 void
@@ -1464,6 +1488,23 @@ NonlinearSystemBase::computeResidualInternal(const std::set<TagID> & tags)
 
   residualSetup();
 
+  // Residual contributions from UOs - for now this is used for ray tracing
+  // and ray kernels that contribute to the residual (think line sources)
+  std::vector<UserObject *> uos;
+  _fe_problem.theWarehouse()
+      .query()
+      .condition<AttribSystem>("UserObject")
+      .condition<AttribExecOns>(EXEC_PRE_KERNELS)
+      .queryInto(uos);
+  for (auto & uo : uos)
+    uo->residualSetup();
+  for (auto & uo : uos)
+  {
+    uo->initialize();
+    uo->execute();
+    uo->finalize();
+  }
+
   // reinit scalar variables
   for (unsigned int tid = 0; tid < libMesh::n_threads(); tid++)
     _fe_problem.reinitScalars(tid);
@@ -1481,7 +1522,7 @@ NonlinearSystemBase::computeResidualInternal(const std::set<TagID> & tags)
     if (_fe_problem.haveFV())
     {
       using FVRange = StoredRange<std::vector<const FaceInfo *>::const_iterator, const FaceInfo *>;
-      ComputeFVFluxThread<FVRange> fvr(_fe_problem, tags);
+      ComputeFVFluxResidualThread<FVRange> fvr(_fe_problem, tags);
       FVRange faces(_fe_problem.mesh().faceInfo().begin(), _fe_problem.mesh().faceInfo().end());
       Threads::parallel_reduce(faces, fvr);
     }
@@ -1592,7 +1633,7 @@ NonlinearSystemBase::computeResidualInternal(const std::set<TagID> & tags)
   }
   PARALLEL_CATCH;
 
-  mortarConstraints();
+  mortarConstraints(Moose::ComputeType::Residual);
 
   if (_need_residual_copy)
   {
@@ -1635,6 +1676,86 @@ NonlinearSystemBase::computeResidualInternal(const std::set<TagID> & tags)
     PARALLEL_CATCH;
     _Re_non_time->close();
   }
+}
+
+void
+NonlinearSystemBase::computeResidualAndJacobianInternal(const std::set<TagID> & vector_tags,
+                                                        const std::set<TagID> & matrix_tags)
+{
+  TIME_SECTION("computeResidualAndJacobianInternal", 3);
+
+  // Make matrix ready to use
+  activeAllMatrixTags();
+
+  for (auto tag : matrix_tags)
+  {
+    if (!hasMatrix(tag))
+      continue;
+
+    auto & jacobian = getMatrix(tag);
+    // Necessary for speed
+    if (auto petsc_matrix = dynamic_cast<PetscMatrix<Number> *>(&jacobian))
+    {
+      MatSetOption(petsc_matrix->mat(),
+                   MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
+                   PETSC_TRUE);
+      if (!_fe_problem.errorOnJacobianNonzeroReallocation())
+        MatSetOption(petsc_matrix->mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+    }
+  }
+
+  residualSetup();
+
+  // Residual contributions from UOs - for now this is used for ray tracing
+  // and ray kernels that contribute to the residual (think line sources)
+  std::vector<UserObject *> uos;
+  _fe_problem.theWarehouse()
+      .query()
+      .condition<AttribSystem>("UserObject")
+      .condition<AttribExecOns>(EXEC_PRE_KERNELS)
+      .queryInto(uos);
+  for (auto & uo : uos)
+    uo->residualSetup();
+  for (auto & uo : uos)
+  {
+    uo->initialize();
+    uo->execute();
+    uo->finalize();
+  }
+
+  // reinit scalar variables
+  for (unsigned int tid = 0; tid < libMesh::n_threads(); tid++)
+    _fe_problem.reinitScalars(tid);
+
+  // residual contributions from the domain
+  PARALLEL_TRY
+  {
+    TIME_SECTION("Kernels", 3 /*, "Computing Kernels"*/);
+
+    ConstElemRange & elem_range = *_mesh.getActiveLocalElementRange();
+
+    ComputeResidualAndJacobianThread crj(_fe_problem, vector_tags, matrix_tags);
+    Threads::parallel_reduce(elem_range, crj);
+
+    if (_fe_problem.haveFV())
+    {
+      using FVRange = StoredRange<std::vector<const FaceInfo *>::const_iterator, const FaceInfo *>;
+      ComputeFVFluxRJThread<FVRange> fvrj(_fe_problem, vector_tags, matrix_tags);
+      FVRange faces(_fe_problem.mesh().faceInfo().begin(), _fe_problem.mesh().faceInfo().end());
+      Threads::parallel_reduce(faces, fvrj);
+    }
+
+    mortarConstraints(Moose::ComputeType::ResidualAndJacobian);
+
+    unsigned int n_threads = libMesh::n_threads();
+    for (unsigned int i = 0; i < n_threads;
+         i++) // Add any cached residuals that might be hanging around
+    {
+      _fe_problem.addCachedResidual(i);
+      _fe_problem.addCachedJacobian(i);
+    }
+  }
+  PARALLEL_CATCH;
 }
 
 void
@@ -1712,6 +1833,43 @@ NonlinearSystemBase::computeNodalBCs(const std::set<TagID> & tags)
   if (_Re_time)
     _Re_time->close();
   _Re_non_time->close();
+}
+
+void
+NonlinearSystemBase::computeNodalBCsResidualAndJacobian()
+{
+  PARALLEL_TRY
+  {
+    ConstBndNodeRange & bnd_nodes = *_mesh.getBoundaryNodeRange();
+
+    if (!bnd_nodes.empty())
+    {
+      TIME_SECTION("NodalBCs", 3 /*, "Computing NodalBCs"*/);
+
+      for (const auto & bnode : bnd_nodes)
+      {
+        BoundaryID boundary_id = bnode->_bnd_id;
+        Node * node = bnode->_node;
+
+        if (node->processor_id() == processor_id())
+        {
+          // reinit variables in nodes
+          _fe_problem.reinitNodeFace(node, boundary_id, 0);
+          if (_nodal_bcs.hasActiveBoundaryObjects(boundary_id))
+          {
+            const auto & bcs = _nodal_bcs.getActiveBoundaryObjects(boundary_id);
+            for (const auto & nbc : bcs)
+              if (nbc->shouldApply())
+                nbc->computeResidualAndJacobian();
+          }
+        }
+      }
+    }
+  }
+  PARALLEL_CATCH;
+
+  // Set the cached NodalBCBase values in the Jacobian matrix
+  _fe_problem.assembly(0).setCachedJacobian();
 }
 
 void
@@ -1870,8 +2028,6 @@ NonlinearSystemBase::constraintJacobians(bool displaced)
 
   auto & jacobian = getMatrix(systemMatrixTag());
 
-#if PETSC_VERSION_LESS_THAN(3, 3, 0)
-#else
   if (!_fe_problem.errorOnJacobianNonzeroReallocation())
     MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
                  MAT_NEW_NONZERO_ALLOCATION_ERR,
@@ -1879,7 +2035,6 @@ NonlinearSystemBase::constraintJacobians(bool displaced)
   if (_fe_problem.ignoreZerosInJacobian())
     MatSetOption(
         static_cast<PetscMatrix<Number> &>(jacobian).mat(), MAT_IGNORE_ZERO_ENTRIES, PETSC_TRUE);
-#endif
 
   std::vector<numeric_index_type> zero_rows;
   std::map<std::pair<unsigned int, unsigned int>, PenetrationLocator *> * penetration_locators =
@@ -2063,18 +2218,9 @@ NonlinearSystemBase::constraintJacobians(bool displaced)
 
       if (constraints_applied)
       {
-#if PETSC_VERSION_LESS_THAN(3, 0, 0)
-        MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(), MAT_KEEP_ZEROED_ROWS);
-#elif PETSC_VERSION_LESS_THAN(3, 1, 0)
-        // In Petsc 3.0.0, MatSetOption has three args...the third arg
-        // determines whether the option is set (true) or unset (false)
-        MatSetOption(
-            static_cast<PetscMatrix<Number> &>(jacobian).mat(), MAT_KEEP_ZEROED_ROWS, PETSC_TRUE);
-#else
         MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
                      MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
                      PETSC_TRUE);
-#endif
 
         jacobian.close();
         jacobian.zero_rows(zero_rows, 0.0);
@@ -2091,19 +2237,9 @@ NonlinearSystemBase::constraintJacobians(bool displaced)
 
     if (constraints_applied)
     {
-// Necessary for speed
-#if PETSC_VERSION_LESS_THAN(3, 0, 0)
-      MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(), MAT_KEEP_ZEROED_ROWS);
-#elif PETSC_VERSION_LESS_THAN(3, 1, 0)
-      // In Petsc 3.0.0, MatSetOption has three args...the third arg
-      // determines whether the option is set (true) or unset (false)
-      MatSetOption(
-          static_cast<PetscMatrix<Number> &>(jacobian).mat(), MAT_KEEP_ZEROED_ROWS, PETSC_TRUE);
-#else
       MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
                    MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
                    PETSC_TRUE);
-#endif
 
       jacobian.close();
       jacobian.zero_rows(zero_rows, 0.0);
@@ -2294,19 +2430,9 @@ NonlinearSystemBase::constraintJacobians(bool displaced)
 
   if (constraints_applied)
   {
-// Necessary for speed
-#if PETSC_VERSION_LESS_THAN(3, 0, 0)
-    MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(), MAT_KEEP_ZEROED_ROWS);
-#elif PETSC_VERSION_LESS_THAN(3, 1, 0)
-    // In Petsc 3.0.0, MatSetOption has three args...the third arg
-    // determines whether the option is set (true) or unset (false)
-    MatSetOption(
-        static_cast<PetscMatrix<Number> &>(jacobian).mat(), MAT_KEEP_ZEROED_ROWS, PETSC_TRUE);
-#else
     MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
                  MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
                  PETSC_TRUE);
-#endif
 
     jacobian.close();
     jacobian.zero_rows(zero_rows, 0.0);
@@ -2402,25 +2528,32 @@ NonlinearSystemBase::computeJacobianInternal(const std::set<TagID> & tags)
     // Necessary for speed
     if (auto petsc_matrix = dynamic_cast<PetscMatrix<Number> *>(&jacobian))
     {
-#if PETSC_VERSION_LESS_THAN(3, 0, 0)
-      MatSetOption(petsc_matrix->mat(), MAT_KEEP_ZEROED_ROWS);
-#elif PETSC_VERSION_LESS_THAN(3, 1, 0)
-      // In Petsc 3.0.0, MatSetOption has three args...the third arg
-      // determines whether the option is set (true) or unset (false)
-      MatSetOption(petsc_matrix->mat(), MAT_KEEP_ZEROED_ROWS, PETSC_TRUE);
-#else
       MatSetOption(petsc_matrix->mat(),
                    MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
                    PETSC_TRUE);
-#endif // PETSC_VERSION
-#if !PETSC_VERSION_LESS_THAN(3, 3, 0)
       if (!_fe_problem.errorOnJacobianNonzeroReallocation())
         MatSetOption(petsc_matrix->mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
     }
-#endif // PETSC_VERSION
   }
 
   jacobianSetup();
+
+  // Jacobian contributions from UOs - for now this is used for ray tracing
+  // and ray kernels that contribute to the Jacobian (think line sources)
+  std::vector<UserObject *> uos;
+  _fe_problem.theWarehouse()
+      .query()
+      .condition<AttribSystem>("UserObject")
+      .condition<AttribExecOns>(EXEC_PRE_KERNELS)
+      .queryInto(uos);
+  for (auto & uo : uos)
+    uo->jacobianSetup();
+  for (auto & uo : uos)
+  {
+    uo->initialize();
+    uo->execute();
+    uo->finalize();
+  }
 
   // reinit scalar variables
   for (unsigned int tid = 0; tid < libMesh::n_threads(); tid++)
@@ -2451,12 +2584,12 @@ NonlinearSystemBase::computeJacobianInternal(const std::set<TagID> & tags)
       // the same loop works for both residual and jacobians because it keys
       // off of FEProblem's _currently_computing_jacobian parameter
       using FVRange = StoredRange<std::vector<const FaceInfo *>::const_iterator, const FaceInfo *>;
-      ComputeFVFluxThread<FVRange> fvj(_fe_problem, tags);
+      ComputeFVFluxJacobianThread<FVRange> fvj(_fe_problem, tags);
       FVRange faces(_fe_problem.mesh().faceInfo().begin(), _fe_problem.mesh().faceInfo().end());
       Threads::parallel_reduce(faces, fvj);
     }
 
-    mortarConstraints();
+    mortarConstraints(Moose::ComputeType::Jacobian);
 
     // Get our element range for looping over
     ConstElemRange & elem_range = *_mesh.getActiveLocalElementRange();
@@ -2733,22 +2866,6 @@ NonlinearSystemBase::computeJacobianTags(const std::set<TagID> & tags)
 
   try
   {
-    // Jacobian contributions from UOs - for now this is used for ray tracing
-    // and ray kernels that contribute to the Jacobian (think line sources)
-    std::vector<UserObject *> uos;
-    _fe_problem.theWarehouse()
-        .query()
-        .condition<AttribSystem>("UserObject")
-        .condition<AttribExecOns>(EXEC_PRE_KERNELS)
-        .queryInto(uos);
-    for (auto & uo : uos)
-      uo->jacobianSetup();
-    for (auto & uo : uos)
-    {
-      uo->initialize();
-      uo->execute();
-    }
-
     computeJacobianInternal(tags);
   }
   catch (MooseException & e)
@@ -2782,26 +2899,13 @@ NonlinearSystemBase::computeJacobianBlocks(std::vector<JacobianBlock *> & blocks
   {
     SparseMatrix<Number> & jacobian = blocks[i]->_jacobian;
 
-// Necessary for speed
-#if PETSC_VERSION_LESS_THAN(3, 0, 0)
-    MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(), MAT_KEEP_ZEROED_ROWS);
-#elif PETSC_VERSION_LESS_THAN(3, 1, 0)
-      // In Petsc 3.0.0, MatSetOption has three args...the third arg
-      // determines whether the option is set (true) or unset (false)
-      MatSetOption(
-          static_cast<PetscMatrix<Number> &>(jacobian).mat(), MAT_KEEP_ZEROED_ROWS, PETSC_TRUE);
-#else
+    MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
+                 MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
+                 PETSC_TRUE);
+    if (!_fe_problem.errorOnJacobianNonzeroReallocation())
       MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
-                   MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
+                   MAT_NEW_NONZERO_ALLOCATION_ERR,
                    PETSC_TRUE);
-#endif
-#if PETSC_VERSION_LESS_THAN(3, 3, 0)
-#else
-      if (!_fe_problem.errorOnJacobianNonzeroReallocation())
-        MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
-                     MAT_NEW_NONZERO_ALLOCATION_ERR,
-                     PETSC_TRUE);
-#endif
 
     jacobian.zero();
   }
@@ -3215,9 +3319,10 @@ NonlinearSystemBase::checkKernelCoverage(const std::set<SubdomainID> & mesh_subd
       kernel_variables.insert(fv_kernel->variable().name());
 
       // Check for lagrange multiplier
-      if (dynamic_cast<FVScalarLagrangeMultiplier *>(fv_kernel))
-        kernel_variables.insert(
-            dynamic_cast<FVScalarLagrangeMultiplier *>(fv_kernel)->lambdaVariable().name());
+      if (dynamic_cast<FVScalarLagrangeMultiplierConstraint *>(fv_kernel))
+        kernel_variables.insert(dynamic_cast<FVScalarLagrangeMultiplierConstraint *>(fv_kernel)
+                                    ->lambdaVariable()
+                                    .name());
     }
 
     std::vector<FVFluxKernel *> fv_flux_kernels;
@@ -3366,39 +3471,27 @@ NonlinearSystemBase::setPreviousNewtonSolution(const NumericVector<Number> & sol
 }
 
 void
-NonlinearSystemBase::mortarConstraints()
+NonlinearSystemBase::mortarConstraints(const Moose::ComputeType compute_type)
 {
-  const auto & undisplaced_mortar_interfaces = _fe_problem.getMortarInterfaces(/*displaced=*/false);
-
-  for (const auto & mortar_interface : undisplaced_mortar_interfaces)
+  try
   {
-    auto it = _undisplaced_mortar_functors.find(mortar_interface.first);
+    for (auto & map_pr : _undisplaced_mortar_functors)
+      map_pr.second(compute_type);
 
-    mooseAssert(it != _undisplaced_mortar_functors.end(),
-                "No ComputeMortarFunctor exists for the specified primary-secondary boundary "
-                "pair, primary "
-                    << mortar_interface.first.first << " and secondary "
-                    << mortar_interface.first.second);
-    it->second();
+    for (auto & map_pr : _displaced_mortar_functors)
+      map_pr.second(compute_type);
   }
-
-  const auto & displaced_mortar_interfaces = _fe_problem.getMortarInterfaces(/*displaced=*/true);
-
-  for (const auto & mortar_interface : displaced_mortar_interfaces)
+  catch (MetaPhysicL::LogicError &)
   {
-    auto it = _displaced_mortar_functors.find(mortar_interface.first);
-
-    mooseAssert(it != _displaced_mortar_functors.end(),
-                "No ComputeMortarFunctor exists for the specified primary-secondary boundary "
-                "pair, primary "
-                    << mortar_interface.first.first << " and secondary "
-                    << mortar_interface.first.second);
-    it->second();
+    mooseError(
+        "We caught a MetaPhysicL error in NonlinearSystemBase::mortarConstraints. This is very "
+        "likely due to AD not having a sufficiently large derivative container size. Please run "
+        "MOOSE configure with the '--with-derivative-size=<n>' option");
   }
 }
 
 void
-NonlinearSystemBase::setupScalingGrouping()
+NonlinearSystemBase::setupScalingData()
 {
   if (_auto_scaling_initd)
     return;
@@ -3445,6 +3538,24 @@ NonlinearSystemBase::setupScalingGrouping()
     for (auto var_number : var_numbers_not_covered)
       _var_to_group_var.insert(std::make_pair(var_number, index++));
   }
+
+  const auto & scalar_variables = _vars[0].scalars();
+  _field_variable_autoscaled.resize(field_variables.size(), true);
+  _scalar_variable_autoscaled.resize(scalar_variables.size(), true);
+
+  if (_ignore_variables_for_autoscaling.size())
+  {
+    for (MooseIndex(_field_variable_autoscaled) i = 0; i < _field_variable_autoscaled.size(); ++i)
+      if (std::find(_ignore_variables_for_autoscaling.begin(),
+                    _ignore_variables_for_autoscaling.end(),
+                    (*field_variables[i]).name()) != _ignore_variables_for_autoscaling.end())
+        _field_variable_autoscaled[i] = false;
+    for (MooseIndex(_scalar_variable_autoscaled) i = 0; i < _scalar_variable_autoscaled.size(); ++i)
+      if (std::find(_ignore_variables_for_autoscaling.begin(),
+                    _ignore_variables_for_autoscaling.end(),
+                    (*scalar_variables[i]).name()) != _ignore_variables_for_autoscaling.end())
+        _scalar_variable_autoscaled[i] = false;
+  }
 }
 
 void
@@ -3464,7 +3575,7 @@ NonlinearSystemBase::computeScaling()
   std::vector<dof_id_type> dof_indices;
 
   if (!_auto_scaling_initd)
-    setupScalingGrouping();
+    setupScalingData();
 
   auto & field_variables = _vars[0].fieldVariables();
   auto & scalar_variables = _vars[0].scalars();
@@ -3515,10 +3626,38 @@ NonlinearSystemBase::computeScaling()
   // Compute our scaling factors for the spatial field variables
   for (const auto & elem : *mesh().getActiveLocalElementRange())
     for (MooseIndex(field_variables) i = 0; i < field_variables.size(); ++i)
+      if (_field_variable_autoscaled[i])
+      {
+        auto & field_variable = *field_variables[i];
+        auto var_number = field_variable.number();
+        dof_map.dof_indices(elem, dof_indices, var_number);
+        for (auto dof_index : dof_indices)
+          if (dof_map.local_index(dof_index))
+          {
+            if (jac_scaling)
+            {
+              // For now we will use the diagonal for determining scaling
+              auto mat_value = (*_scaling_matrix)(dof_index, dof_index);
+              auto & factor = jac_inverse_scaling_factors[_var_to_group_var[var_number]];
+              factor = std::max(factor, std::abs(mat_value));
+            }
+            if (resid_scaling)
+            {
+              auto vec_value = scaling_residual(dof_index);
+              auto & factor = resid_inverse_scaling_factors[_var_to_group_var[var_number]];
+              factor = std::max(factor, std::abs(vec_value));
+            }
+          }
+      }
+
+  auto offset = _num_scaling_groups;
+
+  // Compute scalar factors for scalar variables
+  for (MooseIndex(scalar_variables) i = 0; i < scalar_variables.size(); ++i)
+    if (_scalar_variable_autoscaled[i])
     {
-      auto & field_variable = *field_variables[i];
-      auto var_number = field_variable.number();
-      dof_map.dof_indices(elem, dof_indices, var_number);
+      auto & scalar_variable = *scalar_variables[i];
+      dof_map.SCALAR_dof_indices(dof_indices, scalar_variable.number());
       for (auto dof_index : dof_indices)
         if (dof_map.local_index(dof_index))
         {
@@ -3526,43 +3665,17 @@ NonlinearSystemBase::computeScaling()
           {
             // For now we will use the diagonal for determining scaling
             auto mat_value = (*_scaling_matrix)(dof_index, dof_index);
-            auto & factor = jac_inverse_scaling_factors[_var_to_group_var[var_number]];
-            factor = std::max(factor, std::abs(mat_value));
+            jac_inverse_scaling_factors[offset + i] =
+                std::max(jac_inverse_scaling_factors[offset + i], std::abs(mat_value));
           }
           if (resid_scaling)
           {
             auto vec_value = scaling_residual(dof_index);
-            auto & factor = resid_inverse_scaling_factors[_var_to_group_var[var_number]];
-            factor = std::max(factor, std::abs(vec_value));
+            resid_inverse_scaling_factors[offset + i] =
+                std::max(resid_inverse_scaling_factors[offset + i], std::abs(vec_value));
           }
         }
     }
-
-  auto offset = _num_scaling_groups;
-
-  // Compute scalar factors for scalar variables
-  for (MooseIndex(scalar_variables) i = 0; i < scalar_variables.size(); ++i)
-  {
-    auto & scalar_variable = *scalar_variables[i];
-    dof_map.SCALAR_dof_indices(dof_indices, scalar_variable.number());
-    for (auto dof_index : dof_indices)
-      if (dof_map.local_index(dof_index))
-      {
-        if (jac_scaling)
-        {
-          // For now we will use the diagonal for determining scaling
-          auto mat_value = (*_scaling_matrix)(dof_index, dof_index);
-          jac_inverse_scaling_factors[offset + i] =
-              std::max(jac_inverse_scaling_factors[offset + i], std::abs(mat_value));
-        }
-        if (resid_scaling)
-        {
-          auto vec_value = scaling_residual(dof_index);
-          resid_inverse_scaling_factors[offset + i] =
-              std::max(resid_inverse_scaling_factors[offset + i], std::abs(vec_value));
-        }
-      }
-  }
 
   if (resid_scaling)
     _communicator.max(resid_inverse_scaling_factors);

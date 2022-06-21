@@ -36,9 +36,8 @@ NeighborCoupleable::coupledNeighborValue(const std::string & var_name, unsigned 
 std::vector<const VariableValue *>
 NeighborCoupleable::coupledNeighborValues(const std::string & var_name) const
 {
-  auto func = [this, &var_name](unsigned int comp) {
-    return &coupledNeighborValue(var_name, comp);
-  };
+  auto func = [this, &var_name](unsigned int comp)
+  { return &coupledNeighborValue(var_name, comp); };
   return coupledVectorHelper<const VariableValue *>(var_name, func);
 }
 
@@ -80,9 +79,8 @@ NeighborCoupleable::adCoupledNeighborValueDot(const std::string & var_name, unsi
 std::vector<const ADVariableValue *>
 NeighborCoupleable::adCoupledNeighborValues(const std::string & var_name) const
 {
-  auto func = [this, &var_name](unsigned int comp) {
-    return &adCoupledNeighborValue(var_name, comp);
-  };
+  auto func = [this, &var_name](unsigned int comp)
+  { return &adCoupledNeighborValue(var_name, comp); };
   return coupledVectorHelper<const ADVariableValue *>(var_name, func);
 }
 
@@ -196,6 +194,21 @@ NeighborCoupleable::coupledNeighborGradientOlder(const std::string & var_name,
     return var->gradSlnOlderNeighbor();
   else
     mooseError("Older values not available for explicit schemes");
+}
+
+const ADVariableGradient &
+NeighborCoupleable::adCoupledNeighborGradient(const std::string & var_name, unsigned int comp) const
+{
+  if (_neighbor_nodal)
+    mooseError("Nodal variables do not have gradients");
+  if (!_c_is_implicit)
+    mooseError(
+        "adCoupledNeighborGradient returns a data structure with derivatives. Explicit schemes "
+        "use old solution data which do not have derivatives so adCoupledNeighborGradient is "
+        "not appropriate. Please use coupledNeighborGradient instead");
+
+  const auto * var = getVarHelper<MooseVariableField<Real>>(var_name, comp);
+  return var->adGradSlnNeighbor();
 }
 
 const VectorVariableGradient &

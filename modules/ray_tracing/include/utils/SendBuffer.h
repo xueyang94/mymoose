@@ -245,21 +245,22 @@ template <typename Object, typename Context>
 void
 SendBuffer<Object, Context>::cleanupRequests()
 {
-  _requests.remove_if([](std::shared_ptr<Parallel::Request> & req) {
-    if (req->test())
-    {
-      req->wait(); // MUST call wait() to do post_wait_work
-      return true;
-    }
-    else
-      return false;
-  });
+  _requests.remove_if(
+      [](std::shared_ptr<Parallel::Request> & req)
+      {
+        if (req->test())
+        {
+          req->wait(); // MUST call wait() to do post_wait_work
+          return true;
+        }
+        else
+          return false;
+      });
 }
 
 template <typename Object, typename Context>
 void
 SendBuffer<Object, Context>::waitAll()
 {
-  for (auto & request : _requests)
-    request->wait();
+  std::for_each(_requests.begin(), _requests.end(), [](auto & request) { request->wait(); });
 }

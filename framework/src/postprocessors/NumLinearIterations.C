@@ -14,13 +14,11 @@
 
 registerMooseObject("MooseApp", NumLinearIterations);
 
-defineLegacyParams(NumLinearIterations);
-
 InputParameters
 NumLinearIterations::validParams()
 {
   InputParameters params = GeneralPostprocessor::validParams();
-  params.addClassDescription("Compute the number of non-linear iterations.");
+  params.addClassDescription("Compute the number of linear iterations.");
   return params;
 }
 

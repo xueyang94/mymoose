@@ -70,6 +70,9 @@
 #ifdef TENSOR_MECHANICS_ENABLED
 #include "TensorMechanicsApp.h"
 #endif
+#ifdef THERMAL_HYDRAULICS_ENABLED
+#include "ThermalHydraulicsApp.h"
+#endif
 #ifdef XFEM_ENABLED
 #include "XFEMApp.h"
 #endif
@@ -91,11 +94,10 @@ clearUnusedWarnings(Syntax & /*syntax*/, ActionFactory & /*action_factory*/)
 }
 ///@}
 
-template <>
 InputParameters
-validParams<ModulesApp>()
+ModulesApp::validParams()
 {
-  InputParameters params = validParams<MooseApp>();
+  InputParameters params = MooseApp::validParams();
   return params;
 }
 
@@ -184,6 +186,10 @@ ModulesApp::registerObjects(Factory & factory)
   TensorMechanicsApp::registerObjects(factory);
 #endif
 
+#ifdef THERMAL_HYDRAULICS_ENABLED
+  ThermalHydraulicsApp::registerObjects(factory);
+#endif
+
 #ifdef XFEM_ENABLED
   XFEMApp::registerObjects(factory);
 #endif
@@ -263,6 +269,10 @@ ModulesApp::associateSyntax(Syntax & syntax, ActionFactory & action_factory)
   TensorMechanicsApp::associateSyntax(syntax, action_factory);
 #endif
 
+#ifdef THERMAL_HYDRAULICS_ENABLED
+  ThermalHydraulicsApp::associateSyntax(syntax, action_factory);
+#endif
+
 #ifdef XFEM_ENABLED
   XFEMApp::associateSyntax(syntax, action_factory);
 #endif
@@ -336,6 +346,10 @@ ModulesApp::registerExecFlags(Factory & factory)
 
 #ifdef TENSOR_MECHANICS_ENABLED
   TensorMechanicsApp::registerExecFlags(factory);
+#endif
+
+#ifdef THERMAL_HYDRAULICS_ENABLED
+  ThermalHydraulicsApp::registerExecFlags(factory);
 #endif
 
 #ifdef XFEM_ENABLED
@@ -418,6 +432,10 @@ ModulesApp::registerAll(Factory & f, ActionFactory & af, Syntax & s)
 
 #ifdef TENSOR_MECHANICS_ENABLED
   TensorMechanicsApp::registerAll(f, af, s);
+#endif
+
+#ifdef THERMAL_HYDRAULICS_ENABLED
+  ThermalHydraulicsApp::registerAll(f, af, s);
 #endif
 
 #ifdef XFEM_ENABLED

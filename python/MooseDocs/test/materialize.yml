@@ -56,7 +56,14 @@ Extensions:
     MooseDocs.extensions.gallery: default
     MooseDocs.extensions.pdf: default
     MooseDocs.extensions.pysyntax: default
-    MooseDocs.extensions.modal: default
+    MooseDocs.extensions.modal:
+        hide_source: True
+        exceptions:
+            - '*.C'
+            - '*.h'
+            - '*.yml'
+            - '*.i'
+            - '*tests'
     MooseDocs.extensions.datetime: default
     MooseDocs.extensions.gitutils: default
     MooseDocs.extensions.template:
@@ -116,6 +123,7 @@ Extensions:
             - test/include
     MooseDocs.extensions.ifelse:
         active: True
+    MooseDocs.extensions.algorithm: default
 
 Translator:
     type: MooseDocs.base.Translator

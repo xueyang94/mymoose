@@ -11,16 +11,22 @@
 #include "Assembly.h"
 #include "SubProblem.h"
 
+void
+FVKernel::setRMParams(const InputParameters & obj_params,
+                      InputParameters & rm_params,
+                      const unsigned short ghost_layers)
+{
+  rm_params.set<unsigned short>("layers") = ghost_layers;
+  rm_params.set<bool>("use_point_neighbors") = obj_params.get<bool>("use_point_neighbors");
+  rm_params.set<bool>("attach_geometric_early") = false;
+  rm_params.set<bool>("use_displaced_mesh") = obj_params.get<bool>("use_displaced_mesh");
+}
+
 InputParameters
 FVKernel::validParams()
 {
-  InputParameters params = MooseObject::validParams();
-  params += TransientInterface::validParams();
+  InputParameters params = ResidualObject::validParams();
   params += BlockRestrictable::validParams();
-  params += TaggingInterface::validParams();
-  params += FunctorInterface::validParams();
-  params.addRequiredParam<NonlinearVariableName>(
-      "variable", "The name of the finite volume variable this kernel applies to");
   params.addParam<bool>("use_displaced_mesh",
                         false,
                         "Whether or not this object should use the "
@@ -29,8 +35,6 @@ FVKernel::validParams()
                         "are provided in the Mesh block the "
                         "undisplaced mesh will still be used.");
   params.addParamNamesToGroup("use_displaced_mesh", "Advanced");
-
-  params.declareControllable("enable");
 
   params.addParam<unsigned short>("ghost_layers", 1, "The number of layers of elements to ghost.");
   params.addParam<bool>("use_point_neighbors",
@@ -47,30 +51,15 @@ FVKernel::validParams()
       Moose::RelationshipManagerType::GEOMETRIC | Moose::RelationshipManagerType::ALGEBRAIC |
           Moose::RelationshipManagerType::COUPLING,
       [](const InputParameters & obj_params, InputParameters & rm_params) {
-        rm_params.set<unsigned short>("layers") = obj_params.get<unsigned short>("ghost_layers");
-        rm_params.set<bool>("use_point_neighbors") = obj_params.get<bool>("use_point_neighbors");
+        FVKernel::setRMParams(
+            obj_params, rm_params, obj_params.get<unsigned short>("ghost_layers"));
       });
 
   params.registerBase("FVKernel");
   return params;
 }
 
-FVKernel::FVKernel(const InputParameters & params)
-  : MooseObject(params),
-    TaggingInterface(this),
-    TransientInterface(this),
-    BlockRestrictable(this),
-    FunctionInterface(this),
-    UserObjectInterface(this),
-    PostprocessorInterface(this),
-    SetupInterface(this),
-    Restartable(this, "FVKernels"),
-    FunctorInterface(this),
-    _subproblem(*getCheckedPointerParam<SubProblem *>("_subproblem")),
-    _sys(*getCheckedPointerParam<SystemBase *>("_sys")),
-    _tid(params.get<THREAD_ID>("_tid")),
-    _assembly(_subproblem.assembly(_tid)),
-    _mesh(_subproblem.mesh())
+FVKernel::FVKernel(const InputParameters & params) : ResidualObject(params), BlockRestrictable(this)
 {
   _subproblem.haveADObjects(true);
   if (getParam<bool>("use_displaced_mesh"))

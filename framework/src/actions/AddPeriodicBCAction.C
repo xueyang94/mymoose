@@ -26,8 +26,6 @@ registerMooseAction("MooseApp", AddPeriodicBCAction, "add_periodic_bc");
 registerMooseAction("MooseApp", AddPeriodicBCAction, "add_geometric_rm");
 registerMooseAction("MooseApp", AddPeriodicBCAction, "add_algebraic_rm");
 
-defineLegacyParams(AddPeriodicBCAction);
-
 InputParameters
 AddPeriodicBCAction::validParams()
 {
@@ -98,7 +96,6 @@ AddPeriodicBCAction::autoTranslationBoundaries()
         mooseError("Could not detect orthogonal dimension ranges for DistributedMesh.");
     }
 
-    NonlinearSystemBase & nl = _problem->getNonlinearSystemBase();
     std::vector<std::string> auto_dirs = getParam<std::vector<std::string>>("auto_direction");
 
     int dim_offset = _mesh->dimension() - 2;
@@ -135,9 +132,15 @@ AddPeriodicBCAction::autoTranslationBoundaries()
         p.myboundary = boundary_ids->first;
         p.pairedboundary = boundary_ids->second;
         setPeriodicVars(p, getParam<std::vector<VariableName>>("variable"));
-        nl.dofMap().add_periodic_boundary(p);
+        auto & eq = _problem->es();
+        for (const auto i : make_range(eq.n_systems()))
+          eq.get_system(i).get_dof_map().add_periodic_boundary(p);
         if (displaced_problem)
-          displaced_problem->nlSys().dofMap().add_periodic_boundary(p);
+        {
+          auto & deq = displaced_problem->es();
+          for (const auto i : make_range(deq.n_systems()))
+            deq.get_system(i).get_dof_map().add_periodic_boundary(p);
+        }
       }
     }
     return true;
@@ -182,7 +185,7 @@ AddPeriodicBCAction::act()
 
   if (_current_task == "add_periodic_bc")
   {
-    NonlinearSystemBase & nl = _problem->getNonlinearSystemBase();
+    auto & nl = _problem->getNonlinearSystemBase();
     _mesh = &_problem->mesh();
     auto displaced_problem = _problem->getDisplacedProblem();
 
@@ -197,9 +200,15 @@ AddPeriodicBCAction::act()
         p.pairedboundary = _mesh->getBoundaryID(getParam<BoundaryName>("secondary"));
         setPeriodicVars(p, getParam<std::vector<VariableName>>("variable"));
 
-        nl.dofMap().add_periodic_boundary(p);
+        auto & eq = _problem->es();
+        for (const auto i : make_range(eq.n_systems()))
+          eq.get_system(i).get_dof_map().add_periodic_boundary(p);
         if (displaced_problem)
-          displaced_problem->nlSys().dofMap().add_periodic_boundary(p);
+        {
+          auto & deq = displaced_problem->es();
+          for (const auto i : make_range(deq.n_systems()))
+            deq.get_system(i).get_dof_map().add_periodic_boundary(p);
+        }
       }
       else if (getParam<std::vector<std::string>>("transform_func") != std::vector<std::string>())
       {
@@ -225,9 +234,15 @@ AddPeriodicBCAction::act()
         setPeriodicVars(ipb, getParam<std::vector<VariableName>>("variable"));
 
         // Add the pair of periodic boundaries to the dof map
-        nl.dofMap().add_periodic_boundary(pb, ipb);
+        auto & eq = _problem->es();
+        for (const auto i : make_range(eq.n_systems()))
+          eq.get_system(i).get_dof_map().add_periodic_boundary(pb, ipb);
         if (displaced_problem)
-          displaced_problem->nlSys().dofMap().add_periodic_boundary(pb, ipb);
+        {
+          auto & deq = displaced_problem->es();
+          for (const auto i : make_range(deq.n_systems()))
+            deq.get_system(i).get_dof_map().add_periodic_boundary(pb, ipb);
+        }
       }
       else
       {

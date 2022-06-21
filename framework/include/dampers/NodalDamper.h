@@ -14,17 +14,12 @@
 #include "MaterialPropertyInterface.h"
 #include "MooseTypes.h"
 
-// Forward Declarations
-class NodalDamper;
 class SubProblem;
 class SystemBase;
 template <typename>
 class MooseVariableFE;
 typedef MooseVariableFE<Real> MooseVariable;
 class Assembly;
-
-template <>
-InputParameters validParams<NodalDamper>();
 
 /**
  * Base class for deriving nodal dampers
@@ -75,4 +70,3 @@ protected:
   /// Holds the current solution at the current node
   const VariableValue & _u;
 };
-

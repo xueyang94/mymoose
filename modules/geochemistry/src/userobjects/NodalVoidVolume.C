@@ -29,9 +29,8 @@ NodalVoidVolume::validParams()
                                 Moose::RelationshipManagerType::GEOMETRIC |
                                     Moose::RelationshipManagerType::ALGEBRAIC |
                                     Moose::RelationshipManagerType::COUPLING,
-                                [](const InputParameters &, InputParameters & rm_params) {
-                                  rm_params.set<unsigned short>("layers") = 1;
-                                });
+                                [](const InputParameters &, InputParameters & rm_params)
+                                { rm_params.set<unsigned short>("layers") = 1; });
   params.addClassDescription(
       "UserObject to compute the nodal void volume.  Take care if you block-restrict this "
       "UserObject, since the volumes of the nodes on the block's boundary will not include any "
@@ -76,13 +75,13 @@ void
 NodalVoidVolume::rebuildStructures()
 {
   // Because of the RelationshipManager, this processor knows about all its elements as well as 1
-  // layer of ghost elements.  Hence, the loop over getEvaluableElementRange below goes over all the
-  // local elements as well as 1 layer of ghost elements, and all their nodes are recorded.  The
-  // ghosted elements are not visited in execute() so the nodal volume is incorrectly computed for
-  // all the nodes belonging to ghosted elements.  So MPI communication of nodal volume info is
-  // needed (implemented in exchangeGhostedInfo).
+  // layer of ghost elements.  Hence, the loop over getNonlinearEvaluableElementRange below goes
+  // over all the local elements as well as 1 layer of ghost elements, and all their nodes are
+  // recorded.  The ghosted elements are not visited in execute() so the nodal volume is incorrectly
+  // computed for all the nodes belonging to ghosted elements.  So MPI communication of nodal volume
+  // info is needed (implemented in exchangeGhostedInfo).
   _nodal_void_volume.clear();
-  for (const auto & elem : _fe_problem.getEvaluableElementRange())
+  for (const auto & elem : _fe_problem.getNonlinearEvaluableElementRange())
     if (this->hasBlocks(elem->subdomain_id()))
       for (const auto & node : elem->node_ref_range())
         _nodal_void_volume[&node] = 0.0;
@@ -103,7 +102,7 @@ NodalVoidVolume::buildCommLists()
   std::map<processor_id_type, std::set<const Node *>> seen_nodes;
   // run through all elements known by this processor (the owned + 1 layer of ghosted elements),
   // recording nodes that are attached to elements that aren't owned by this processor
-  for (const auto & elem : _fe_problem.getEvaluableElementRange())
+  for (const auto & elem : _fe_problem.getNonlinearEvaluableElementRange())
     if (this->hasBlocks(elem->subdomain_id()))
     {
       const processor_id_type elem_pid = elem->processor_id();
@@ -121,9 +120,8 @@ NodalVoidVolume::buildCommLists()
 
   // exchange this info with other processors, building global_node_nums_to_send at the same time
   std::map<processor_id_type, std::vector<dof_id_type>> global_node_nums_to_send;
-  auto nodes_action_functor = [&](processor_id_type pid, const std::vector<dof_id_type> & nts) {
-    global_node_nums_to_send[pid] = nts;
-  };
+  auto nodes_action_functor = [&](processor_id_type pid, const std::vector<dof_id_type> & nts)
+  { global_node_nums_to_send[pid] = nts; };
   Parallel::push_parallel_vector_data(
       this->comm(), global_node_nums_to_receive, nodes_action_functor);
 
@@ -154,7 +152,8 @@ NodalVoidVolume::exchangeGhostedInfo()
       pid_entry.push_back(_nodal_void_volume.at(nd));
   }
 
-  auto nvv_action_functor = [this](processor_id_type pid, const std::vector<Real> & nvv_received) {
+  auto nvv_action_functor = [this](processor_id_type pid, const std::vector<Real> & nvv_received)
+  {
     const std::size_t msg_size = nvv_received.size();
     auto & receive_pid_entry = _nodes_to_receive[pid];
     mooseAssert(msg_size == receive_pid_entry.size(),

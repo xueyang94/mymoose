@@ -9,6 +9,7 @@
 
 #include "PINSFVMomentumPressure.h"
 #include "PINSFVSuperficialVelocityVariable.h"
+#include "NS.h"
 
 registerMooseObject("NavierStokesApp", PINSFVMomentumPressure);
 
@@ -18,13 +19,13 @@ PINSFVMomentumPressure::validParams()
   InputParameters params = INSFVMomentumPressure::validParams();
   params.addClassDescription("Introduces the coupled pressure term $eps \nabla P$ into the "
                              "Navier-Stokes porous media momentum equation.");
-  params.addRequiredCoupledVar("porosity", "Porosity auxiliary variable");
+  params.addRequiredParam<MooseFunctorName>(NS::porosity, "Porosity");
 
   return params;
 }
 
 PINSFVMomentumPressure::PINSFVMomentumPressure(const InputParameters & params)
-  : INSFVMomentumPressure(params), _eps(coupledValue("porosity"))
+  : INSFVMomentumPressure(params), _eps(getFunctor<ADReal>(NS::porosity))
 {
   if (!dynamic_cast<PINSFVSuperficialVelocityVariable *>(&_var))
     mooseError("PINSFVMomentumPressure may only be used with a superficial velocity "
@@ -34,5 +35,5 @@ PINSFVMomentumPressure::PINSFVMomentumPressure(const InputParameters & params)
 ADReal
 PINSFVMomentumPressure::computeQpResidual()
 {
-  return _eps[_qp] * INSFVMomentumPressure::computeQpResidual();
+  return _eps(makeElemArg(_current_elem)) * INSFVMomentumPressure::computeQpResidual();
 }

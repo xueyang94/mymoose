@@ -89,15 +89,16 @@ ComputeMultipleCrystalPlasticityStress::ComputeMultipleCrystalPlasticityStress(
         _num_eigenstrains
             ? &getMaterialPropertyOld<RankTwoTensor>("eigenstrain_deformation_gradient")
             : nullptr),
-    _deformation_gradient(getMaterialProperty<RankTwoTensor>("deformation_gradient")),
-    _deformation_gradient_old(getMaterialPropertyOld<RankTwoTensor>("deformation_gradient")),
+    _deformation_gradient(getMaterialProperty<RankTwoTensor>(_base_name + "deformation_gradient")),
+    _deformation_gradient_old(
+        getMaterialPropertyOld<RankTwoTensor>(_base_name + "deformation_gradient")),
     _pk2(declareProperty<RankTwoTensor>("second_piola_kirchhoff_stress")),
     _pk2_old(getMaterialPropertyOld<RankTwoTensor>("second_piola_kirchhoff_stress")),
     _total_lagrangian_strain(
         declareProperty<RankTwoTensor>("total_lagrangian_strain")), // Lagrangian strain
-    _update_rotation(declareProperty<RankTwoTensor>("update_rot")),
+    _updated_rotation(declareProperty<RankTwoTensor>("updated_rotation")),
     _crysrot(getMaterialProperty<RankTwoTensor>(
-        "crysrot")), // defined in the elasticity tensor classes for crystal plasticity
+        _base_name + "crysrot")), // defined in the elasticity tensor classes for crystal plasticity
     _print_convergence_message(getParam<bool>("print_state_variable_convergence_error_messages"))
 {
   _convergence_failed = false;
@@ -125,8 +126,8 @@ ComputeMultipleCrystalPlasticityStress::initQpStatefulProperties()
 
   _total_lagrangian_strain[_qp].zero();
 
-  _update_rotation[_qp].zero();
-  _update_rotation[_qp].addIa(1.0);
+  _updated_rotation[_qp].zero();
+  _updated_rotation[_qp].addIa(1.0);
 
   for (unsigned int i = 0; i < _num_models; ++i)
   {
@@ -307,8 +308,8 @@ ComputeMultipleCrystalPlasticityStress::postSolveQp(RankTwoTensor & cauchy_stres
 
   // Calculate crystal rotation to track separately
   RankTwoTensor rot;
-  _deformation_gradient[_qp].getRUDecompositionRotation(rot);
-  _update_rotation[_qp] = rot * _crysrot[_qp];
+  _elastic_deformation_gradient.getRUDecompositionRotation(rot);
+  _updated_rotation[_qp] = rot * _crysrot[_qp];
 }
 
 void
@@ -494,7 +495,7 @@ ComputeMultipleCrystalPlasticityStress::calculateResidual()
   {
     equivalent_slip_increment_per_model.zero();
 
-    // calculat shear stress with consideration of contribution from other physics
+    // calculate shear stress with consideration of contribution from other physics
     _models[i]->calculateShearStress(
         _pk2[_qp], _inverse_eigenstrain_deformation_grad, _num_eigenstrains);
 
@@ -533,14 +534,14 @@ ComputeMultipleCrystalPlasticityStress::calculateJacobian()
 
   RankTwoTensor ffeiginv = _temporary_deformation_gradient * _inverse_eigenstrain_deformation_grad;
 
-  for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
-    for (unsigned int j = 0; j < LIBMESH_DIM; ++j)
-      for (unsigned int k = 0; k < LIBMESH_DIM; ++k)
+  for (const auto i : make_range(Moose::dim))
+    for (const auto j : make_range(Moose::dim))
+      for (const auto k : make_range(Moose::dim))
         dfedfpinv(i, j, k, j) = ffeiginv(i, k);
 
-  for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
-    for (unsigned int j = 0; j < LIBMESH_DIM; ++j)
-      for (unsigned int k = 0; k < LIBMESH_DIM; ++k)
+  for (const auto i : make_range(Moose::dim))
+    for (const auto j : make_range(Moose::dim))
+      for (const auto k : make_range(Moose::dim))
       {
         deedfe(i, j, k, i) = deedfe(i, j, k, i) + _elastic_deformation_gradient(k, j) * 0.5;
         deedfe(i, j, k, j) = deedfe(i, j, k, j) + _elastic_deformation_gradient(k, i) * 0.5;
@@ -581,23 +582,24 @@ ComputeMultipleCrystalPlasticityStress::elastoPlasticTangentModuli(RankFourTenso
   RankFourTensor deedfe, dsigdpk2dfe, dfedf;
 
   // Fill in the matrix stiffness material property
-  for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
-    for (unsigned int j = 0; j < LIBMESH_DIM; ++j)
-      for (unsigned int k = 0; k < LIBMESH_DIM; ++k)
+  for (const auto i : make_range(Moose::dim))
+    for (const auto j : make_range(Moose::dim))
+      for (const auto k : make_range(Moose::dim))
       {
         deedfe(i, j, k, i) = deedfe(i, j, k, i) + _elastic_deformation_gradient(k, j) * 0.5;
         deedfe(i, j, k, j) = deedfe(i, j, k, j) + _elastic_deformation_gradient(k, i) * 0.5;
       }
 
-  dsigdpk2dfe = _elastic_deformation_gradient.mixedProductIkJl(_elastic_deformation_gradient) *
+  usingTensorIndices(i_, j_, k_, l_);
+  dsigdpk2dfe = _elastic_deformation_gradient.times<i_, k_, j_, l_>(_elastic_deformation_gradient) *
                 _elasticity_tensor[_qp] * deedfe;
 
   pk2fet = _pk2[_qp] * _elastic_deformation_gradient.transpose();
   fepk2 = _elastic_deformation_gradient * _pk2[_qp];
 
-  for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
-    for (unsigned int j = 0; j < LIBMESH_DIM; ++j)
-      for (unsigned int l = 0; l < LIBMESH_DIM; ++l)
+  for (const auto i : make_range(Moose::dim))
+    for (const auto j : make_range(Moose::dim))
+      for (const auto l : make_range(Moose::dim))
       {
         tan_mod(i, j, i, l) += pk2fet(l, j);
         tan_mod(i, j, j, l) += fepk2(i, l);
@@ -605,14 +607,14 @@ ComputeMultipleCrystalPlasticityStress::elastoPlasticTangentModuli(RankFourTenso
 
   tan_mod += dsigdpk2dfe;
 
-  auto je = _elastic_deformation_gradient.det();
+  const auto je = _elastic_deformation_gradient.det();
   if (je > 0.0)
     tan_mod /= je;
 
   feiginvfpinv = _inverse_eigenstrain_deformation_grad * _inverse_plastic_deformation_grad;
-  for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
-    for (unsigned int j = 0; j < LIBMESH_DIM; ++j)
-      for (unsigned int l = 0; l < LIBMESH_DIM; ++l)
+  for (const auto i : make_range(Moose::dim))
+    for (const auto j : make_range(Moose::dim))
+      for (const auto l : make_range(Moose::dim))
         dfedf(i, j, i, l) = feiginvfpinv(l, j);
 
   jacobian_mult = tan_mod * dfedf;
@@ -658,11 +660,11 @@ ComputeMultipleCrystalPlasticityStress::lineSearchUpdate(const Real & rnorm_prev
 
     calculateResidual();
     auto s_b = _residual_tensor.doubleContraction(dpk2);
-    auto rnorm1 = _residual_tensor.L2norm();
+    const auto rnorm1 = _residual_tensor.L2norm();
     _pk2[_qp] = _pk2[_qp] - dpk2;
     calculateResidual();
     auto s_a = _residual_tensor.doubleContraction(dpk2);
-    auto rnorm0 = _residual_tensor.L2norm();
+    const auto rnorm0 = _residual_tensor.L2norm();
     _pk2[_qp] = _pk2[_qp] + dpk2;
 
     if ((rnorm1 / rnorm0) < _line_search_tolerance || s_a * s_b > 0)

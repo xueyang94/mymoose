@@ -11,12 +11,7 @@
 
 #include "Function.h"
 
-// Forward decleration
-class Axisymmetric2D3DSolutionFunction;
 class SolutionUserObject;
-
-template <>
-InputParameters validParams<Axisymmetric2D3DSolutionFunction>();
 
 /**
  * Function for reading a 2D axisymmetric solution from file and mapping it to a
@@ -36,6 +31,7 @@ public:
 
   Axisymmetric2D3DSolutionFunction(const InputParameters & parameters);
 
+  using Function::value;
   virtual Real value(Real t, const Point & p) const override;
 
   /**

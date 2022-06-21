@@ -11,6 +11,7 @@
 
 #include "LinearInterpolation.h"
 #include "DualReal.h"
+#include "ChainedReal.h"
 
 #include "DualRealOps.h"
 
@@ -50,12 +51,25 @@ TEST(LinearInterpolationTest, automatic_differentiation_sample)
 {
   std::vector<Real> x = {1, 2};
   std::vector<Real> y = {0, 5};
-  DualLinearInterpolation interp(x, y);
+  ADLinearInterpolation interp(x, y);
 
-  DualReal xx = 1.5;
+  ADReal xx = 1.5;
   Moose::derivInsert(xx.derivatives(), 0, 1);
   auto yy = interp.sample(xx);
 
   EXPECT_DOUBLE_EQ(yy.value(), 2.5);
   EXPECT_DOUBLE_EQ(yy.derivatives()[0], 5.0);
+}
+
+TEST(LinearInterpolationTest, chained_real_sample)
+{
+  std::vector<Real> x = {1, 2};
+  std::vector<Real> y = {0, 5};
+  ADLinearInterpolation interp(x, y);
+
+  ChainedReal xx(1.5, 1);
+  auto yy = interp.sample(xx);
+
+  EXPECT_DOUBLE_EQ(yy.value(), 2.5);
+  EXPECT_DOUBLE_EQ(yy.derivatives(), 5.0);
 }

@@ -12,17 +12,11 @@
 // MOOSE includes
 #include "AdvancedOutput.h"
 
-// Forward declarations
-class Nemesis;
-
 // libMesh forward declarations
 namespace libMesh
 {
 class Nemesis_IO;
 }
-
-template <>
-InputParameters validParams<Nemesis>();
 
 /**
  * Class for output data to the Nemesis format
@@ -95,4 +89,3 @@ private:
   /// Flag if the output has been initialized
   bool _nemesis_initialized;
 };
-

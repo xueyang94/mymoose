@@ -38,7 +38,7 @@
 
 [Controls]
   [cmdline]
-    type = MultiAppCommandLineControl
+    type = MultiAppSamplerControl
     multi_app = sub
     param_names = 'Materials/conductivity/prop_values L'
   []
@@ -47,7 +47,7 @@
 [Transfers]
   [data]
     type = SamplerReporterTransfer
-    multi_app = sub
+    from_multi_app = sub
     stochastic_reporter = results
     from_reporter = 'T_vec/T T_vec/x'
   []

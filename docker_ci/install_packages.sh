@@ -19,8 +19,19 @@ for MGR in "${MGR_ARY[@]}"; do
     # Run matching install
     if [ $(command -v $MGR | grep -c $MGR) -gt 0 ]; then
         ./${MGR}_installs.sh
+
+        if [ $? -ne 0 ]; then
+            printf "Error with $MGR package installs.  Aborting build\n"
+            exit 1
+        fi
     fi
 done
+
+# Installing python-pillow on Red Hat distros seems to fail
+# due to an old version of pip; so forcefully reinstall it
+if [ $(command -v yum | grep -c yum) -gt 0 ]; then
+  pip3 --no-cache-dir install -U --force-reinstall pip
+fi
 
 # Do pip3 installs
 pip3 --no-cache-dir install \

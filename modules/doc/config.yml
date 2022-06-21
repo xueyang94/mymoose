@@ -4,6 +4,7 @@ Content:
     - modules/chemical_reactions/doc/content
     - modules/combined/doc/content
     - modules/contact/doc/content
+    - modules/external_petsc_solver/doc/content
     - modules/geochemistry/doc/content
     - modules/fluid_properties/doc/content
     - modules/fsi/doc/content
@@ -21,6 +22,7 @@ Content:
     - modules/richards/doc/content
     - modules/stochastic_tools/doc/content
     - modules/tensor_mechanics/doc/content
+    - modules/thermal_hydraulics/doc/content
     - modules/xfem/doc/content
 Renderer:
     type: MooseDocs.base.MaterializeRenderer
@@ -42,12 +44,14 @@ Extensions:
     MooseDocs.extensions.bibtex:
         duplicates: !include modules/doc/duplicate_bibs.yml
     MooseDocs.extensions.katex:
-        macros:
-            \pf: "\\frac{\\partial #1}{\\partial #2}"
+        macros: !include modules/doc/katex_macros.yml
     MooseDocs.extensions.appsyntax: # WARNING: this must follow katex for doco pages to work
         executable: ${MOOSE_DIR}/modules/combined
         unregister:
             framework: !include framework/doc/unregister.yml
+            thermal_hydraulics:
+                AddComponentAction: Components/*/*
+                Component: Components/*/*
         remove:
             framework: !include framework/doc/remove.yml
             richards: !include modules/richards/doc/remove.yml
@@ -137,7 +141,13 @@ Extensions:
             reactor: !include modules/reactor/doc/sqa_reactor.yml
             ray_tracing: !include modules/ray_tracing/doc/sqa_ray_tracing.yml
             fsi: !include modules/fsi/doc/sqa_fsi.yml
+            thermal_hydraulics: !include modules/thermal_hydraulics/doc/sqa_thermal_hydraulics.yml
+            porous_flow: !include modules/porous_flow/doc/sqa_porous_flow.yml
+            level_set: !include modules/level_set/doc/sqa_level_set.yml
 
         requirement-groups:
             dgkernels: DGKernel Objects
             interfacekernels: InterfaceKernel Objects
+
+    MooseDocs.extensions.algorithm:
+        active: True

@@ -47,11 +47,11 @@ public:
   virtual void getSlipSystems();
 
   /**
-   * A helper method to transform the Miller-Bravis 4-index notation for HCP
+   * A helper method to transform the Miller-Bravais 4-index notation for HCP
    * crystals into a a 3-index Cartesian representation, using the convention
    * a$_1$ = x of axis alignment in the basal plane
    */
-  void transformHexagonalMillerBravisSlipSystems(const MooseUtils::DelimitedFileReader & reader);
+  void transformHexagonalMillerBravaisSlipSystems(const MooseUtils::DelimitedFileReader & reader);
 
   /**
    * Computes the Schmid tensor (m x n) for the original (reference) crystal
@@ -142,7 +142,7 @@ public:
    */
   virtual bool calculateSlipRate() = 0;
 
-  void calculateEquivalentSlipIncrement(RankTwoTensor & /*equivalent_slip_increment*/);
+  virtual void calculateEquivalentSlipIncrement(RankTwoTensor & /*equivalent_slip_increment*/);
 
   /**
    * This virtual method is called to find the derivative of the slip increment

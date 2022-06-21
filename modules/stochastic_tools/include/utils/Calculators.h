@@ -13,10 +13,10 @@
 #include "MultiMooseEnum.h"
 #include "MathUtils.h"
 
-#include "libmesh/auto_ptr.h"
 #include "libmesh/parallel.h"
 
 #include <vector>
+#include <memory>
 #include <numeric>
 
 class MooseEnumItem;
@@ -147,6 +147,16 @@ protected:
 
   dof_id_type _count;
   OutType _sum;
+};
+
+template <typename InType, typename OutType>
+class MeanAbsoluteValue : public Mean<InType, OutType>
+{
+public:
+  using Mean<InType, OutType>::Mean;
+
+protected:
+  virtual void update(const typename InType::value_type & val) override;
 };
 
 template <typename InType, typename OutType>

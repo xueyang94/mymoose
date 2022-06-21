@@ -93,6 +93,8 @@ class AppSyntaxExtension(command.CommandExtension):
         config['app_name'] = (None,
                               "The MOOSE application name (e.g., moose_test); if not provided an " \
                               "attempt will be made to determine the name.")
+        config['sources'] = ([],
+                             "List of source directories to investigate for class information.")
         config['includes'] = ([],
                               "List of include directories to investigate for class information.")
         config['inputs'] = ([],
@@ -105,6 +107,8 @@ class AppSyntaxExtension(command.CommandExtension):
         config['alias'] = (None, "Dictionary of syntax aliases.")
         config['unregister'] = (None,
                                 "A `dict` or `dict` of `dict` including syntax to unregister (key='moose_base', value='parent_syntax')")
+        config['markdown'] = (None,
+                             "A `dict` or `dict` of `dict` including markdown files to explicitly set a custom, additional markdown reference (key='syntax', value='file.md')")
         config['external_icon'] = ('feedback', "Icon name for the alert title when unavailable syntax is located on an external page.")
         config['external_alert'] = ('warning', "Alert name when unavailable syntax is located on an external page.")
         return config
@@ -156,7 +160,8 @@ class AppSyntaxExtension(command.CommandExtension):
                 self._app_syntax = moosesyntax.get_moose_syntax_tree(exe,
                                                                      remove=self['remove'],
                                                                      alias=self['alias'],
-                                                                     unregister=self['unregister'])
+                                                                     unregister=self['unregister'],
+                                                                     markdown=self['markdown'])
 
                 out = mooseutils.runExe(exe, ['--type'])
                 match = re.search(r'^MooseApp Type:\s+(?P<type>.*?)$', out, flags=re.MULTILINE)
@@ -193,7 +198,8 @@ class AppSyntaxExtension(command.CommandExtension):
 
         start = time.time()
         LOG.info("Building MOOSE class database...")
-        self._database = common.build_class_database(self['includes'], self['inputs'])
+        self._database = common.build_class_database(
+            self['sources'], self['includes'], self['inputs'])
 
         # Cache the syntax entries, search the tree is very slow
         self._cache = dict()
@@ -766,10 +772,14 @@ class RenderParameterToken(components.RenderComponent):
         html.Tag(p, 'span', string='C++ Type:')
         html.String(p, content=cpp_type, escape=True)
 
-        if 'options' in param:
+        if param['options']:
             p = html.Tag(body, 'p', class_='moose-parameter-description-options')
             html.Tag(p, 'span', string='Options:')
             html.String(p, content=", ".join(param['options'].split()))
+
+        p = html.Tag(body, 'p', class_='moose-parameter-description-controllable')
+        html.Tag(p, 'span', string='Controllable:')
+        html.String(p, content=('Yes' if param['controllable'] else 'No'))
 
         p = html.Tag(body, 'p', class_='moose-parameter-description')
         if desc:

@@ -19,7 +19,6 @@
 
 #include "nlohmann/json.h"
 
-class MultiApp;
 class UserObject;
 class FEProblemBase;
 class FEProblem;
@@ -38,9 +37,6 @@ class BoundingBox;
 template <typename T>
 class NumericVector;
 } // namespace libMesh
-
-template <>
-InputParameters validParams<MultiApp>();
 
 /// Holds app partitioning information relevant to the a particular rank for a
 /// multiapp scenario.
@@ -296,7 +292,7 @@ public:
    * @param app The global app number you want the position for.
    * @return the position
    */
-  Point position(unsigned int app) { return _positions[app]; }
+  const Point & position(unsigned int app) { return _positions[app]; }
 
   /**
    * "Reset" the App corresponding to the global App number
@@ -344,6 +340,9 @@ public:
   bool usingPositions() const { return _use_positions; }
 
 protected:
+  /// function that provides cli_args to subapps
+  virtual std::vector<std::string> cliArgs() const { return _cli_args; }
+
   /**
    * _must_ fill in _positions with the positions of the sub-aps
    */
@@ -530,6 +529,13 @@ protected:
 
   /// The app configuration resulting from calling init
   LocalRankConfig _rank_config;
+
+  ///Timers
+  const PerfID _solve_step_timer;
+  const PerfID _init_timer;
+  const PerfID _backup_timer;
+  const PerfID _restore_timer;
+  const PerfID _reset_timer;
 };
 
 template <>

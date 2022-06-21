@@ -20,14 +20,13 @@
 
 #include "libmesh/utility.h"
 
-defineLegacyParams(FileOutput);
-
 InputParameters
 FileOutput::validParams()
 {
   // Create InputParameters object for this stand-alone object
   InputParameters params = PetscOutput::validParams();
-  params.addRequiredParam<std::string>(
+  params.addClassDescription("Base class for all file-based output");
+  params.addParam<std::string>(
       "file_base",
       "The desired solution output name without an extension. If not provided, MOOSE sets it "
       "with Outputs/file_base when available. Otherwise, MOOSE uses input file name and this "
@@ -40,14 +39,16 @@ FileOutput::validParams()
                                "is used (see http://www.cplusplus.com/reference/ctime/strftime).");
   // Add the padding option and list it as 'Advanced'
   params.addParam<unsigned int>(
-      "padding", 4, "The number of for extension suffix (e.g., out.e-s002)");
+      "padding", 4, "The number of digits for the extension suffix (e.g., out.e-s002)");
   params.addParam<std::vector<std::string>>("output_if_base_contains",
                                             std::vector<std::string>(),
                                             "If this is supplied then output will only be done in "
                                             "the case that the output base contains one of these "
                                             "strings.  This is helpful in outputting only a subset "
                                             "of outputs when using MultiApps.");
-  params.addParamNamesToGroup("padding output_if_base_contains", "Advanced");
+  params.addParamNamesToGroup(
+      "file_base append_date append_date_format padding output_if_base_contains",
+      "File name customization");
 
   return params;
 }

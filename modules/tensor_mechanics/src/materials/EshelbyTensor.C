@@ -12,9 +12,11 @@
 #include "MooseMesh.h"
 
 registerMooseObject("TensorMechanicsApp", EshelbyTensor);
+registerMooseObject("TensorMechanicsApp", ADEshelbyTensor);
 
+template <bool is_ad>
 InputParameters
-EshelbyTensor::validParams()
+EshelbyTensorTempl<is_ad>::validParams()
 {
   InputParameters params = Material::validParams();
   params.addClassDescription("Computes the Eshelby tensor as a function of "
@@ -36,7 +38,8 @@ EshelbyTensor::validParams()
   return params;
 }
 
-EshelbyTensor::EshelbyTensor(const InputParameters & parameters)
+template <bool is_ad>
+EshelbyTensorTempl<is_ad>::EshelbyTensorTempl(const InputParameters & parameters)
   : DerivativeMaterialInterface<Material>(parameters),
     _base_name(isParamValid("base_name") ? getParam<std::string>("base_name") + "_" : ""),
     _compute_dissipation(getParam<bool>("compute_dissipation")),
@@ -49,16 +52,14 @@ EshelbyTensor::EshelbyTensor(const InputParameters & parameters)
         _compute_dissipation
             ? &declareProperty<RankTwoTensor>(_base_name + "Eshelby_tensor_dissipation")
             : nullptr),
-    _stress(getMaterialProperty<RankTwoTensor>(_base_name + "stress")),
+    _stress(getGenericMaterialProperty<RankTwoTensor, is_ad>(_base_name + "stress")),
     _stress_old(getMaterialPropertyOld<RankTwoTensor>(_base_name + "stress")),
     _grad_disp(3),
     _grad_disp_old(3),
     _J_thermal_term_vec(declareProperty<RealVectorValue>("J_thermal_term_vec")),
     _grad_temp(coupledGradient("temperature")),
     _has_temp(isCoupled("temperature")),
-    _total_deigenstrain_dT(hasMaterialProperty<RankTwoTensor>("total_deigenstrain_dT")
-                               ? &getMaterialProperty<RankTwoTensor>("total_deigenstrain_dT")
-                               : nullptr)
+    _total_deigenstrain_dT(getOptionalMaterialProperty<RankTwoTensor>("total_deigenstrain_dT"))
 {
   unsigned int ndisp = coupledComponents("displacements");
 
@@ -75,7 +76,7 @@ EshelbyTensor::EshelbyTensor(const InputParameters & parameters)
   for (unsigned i = ndisp; i < 3; ++i)
     _grad_disp[i] = &_grad_zero;
 
-  // Need previos step's displacements to compute deformation gradient time rate
+  // Need previous step's displacements to compute deformation gradient time rate
   if (_compute_dissipation)
   {
     // fetch coupled gradients previous step
@@ -86,24 +87,31 @@ EshelbyTensor::EshelbyTensor(const InputParameters & parameters)
     for (unsigned i = ndisp; i < 3; ++i)
       _grad_disp_old[i] = &_grad_zero;
   }
+}
 
+template <bool is_ad>
+void
+EshelbyTensorTempl<is_ad>::initialSetup()
+{
   if (_has_temp && !_total_deigenstrain_dT)
     mooseError("EshelbyTensor Error: To include thermal strain term in Fracture integral "
                "calculation, must both couple temperature in DomainIntegral block and compute "
                "total_deigenstrain_dT using ThermalFractureIntegral material model.");
 }
 
+template <bool is_ad>
 void
-EshelbyTensor::initQpStatefulProperties()
+EshelbyTensorTempl<is_ad>::initQpStatefulProperties()
 {
 }
 
+template <bool is_ad>
 void
-EshelbyTensor::computeQpProperties()
+EshelbyTensorTempl<is_ad>::computeQpProperties()
 {
-  RankTwoTensor F((*_grad_disp[0])[_qp],
-                  (*_grad_disp[1])[_qp],
-                  (*_grad_disp[2])[_qp]); // Deformation gradient
+  // Deformation gradient
+  auto F = RankTwoTensor::initializeFromRows(
+      (*_grad_disp[0])[_qp], (*_grad_disp[1])[_qp], (*_grad_disp[2])[_qp]);
 
   RankTwoTensor H(F);
   F.addIa(1.0);
@@ -111,7 +119,7 @@ EshelbyTensor::computeQpProperties()
   RankTwoTensor FinvT(F.inverse().transpose());
 
   // 1st Piola-Kirchoff Stress (P):
-  RankTwoTensor P = detF * _stress[_qp] * FinvT;
+  RankTwoTensor P = detF * MetaPhysicL::raw_value(_stress[_qp]) * FinvT;
 
   // HTP = H^T * P = H^T * detF * sigma * FinvT;
   RankTwoTensor HTP = H.transpose() * P;
@@ -124,7 +132,7 @@ EshelbyTensor::computeQpProperties()
   // Compute deformation gradient rate
   if (_compute_dissipation == true)
   {
-    RankTwoTensor H_old(
+    auto H_old = RankTwoTensor::initializeFromRows(
         (*_grad_disp_old[0])[_qp], (*_grad_disp_old[1])[_qp], (*_grad_disp_old[2])[_qp]);
 
     RankTwoTensor Wdot = RankTwoTensor(RankTwoTensor::initIdentity);
@@ -141,7 +149,8 @@ EshelbyTensor::computeQpProperties()
 
   if (_has_temp)
   {
-    Real sigma_alpha = _stress[_qp].doubleContraction((*_total_deigenstrain_dT)[_qp]);
+    const Real sigma_alpha =
+        MetaPhysicL::raw_value(_stress[_qp]).doubleContraction(_total_deigenstrain_dT[_qp]);
     _J_thermal_term_vec[_qp] = sigma_alpha * _grad_temp[_qp];
   }
   else

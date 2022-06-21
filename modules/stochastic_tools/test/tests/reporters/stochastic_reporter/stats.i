@@ -23,7 +23,7 @@
 [Transfers]
   [data]
     type = SamplerReporterTransfer
-    multi_app = sub
+    from_multi_app = sub
     sampler = sample
     stochastic_reporter = storage
     from_reporter = 'pp/value constant/int'
@@ -32,7 +32,7 @@
 
 [Controls]
   [runner]
-    type = MultiAppCommandLineControl
+    type = MultiAppSamplerControl
     multi_app = sub
     param_names = 'Reporters/constant/integer_values
                    Postprocessors/pp/default'

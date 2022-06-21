@@ -25,11 +25,10 @@
 #include "libmesh/parallel_mesh.h"
 #include "libmesh/serial_mesh.h"
 #include "libmesh/exodusII_io.h"
+#include "libmesh/exodusII_io_helper.h"
 #include "libmesh/enum_xdr_mode.h"
 
 registerMooseObject("MooseApp", SolutionUserObject);
-
-defineLegacyParams(SolutionUserObject);
 
 InputParameters
 SolutionUserObject::validParams()
@@ -174,7 +173,7 @@ SolutionUserObject::readXda()
   _mesh->read(_mesh_file);
 
   // Create the libmesh::EquationSystems
-  _es = libmesh_make_unique<EquationSystems>(*_mesh);
+  _es = std::make_unique<EquationSystems>(*_mesh);
 
   // Use new read syntax (binary)
   if (_file_type == "xdr")
@@ -208,8 +207,9 @@ SolutionUserObject::readExodusII()
     _system_name = "SolutionUserObjectSystem";
 
   // Read the Exodus file
-  _exodusII_io = libmesh_make_unique<ExodusII_IO>(*_mesh);
+  _exodusII_io = std::make_unique<ExodusII_IO>(*_mesh);
   _exodusII_io->read(_mesh_file);
+  readBlockIdMapFromExodusII();
   _exodus_times = &_exodusII_io->get_time_steps();
 
   if (isParamValid("timestep"))
@@ -251,7 +251,7 @@ SolutionUserObject::readExodusII()
   }
 
   // Create EquationSystems object for solution
-  _es = libmesh_make_unique<EquationSystems>(*_mesh);
+  _es = std::make_unique<EquationSystems>(*_mesh);
   _es->add_system<ExplicitSystem>(_system_name);
   _system = &_es->get_system(_system_name);
 
@@ -298,7 +298,7 @@ SolutionUserObject::readExodusII()
   if (_interpolate_times)
   {
     // Create a second equation system
-    _es2 = libmesh_make_unique<EquationSystems>(*_mesh);
+    _es2 = std::make_unique<EquationSystems>(*_mesh);
     _es2->add_system<ExplicitSystem>(_system_name);
     _system2 = &_es2->get_system(_system_name);
 
@@ -446,7 +446,7 @@ SolutionUserObject::initialSetup()
   // .) We don't know if directValue will be used, which may request
   //    a value on a Node we don't have.
   // We force the Mesh used here to be a ReplicatedMesh.
-  _mesh = libmesh_make_unique<ReplicatedMesh>(_communicator);
+  _mesh = std::make_unique<ReplicatedMesh>(_communicator);
 
   // ExodusII mesh file supplied
   if (MooseUtils::hasExtension(_mesh_file, "e", /*strip_exodus_ext =*/true))
@@ -498,8 +498,8 @@ SolutionUserObject::initialSetup()
   }
 
   // Create the MeshFunction for working with the solution data
-  _mesh_function = libmesh_make_unique<MeshFunction>(
-      *_es, *_serialized_solution, _system->get_dof_map(), var_nums);
+  _mesh_function =
+      std::make_unique<MeshFunction>(*_es, *_serialized_solution, _system->get_dof_map(), var_nums);
   _mesh_function->init();
 
   // Tell the MeshFunctions that we might be querying them outside the
@@ -518,7 +518,7 @@ SolutionUserObject::initialSetup()
     _system2->solution->localize(*_serialized_solution2);
 
     // Create the MeshFunction for the second copy of the data
-    _mesh_function2 = libmesh_make_unique<MeshFunction>(
+    _mesh_function2 = std::make_unique<MeshFunction>(
         *_es2, *_serialized_solution2, _system2->get_dof_map(), var_nums);
     _mesh_function2->init();
     _mesh_function2->enable_out_of_mesh_mode(default_values);
@@ -727,13 +727,13 @@ SolutionUserObject::pointValue(Real libmesh_dbg_var(t),
     if (_transformation_order[trans_num] == "rotation0")
       pt = _r0 * pt;
     else if (_transformation_order[trans_num] == "translation")
-      for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+      for (const auto i : make_range(Moose::dim))
         pt(i) -= _translation[i];
     else if (_transformation_order[trans_num] == "scale")
-      for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+      for (const auto i : make_range(Moose::dim))
         pt(i) /= _scale[i];
     else if (_transformation_order[trans_num] == "scale_multiplier")
-      for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+      for (const auto i : make_range(Moose::dim))
         pt(i) *= _scale_multiplier[i];
     else if (_transformation_order[trans_num] == "rotation1")
       pt = _r1 * pt;
@@ -776,13 +776,13 @@ SolutionUserObject::discontinuousPointValue(Real libmesh_dbg_var(t),
     if (_transformation_order[trans_num] == "rotation0")
       pt = _r0 * pt;
     else if (_transformation_order[trans_num] == "translation")
-      for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+      for (const auto i : make_range(Moose::dim))
         pt(i) -= _translation[i];
     else if (_transformation_order[trans_num] == "scale")
-      for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+      for (const auto i : make_range(Moose::dim))
         pt(i) /= _scale[i];
     else if (_transformation_order[trans_num] == "scale_multiplier")
-      for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+      for (const auto i : make_range(Moose::dim))
         pt(i) *= _scale_multiplier[i];
     else if (_transformation_order[trans_num] == "rotation1")
       pt = _r1 * pt;
@@ -894,13 +894,13 @@ SolutionUserObject::pointValueGradient(Real libmesh_dbg_var(t),
     if (_transformation_order[trans_num] == "rotation0")
       pt = _r0 * pt;
     else if (_transformation_order[trans_num] == "translation")
-      for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+      for (const auto i : make_range(Moose::dim))
         pt(i) -= _translation[i];
     else if (_transformation_order[trans_num] == "scale")
-      for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+      for (const auto i : make_range(Moose::dim))
         pt(i) /= _scale[i];
     else if (_transformation_order[trans_num] == "scale_multiplier")
-      for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+      for (const auto i : make_range(Moose::dim))
         pt(i) *= _scale_multiplier[i];
     else if (_transformation_order[trans_num] == "rotation1")
       pt = _r1 * pt;
@@ -945,13 +945,13 @@ SolutionUserObject::discontinuousPointValueGradient(
     if (_transformation_order[trans_num] == "rotation0")
       pt = _r0 * pt;
     else if (_transformation_order[trans_num] == "translation")
-      for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+      for (const auto i : make_range(Moose::dim))
         pt(i) -= _translation[i];
     else if (_transformation_order[trans_num] == "scale")
-      for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+      for (const auto i : make_range(Moose::dim))
         pt(i) /= _scale[i];
     else if (_transformation_order[trans_num] == "scale_multiplier")
-      for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+      for (const auto i : make_range(Moose::dim))
         pt(i) *= _scale_multiplier[i];
     else if (_transformation_order[trans_num] == "rotation1")
       pt = _r1 * pt;
@@ -1206,4 +1206,16 @@ SolutionUserObject::scalarValue(Real /*t*/, const std::string & var_name) const
   dof_map.SCALAR_dof_indices(dofs, var_num);
   // We can handle only FIRST order scalar variables
   return directValue(dofs[0]);
+}
+
+void
+SolutionUserObject::readBlockIdMapFromExodusII()
+{
+#ifdef LIBMESH_HAVE_EXODUS_API
+  ExodusII_IO_Helper & exio_helper = _exodusII_io->get_exio_helper();
+  std::map<int, std::string> & id_to_block = exio_helper.id_to_block_names;
+  _block_name_to_id.clear();
+  for (auto & it : id_to_block)
+    _block_name_to_id[it.second] = it.first;
+#endif
 }

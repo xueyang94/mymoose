@@ -12,12 +12,6 @@
 // MOOSE includes
 #include "LineMaterialSamplerBase.h"
 
-// Forward Declarations
-class LineMaterialRealSampler;
-
-template <>
-InputParameters validParams<LineMaterialRealSampler>();
-
 /**
  * This class samples Real material properties for the integration points
  * in all elements that are intersected by a user-defined line.
@@ -43,4 +37,3 @@ public:
    */
   virtual Real getScalarFromProperty(const Real & property, const Point & curr_point) override;
 };
-

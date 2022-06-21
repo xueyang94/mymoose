@@ -47,14 +47,14 @@
 []
 
 [Controls/param]
-  type = MultiAppCommandLineControl
+  type = MultiAppSamplerControl
   multi_app = sub
   param_names = 'Reporters/const/real_vector_values[0,1,2,3,4]'
 []
 
 [Transfers/data]
   type = SamplerReporterTransfer
-  multi_app = sub
+  from_multi_app = sub
   from_reporter = 'const/num_vec'
   stochastic_reporter = storage
 []

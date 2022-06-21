@@ -21,6 +21,7 @@
 #include "libmesh/point.h"
 #include "libmesh/fe_base.h"
 #include "libmesh/numeric_vector.h"
+#include "libmesh/elem_side_builder.h"
 
 #include "DualRealOps.h"
 
@@ -73,6 +74,13 @@ class NodeFaceConstraint;
 /// Real or ADPoint and ADReal.
 template <typename P, typename C>
 void coordTransformFactor(const SubProblem & s,
+                          SubdomainID sub_id,
+                          const P & point,
+                          C & factor,
+                          SubdomainID neighbor_sub_id = libMesh::Elem::invalid_subdomain_id);
+
+template <typename P, typename C>
+void coordTransformFactor(const MooseMesh & mesh,
                           SubdomainID sub_id,
                           const P & point,
                           C & factor,
@@ -338,6 +346,9 @@ public:
     return _ad_q_points_face;
   }
 
+  template <bool is_ad>
+  const MooseArray<MooseADWrapper<Point, is_ad>> & genericQPoints() const;
+
   /**
    * Return the current element
    * @return A _reference_.  Make sure to store this as a reference!
@@ -530,6 +541,26 @@ public:
    */
   void setFaceQRule(QBase * qrule, unsigned int dim);
 
+  /**
+   * Specifies a custom qrule for integration on mortar segment mesh
+   *
+   * Used to properly integrate QUAD face elements using quadrature on TRI mortar segment elements.
+   * For example, to exactly integrate a FIRST order QUAD element, SECOND order quadrature on TRI
+   * mortar segments is needed.
+   */
+  void setMortarQRule(Order order);
+
+  /**
+   * Indicates that dual shape functions are used for mortar constraint
+   */
+  void activateDual() { _need_dual = true; }
+
+  /**
+   * Indicates whether dual shape functions are used (computation is now repeated on each element
+   * so expense of computing dual shape functions is no longer trivial)
+   */
+  bool needDual() const { return _need_dual; }
+
 private:
   /**
    * Set the qrule to be used for lower dimensional integration.
@@ -578,6 +609,11 @@ public:
                              const std::vector<Real> * const weights = nullptr);
 
   /**
+   * Reintialize dual basis coefficients based on a customized quadrature rule
+   */
+  void reinitDual(const Elem * elem, const std::vector<Point> & pts, const std::vector<Real> & JxW);
+
+  /**
    * Reinitialize FE data for a lower dimenesional element with a given set of reference points
    */
   void reinitLowerDElem(const Elem * elem,
@@ -608,7 +644,7 @@ private:
   /**
    * compute AD things on an element face
    */
-  void computeADFace(const Elem * elem, unsigned int side);
+  void computeADFace(const Elem & elem, const unsigned int side);
 
 public:
   /**
@@ -889,16 +925,6 @@ public:
                                 const DofMap & dof_map,
                                 const std::vector<dof_id_type> & idof_indices,
                                 const std::vector<dof_id_type> & jdof_indices);
-
-  /**
-   * Add *all* portions of the Jacobian, e.g. LowerLower, LowerSecondary, LowerPrimary,
-   * SecondaryLower, SecondarySecondary, SecondaryPrimary, PrimaryLower, PrimarySecondary,
-   * PrimaryPrimary for mortar-like objects. Primary indicates the interior parent element on the
-   * primary side of the mortar interface. Secondary indicates the interior parent element on the
-   * secondary side of the interface. Lower denotes the lower-dimensional element living on the
-   * secondary side of the mortar interface; it's the boundary face of the \p Secondary element.
-   */
-  void addJacobianMortar();
 
   /**
    * Add *all* portions of the Jacobian except PrimaryPrimary, e.g. LowerLower, LowerSecondary,
@@ -1645,13 +1671,30 @@ public:
   }
 
   /**
-   * This method is only meant to be called if MOOSE is configured to use global AD indexing.
-   * This simply caches the derivative values for the corresponding column indices for the provided
-   * \p matrix_tags. If called when using local AD indexing, this method will simply error
+   * This simply caches the residual value for the corresponding index for the provided
+   * \p vector_tags, and applies any scaling factors. The scaling factor is defined in
+   * _scaling_vector if global AD indexing is used. Otherwise, a uniform scaling factor of 1.0 is
+   * used.
    */
-  void processDerivatives(const ADReal & residual,
-                          dof_id_type dof_index,
-                          const std::set<TagID> & matrix_tags);
+  void processResidual(Real residual, dof_id_type dof_index, const std::set<TagID> & vector_tags);
+
+#ifdef MOOSE_GLOBAL_AD_INDEXING
+  /**
+   * This simply caches the derivative values for the corresponding column indices for the provided
+   * \p matrix_tags, and applies any scaling factors
+   */
+  void processJacobian(const ADReal & residual,
+                       dof_id_type dof_index,
+                       const std::set<TagID> & matrix_tags);
+
+  /**
+   * This performs the duties of both \p processResidual and \p processJacobian
+   */
+  void processResidualAndJacobian(const ADReal & residual,
+                                  dof_id_type dof_index,
+                                  const std::set<TagID> & vector_tags,
+                                  const std::set<TagID> & matrix_tags);
+#endif
 
   /**
    * Process the \p derivatives() data of an \p ADReal. When using global indexing, this method
@@ -1665,10 +1708,39 @@ public:
    * should be added to, and the \p matrix_tags specifying the matrices that will  be added into
    */
   template <typename LocalFunctor>
-  void processDerivatives(const ADReal & residual,
-                          dof_id_type dof_index,
-                          const std::set<TagID> & matrix_tags,
-                          LocalFunctor & local_functor);
+  void processJacobian(const ADReal & residual,
+                       dof_id_type dof_index,
+                       const std::set<TagID> & matrix_tags,
+                       LocalFunctor & local_functor);
+
+  /**
+   * Process the supplied residual values. This is a mirror of of the non-templated version of \p
+   * processResiduals except that it's meant for \emph only processing residuals (and not their
+   * derivatives/Jacobian). We supply this API such that residual objects that leverage the AD
+   * version of this method when computing the Jacobian (or residual + Jacobian) can mirror the same
+   * behavior when doing pure residual evaluations, such as when evaluting linear residuals during
+   * (P)JFNK. This method will call \p constrain_element_vector on the supplied residuals
+   */
+  template <typename T>
+  void processResiduals(const std::vector<T> & residuals,
+                        const std::vector<dof_id_type> & row_indices,
+                        const std::set<TagID> & vector_tags,
+                        Real scaling_factor);
+
+#ifdef MOOSE_GLOBAL_AD_INDEXING
+  /**
+   * Process the value and \p derivatives() data of a vector of \p ADReals. When using global
+   * indexing, this method simply caches the value (residual) for the provided \p vector_tags and
+   * derivative values (Jacobian) for the corresponding column indices for the provided \p
+   * matrix_tags. Note that this overload will call \p DofMap::constrain_element_vector and \p
+   * DofMap::constrain_element_matrix
+   */
+  void processResidualsAndJacobian(const std::vector<ADReal> & residuals,
+                                   const std::vector<dof_id_type> & row_indices,
+                                   const std::set<TagID> & vector_tags,
+                                   const std::set<TagID> & matrix_tags,
+                                   Real scaling_factor);
+#endif
 
   /**
    * Process the \p derivatives() data of a vector of \p ADReals. When using global indexing, this
@@ -1682,15 +1754,29 @@ public:
    * added into
    */
   template <typename LocalFunctor>
-  void processDerivatives(const std::vector<ADReal> & residuals,
-                          const std::vector<dof_id_type> & row_indices,
-                          const std::set<TagID> & matrix_tags,
-                          LocalFunctor & local_functor);
+  void processJacobian(const std::vector<ADReal> & residuals,
+                       const std::vector<dof_id_type> & row_indices,
+                       const std::set<TagID> & matrix_tags,
+                       Real scaling_factor,
+                       LocalFunctor & local_functor);
 
 #ifdef MOOSE_GLOBAL_AD_INDEXING
   /**
-   * signals this object that a vector containing variable scaling factors should be used when doing
-   * residual and matrix assembly
+   * Same as \p processResiduals with the exception that constrain_element_vector and
+   * constrain_element_matrix will not be applied. This should only be used when the contributions
+   * of these residuals to libmesh constrained degrees of freedom should be 0, e.g. if the residuals
+   * correspond to mortar constraint residuals along faces such that interior hanging nodes will not
+   * feel the contribution
+   */
+  void processUnconstrainedResidualsAndJacobian(const std::vector<ADReal> & residuals,
+                                                const std::vector<dof_id_type> & row_indices,
+                                                const std::set<TagID> & vector_tags,
+                                                const std::set<TagID> & matrix_tags,
+                                                Real scaling_factor);
+
+  /**
+   * signals this object that a vector containing variable scaling factors should be used when
+   * doing residual and matrix assembly
    */
   void hasScalingVector();
 #endif
@@ -1704,6 +1790,17 @@ public:
    * @param weights The weights to fill into _current_JxW
    */
   void modifyArbitraryWeights(const std::vector<Real> & weights);
+
+  /**
+   * @return whether we are computing a residual. In practice this will return true whenever we are
+   * not computing a Jacobian
+   */
+  bool computingResidual() const { return !_computing_jacobian; }
+
+  /**
+   * @return whether we are computing a Jacobian
+   */
+  bool computingJacobian() const { return _computing_jacobian || _computing_residual_and_jacobian; }
 
 protected:
   /**
@@ -1721,7 +1818,7 @@ protected:
    */
   void reinitFEFace(const Elem * elem, unsigned int side);
 
-  void computeFaceMap(unsigned dim, const std::vector<Real> & qw, const Elem * side);
+  void computeFaceMap(const Elem & elem, const unsigned int side, const std::vector<Real> & qw);
 
   void reinitFEFaceNeighbor(const Elem * neighbor, const std::vector<Point> & reference_points);
 
@@ -2016,7 +2113,11 @@ private:
   const CouplingMatrix * _cm;
   const CouplingMatrix & _nonlocal_cm;
 
+  /// Whether we are currently computing the Jacobian
   const bool & _computing_jacobian;
+
+  /// Whether we are currently computing the residual and Jacobian
+  const bool & _computing_residual_and_jacobian;
 
   /// Entries in the coupling matrix for field variables
   std::vector<std::pair<MooseVariableFieldBase *, MooseVariableFieldBase *>> _cm_ff_entry;
@@ -2287,6 +2388,8 @@ private:
   QBase * _qrule_msm;
   /// A pointer to const qrule_msm
   const QBase * _const_qrule_msm;
+  /// Flag specifying whether a custom quadrature rule has been specified for mortar segment mesh
+  bool _custom_mortar_qrule;
 
 private:
   /// quadrature rule used on lower dimensional elements. This should always be the same as the face
@@ -2346,6 +2449,8 @@ protected:
   mutable bool _need_neighbor_lower_d_elem_volume;
   /// The current neighboring lower dimensional element volume
   Real _current_neighbor_lower_d_elem_volume;
+  /// Whether dual shape functions need to be computed for mortar constraints
+  bool _need_dual;
 
   /// This will be filled up with the physical points passed into reinitAtPhysical() if it is called.  Invalid at all other times.
   MooseArray<Point> _current_physical_points;
@@ -2566,6 +2671,13 @@ protected:
   /// The map from global index to variable scaling factor
   const NumericVector<Real> * _scaling_vector = nullptr;
 #endif
+
+  /// In place side element builder for _current_side_elem
+  ElemSideBuilder _current_side_elem_builder;
+  /// In place side element builder for _current_neighbor_side_elem
+  ElemSideBuilder _current_neighbor_side_elem_builder;
+  /// In place side element builder for computeFaceMap()
+  ElemSideBuilder _compute_face_map_side_elem_builder;
 };
 
 template <typename OutputType>
@@ -2703,9 +2815,9 @@ Assembly::adGradPhi<RealVectorValue>(const MooseVariableFE<RealVectorValue> & v)
 
 #ifdef MOOSE_GLOBAL_AD_INDEXING
 inline void
-Assembly::processDerivatives(const ADReal & residual,
-                             const dof_id_type row_index,
-                             const std::set<TagID> & matrix_tags)
+Assembly::processJacobian(const ADReal & residual,
+                          const dof_id_type row_index,
+                          const std::set<TagID> & matrix_tags)
 {
   const auto & derivs = residual.derivatives();
 
@@ -2719,27 +2831,21 @@ Assembly::processDerivatives(const ADReal & residual,
   for (std::size_t i = 0; i < column_indices.size(); ++i)
     cacheJacobian(row_index, column_indices[i], values[i] * scalar, matrix_tags);
 }
-#else
-inline void
-Assembly::processDerivatives(const ADReal &, const dof_id_type, const std::set<TagID> &)
-{
-  mooseError("This method should not be used if using local AD indexing");
-}
 #endif
 
 template <typename LocalFunctor>
 void
-Assembly::processDerivatives(const ADReal & residual,
-                             const dof_id_type row_index,
-                             const std::set<TagID> & matrix_tags,
-                             LocalFunctor &
+Assembly::processJacobian(const ADReal & residual,
+                          const dof_id_type row_index,
+                          const std::set<TagID> & matrix_tags,
+                          LocalFunctor &
 #ifndef MOOSE_GLOBAL_AD_INDEXING
-                                 local_functor
+                              local_functor
 #endif
 )
 {
 #ifdef MOOSE_GLOBAL_AD_INDEXING
-  processDerivatives(residual, row_index, matrix_tags);
+  processJacobian(residual, row_index, matrix_tags);
 #else
   local_functor(residual, row_index, matrix_tags);
 #endif
@@ -2747,66 +2853,55 @@ Assembly::processDerivatives(const ADReal & residual,
 
 template <typename LocalFunctor>
 void
-Assembly::processDerivatives(const std::vector<ADReal> & residuals,
-                             const std::vector<dof_id_type> & input_row_indices,
-                             const std::set<TagID> & matrix_tags,
-                             LocalFunctor &
+Assembly::processJacobian(const std::vector<ADReal> & residuals,
+                          const std::vector<dof_id_type> & input_row_indices,
+                          const std::set<TagID> & matrix_tags,
+                          const Real
+#ifdef MOOSE_GLOBAL_AD_INDEXING
+                              scaling_factor
+#endif
+                          ,
+                          LocalFunctor &
 #ifndef MOOSE_GLOBAL_AD_INDEXING
-                                 local_functor
+                              local_functor
 #endif
 )
 {
 #ifdef MOOSE_GLOBAL_AD_INDEXING
-  // Need to make a copy because we might modify this in constrain_element_matrix
-  std::vector<dof_id_type> row_indices = input_row_indices;
-
-  mooseAssert(residuals.size() == row_indices.size(),
-              "The number of residuals should match the number of dof indices");
-  mooseAssert(residuals.size() >= 1, "Why you calling me with no residuals?");
-
-  const auto & compare_dofs = residuals[0].derivatives().nude_indices();
-#ifndef NDEBUG
-  auto compare_dofs_set = std::set<dof_id_type>(compare_dofs.begin(), compare_dofs.end());
-
-  for (auto resid_it = residuals.begin() + 1; resid_it != residuals.end(); ++resid_it)
-  {
-    auto current_dofs_set = std::set<dof_id_type>(resid_it->derivatives().nude_indices().begin(),
-                                                  resid_it->derivatives().nude_indices().end());
-    mooseAssert(compare_dofs_set == current_dofs_set,
-                "We're going to see whether the dof sets are the same. IIRC the degree of freedom "
-                "dependence (as indicated by the dof index set held by the ADReal) has to be the "
-                "same for every residual passed to this method otherwise constrain_element_matrix "
-                "will not work.");
-  }
-#endif
-  auto column_indices = std::vector<dof_id_type>(compare_dofs.begin(), compare_dofs.end());
-
-  // If there's no derivatives then there is nothing to do. Moreover, if we pass zero size column
-  // indices to constrain_element_matrix then we will potentially get errors out of BLAS
-  if (!column_indices.size())
-    return;
-
-  DenseMatrix<Number> element_matrix(row_indices.size(), column_indices.size());
-  for (const auto i : index_range(row_indices))
-  {
-    const auto row_index = row_indices[i];
-    const Real scalar = _scaling_vector ? (*_scaling_vector)(row_index) : 1.;
-
-    const auto & sparse_derivatives = residuals[i].derivatives();
-
-    for (const auto j : index_range(column_indices))
-      element_matrix(i, j) = sparse_derivatives[column_indices[j]] * scalar;
-  }
-
-  _dof_map.constrain_element_matrix(element_matrix, row_indices, column_indices);
-
-  for (const auto i : index_range(row_indices))
-    for (const auto j : index_range(column_indices))
-      cacheJacobian(row_indices[i], column_indices[j], element_matrix(i, j), matrix_tags);
-
+  processResidualsAndJacobian(residuals, input_row_indices, {}, matrix_tags, scaling_factor);
 #else
   local_functor(residuals, input_row_indices, matrix_tags);
 #endif
+}
+
+template <typename T>
+void
+Assembly::processResiduals(const std::vector<T> & residuals,
+                           const std::vector<dof_id_type> & input_row_indices,
+                           const std::set<TagID> & vector_tags,
+                           const Real scaling_factor)
+{
+  if (!computingResidual() || vector_tags.empty())
+    return;
+
+  mooseAssert(residuals.size() == input_row_indices.size(),
+              "The number of residuals should match the number of dof indices");
+  mooseAssert(residuals.size() >= 1, "Why you calling me with no residuals?");
+
+  // Need to make a copy because we might modify this in constrain_element_vector
+  std::vector<dof_id_type> row_indices = input_row_indices;
+
+  DenseVector<Number> element_vector(row_indices.size());
+  for (const auto i : index_range(row_indices))
+    element_vector(i) = MetaPhysicL::raw_value(residuals[i]) * scaling_factor;
+
+  // At time of writing, this method doesn't do anything with the asymmetric_constraint_rows
+  // argument, but we set it to false to be consistent with processLocalResidual
+  _dof_map.constrain_element_vector(
+      element_vector, row_indices, /*asymmetric_constraint_rows=*/false);
+
+  for (const auto i : index_range(row_indices))
+    cacheResidual(row_indices[i], element_vector(i), vector_tags);
 }
 
 inline const Real &

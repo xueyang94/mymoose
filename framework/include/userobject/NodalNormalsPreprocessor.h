@@ -15,12 +15,9 @@
 
 #include "libmesh/fe_type.h"
 
-// Forward declarations
-class NodalNormalsPreprocessor;
-class AuxiliarySystem;
+#include <mutex>
 
-template <>
-InputParameters validParams<NodalNormalsPreprocessor>();
+class AuxiliarySystem;
 
 /**
  * An ElementUserObject that prepares MOOSE for computing nodal
@@ -59,5 +56,11 @@ protected:
   BoundaryID _corner_boundary_id;
 
   const VariablePhiGradient & _grad_phi;
-};
 
+private:
+  static std::mutex _nodal_normals_mutex;
+
+  // For access to mutex
+  friend class NodalNormalsCorner;
+  friend class NodalNormalsEvaluator;
+};

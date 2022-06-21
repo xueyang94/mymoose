@@ -11,12 +11,7 @@
 
 #include "AuxKernel.h"
 
-// Forward Declarations
-class NearestNodeDistanceAux;
 class NearestNodeLocator;
-
-template <>
-InputParameters validParams<NearestNodeDistanceAux>();
 
 /**
  * Computes the distance from a block or boundary to another boundary.
@@ -33,4 +28,3 @@ protected:
 
   NearestNodeLocator & _nearest_node;
 };
-

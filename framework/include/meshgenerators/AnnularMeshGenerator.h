@@ -12,12 +12,6 @@
 #include "MeshGenerator.h"
 #include <vector>
 
-// Forward declarations
-class AnnularMeshGenerator;
-
-template <>
-InputParameters validParams<AnnularMeshGenerator>();
-
 /**
  * Generates an annular mesh given all the parameters
  */
@@ -69,4 +63,7 @@ protected:
 
   /// Subdomain ID of created tri elements (that only exist if rmin=0)
   const SubdomainID _tri_subdomain_id;
+
+  /// Whether to construct rings to have equal areas
+  const bool & _equal_area;
 };

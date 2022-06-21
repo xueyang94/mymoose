@@ -3,12 +3,14 @@
 []
 
 [Mesh]
-  type = GeneratedMesh
-  dim = 2
-  nx = 10
-  ny = 100
-  ymax = 0.304 # Length of test chamber
-  xmax = 0.0257 # Test chamber radius
+  [gmg]
+    type = GeneratedMeshGenerator
+    dim = 2
+    nx = 10
+    ny = 100
+    ymax = 0.304 # Length of test chamber
+    xmax = 0.0257 # Test chamber radius
+  []
 []
 
 [Variables]
@@ -192,8 +194,7 @@
 [Transfers]
   [keff_from_sub]
     type = MultiAppPostprocessorInterpolationTransfer
-    direction = from_multiapp
-    multi_app = micro
+    from_multi_app = micro
     variable = k_eff
     power = 1
     postprocessor = k_eff
@@ -201,8 +202,7 @@
   []
   [temperature_to_sub]
     type = MultiAppVariableValueSamplePostprocessorTransfer
-    direction = to_multiapp
-    multi_app = micro
+    to_multi_app = micro
     source_variable = temperature
     postprocessor = temperature_in
     execute_on = 'timestep_end'

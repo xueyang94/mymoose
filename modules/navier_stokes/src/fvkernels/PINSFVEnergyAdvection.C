@@ -16,44 +16,10 @@ registerMooseObject("NavierStokesApp", PINSFVEnergyAdvection);
 InputParameters
 PINSFVEnergyAdvection::validParams()
 {
-  auto params = PINSFVMomentumAdvection::validParams();
-  params.addClassDescription("Advects energy, e.g. rho*cp*T. A user may still override what "
-                             "quantity is advected, but the default is rho*cp*T");
-  params.set<MooseFunctorName>("advected_quantity") = "rho_cp_temp";
-  return params;
+  return INSFVEnergyAdvection::validParams();
 }
 
 PINSFVEnergyAdvection::PINSFVEnergyAdvection(const InputParameters & params)
-  : PINSFVMomentumAdvection(params)
+  : INSFVEnergyAdvection(params)
 {
-  if (!dynamic_cast<const PINSFVSuperficialVelocityVariable *>(_u_var))
-    mooseError("PINSFVEnergyAdvection may only be used with a superficial advective velocity, "
-               "of variable type PINSFVSuperficialVelocityVariable.");
-  if (!dynamic_cast<INSFVEnergyVariable *>(&_var))
-    mooseError("PINSFVEnergyAdvection may only be used with a fluid temperature variable, "
-               "of variable type INSFVEnergyVariable.");
-}
-
-ADReal
-PINSFVEnergyAdvection::computeQpResidual()
-{
-  ADRealVectorValue v;
-  ADReal adv_quant_interface;
-
-  const auto elem_face = elemFromFace();
-  const auto neighbor_face = neighborFromFace();
-
-  // Velocity interpolation
-  this->interpolate(_velocity_interp_method, v);
-
-  // Interpolation of advected quantity
-  Moose::FV::interpolate(_advected_interp_method,
-                         adv_quant_interface,
-                         _adv_quant(elem_face),
-                         _adv_quant(neighbor_face),
-                         v,
-                         *_face_info,
-                         true);
-
-  return _normal * v * adv_quant_interface;
 }

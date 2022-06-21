@@ -9,43 +9,24 @@
 
 #include "PINSFVMassAdvection.h"
 #include "PINSFVSuperficialVelocityVariable.h"
+#include "NS.h"
 
 registerMooseObject("NavierStokesApp", PINSFVMassAdvection);
 
 InputParameters
 PINSFVMassAdvection::validParams()
 {
-  auto params = PINSFVMomentumAdvection::validParams();
+  auto params = INSFVMassAdvection::validParams();
   params.addClassDescription("Object for advecting mass in porous media mass equation");
   return params;
 }
 
 PINSFVMassAdvection::PINSFVMassAdvection(const InputParameters & params)
-  : PINSFVMomentumAdvection(params)
+  : INSFVMassAdvection(params)
 {
 #ifndef MOOSE_GLOBAL_AD_INDEXING
   mooseError("PINSFV is not supported by local AD indexing. In order to use PINSFV, please run the "
              "configure script in the root MOOSE directory with the configure option "
              "'--with-ad-indexing-type=global'");
 #endif
-}
-
-ADReal
-PINSFVMassAdvection::computeQpResidual()
-{
-  ADRealVectorValue v;
-  ADReal rho_interface;
-
-  const auto elem_face = elemFromFace();
-  const auto neighbor_face = neighborFromFace();
-
-  this->interpolate(_velocity_interp_method, v);
-  Moose::FV::interpolate(_advected_interp_method,
-                         rho_interface,
-                         _rho(elem_face),
-                         _rho(neighbor_face),
-                         v,
-                         *_face_info,
-                         true);
-  return _normal * v * rho_interface;
 }

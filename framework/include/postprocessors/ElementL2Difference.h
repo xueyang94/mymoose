@@ -11,12 +11,6 @@
 
 #include "ElementIntegralVariablePostprocessor.h"
 
-// Forward Declarations
-class ElementL2Difference;
-
-template <>
-InputParameters validParams<ElementL2Difference>();
-
 /**
  * Computes the L2-Norm difference between two solution fields.
  */
@@ -35,4 +29,3 @@ protected:
   /// The variable to compare to
   const VariableValue & _other_var;
 };
-

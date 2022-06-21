@@ -15,7 +15,8 @@ namespace StochasticTools
 MultiMooseEnum
 makeCalculatorEnum()
 {
-  return MultiMooseEnum("min=0 max=1 sum=2 mean=3 stddev=4 norm2=5 ratio=6 stderr=7 median=8");
+  return MultiMooseEnum(
+      "min=0 max=1 sum=2 mean=3 stddev=4 norm2=5 ratio=6 stderr=7 median=8 meanabs=9");
 }
 
 // MEAN ////////////////////////////////////////////////////////////////////////////////////////////
@@ -46,6 +47,14 @@ Mean<InType, OutType>::finalize(bool is_distributed)
   }
   if (_count > 0)
     _sum /= static_cast<OutType>(_count);
+}
+
+// MEAN ABS ////////////////////////////////////////////////////////////////////////////////////////
+template <typename InType, typename OutType>
+void
+MeanAbsoluteValue<InType, OutType>::update(const typename InType::value_type & val)
+{
+  Mean<InType, OutType>::update(std::abs(val));
 }
 
 // SUM /////////////////////////////////////////////////////////////////////////////////////////////
@@ -285,31 +294,34 @@ CalculatorBuilder<InType, OutType>::build(const MooseEnumItem & item,
                                           const libMesh::ParallelObject & other)
 {
   if (item == "min")
-    return libmesh_make_unique<Min<InType, OutType>>(other, item);
+    return std::make_unique<Min<InType, OutType>>(other, item);
 
   else if (item == "max")
-    return libmesh_make_unique<Max<InType, OutType>>(other, item);
+    return std::make_unique<Max<InType, OutType>>(other, item);
 
   else if (item == "sum")
-    return libmesh_make_unique<Sum<InType, OutType>>(other, item);
+    return std::make_unique<Sum<InType, OutType>>(other, item);
 
   else if (item == "mean" || item == "average") // average is deprecated
-    return libmesh_make_unique<Mean<InType, OutType>>(other, item);
+    return std::make_unique<Mean<InType, OutType>>(other, item);
 
   else if (item == "stddev")
-    return libmesh_make_unique<StdDev<InType, OutType>>(other, item);
+    return std::make_unique<StdDev<InType, OutType>>(other, item);
 
   else if (item == "stderr")
-    return libmesh_make_unique<StdErr<InType, OutType>>(other, item);
+    return std::make_unique<StdErr<InType, OutType>>(other, item);
 
   else if (item == "norm2")
-    return libmesh_make_unique<L2Norm<InType, OutType>>(other, item);
+    return std::make_unique<L2Norm<InType, OutType>>(other, item);
 
   else if (item == "ratio")
-    return libmesh_make_unique<Ratio<InType, OutType>>(other, item);
+    return std::make_unique<Ratio<InType, OutType>>(other, item);
 
   else if (item == "median")
-    return libmesh_make_unique<Median<InType, OutType>>(other, item);
+    return std::make_unique<Median<InType, OutType>>(other, item);
+
+  else if (item == "meanabs")
+    return std::make_unique<MeanAbsoluteValue<InType, OutType>>(other, item);
 
   ::mooseError("Failed to create Statistics::Calculator object for ", item);
   return nullptr;

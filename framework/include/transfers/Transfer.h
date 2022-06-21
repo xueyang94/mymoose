@@ -14,9 +14,8 @@
 #include "MooseTypes.h"
 #include "SetupInterface.h"
 #include "Restartable.h"
+#include "PerfGraphInterface.h"
 
-// Forward declarations
-class Transfer;
 class SubProblem;
 class FEProblemBase;
 class FEProblem;
@@ -28,16 +27,16 @@ class System;
 class EquationSystems;
 }
 
-template <>
-InputParameters validParams<Transfer>();
-
 /**
  * Base class for all Transfer objects.
  *
  * Transfers are objects that take values from one Application
  * or System and put them in another Application or System.
  */
-class Transfer : public MooseObject, public SetupInterface, public Restartable
+class Transfer : public MooseObject,
+                 public SetupInterface,
+                 public Restartable,
+                 public PerfGraphInterface
 {
 public:
   Transfer(const InputParameters & parameters);
@@ -69,11 +68,12 @@ public:
   enum DIRECTION
   {
     TO_MULTIAPP,
-    FROM_MULTIAPP
+    FROM_MULTIAPP,
+    BETWEEN_MULTIAPP
   };
 
   /// Used to construct InputParameters
-  static std::string possibleDirections() { return "to_multiapp from_multiapp"; }
+  static std::string possibleDirections() { return "to_multiapp from_multiapp between_multiapp"; }
 
   /// The directions this Transfer should be executed on
   const MultiMooseEnum & directions() { return _directions; }
@@ -81,8 +81,8 @@ public:
   ///@{
   /// The current direction that this Transfer is going in.
   /// direction() is to be deprecated for currentDirection()
-  int direction() { return _direction; }
-  int currentDirection() { return _current_direction; }
+  MooseEnum direction() { return _direction; }
+  MooseEnum currentDirection() { return _current_direction; }
   ///@}
 
   /// Set this Transfer to be executed in a given direction
@@ -107,7 +107,7 @@ protected:
   ///@}
 
   /// The directions this Transfer is to be executed on
-  const MultiMooseEnum _directions;
+  MultiMooseEnum _directions;
 
 public:
   const static Number OutOfMeshValue;

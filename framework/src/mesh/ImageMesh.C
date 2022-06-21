@@ -19,8 +19,6 @@
 
 registerMooseObject("MooseApp", ImageMesh);
 
-defineLegacyParams(ImageMesh);
-
 InputParameters
 ImageMesh::validParams()
 {
@@ -60,7 +58,7 @@ ImageMesh::ImageMesh(const ImageMesh & other_mesh)
 std::unique_ptr<MooseMesh>
 ImageMesh::safeClone() const
 {
-  return libmesh_make_unique<ImageMesh>(*this);
+  return std::make_unique<ImageMesh>(*this);
 }
 
 void

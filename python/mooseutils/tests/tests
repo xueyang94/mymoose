@@ -84,4 +84,17 @@
 
     requirement = "The system shall include a tool for accessing CIVET testing results."
   []
+  [perfgraph]
+    type = PythonUnitTest
+    input = test_PerfGraphReporterReader.py
+    separate = True
+    requirement = "MOOSE python utilities shall include tools for reading PerfGraphReporter data."
+    issues = "#16256"
+  []
+  [csvdiff]
+    type = PythonUnitTest
+    input = test_csvdiff.py
+    requirement = "MOOSE python utilities shall include a tool for reading compared csv files."
+    issues = '#20032'
+  []
 []

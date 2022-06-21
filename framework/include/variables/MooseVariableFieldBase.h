@@ -22,10 +22,6 @@ class Point;
 
 class FaceInfo;
 
-class MooseVariableFieldBase;
-template <>
-InputParameters validParams<MooseVariableFieldBase>();
-
 /**
  * This class provides an interface for common operations on field variables of
  * both FE and FV types with all their scalar, vector, eigenvector
@@ -72,6 +68,16 @@ public:
    * Filed type of this variable
    */
   virtual Moose::VarFieldType fieldType() const = 0;
+
+  /**
+   * @returns true if this is an array variable, false otherwise.
+   */
+  virtual bool isArray() const = 0;
+
+  /**
+   * Get the variable name of a component in libMesh
+   */
+  std::string componentName(const unsigned int comp) const;
 
   /**
    * @returns true if this is a vector-valued element, false otherwise.

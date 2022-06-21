@@ -83,16 +83,10 @@ Factory::getValidParams(const std::string & obj_name)
   return params;
 }
 
-InputParameters
-Factory::getADValidParams(const std::string & obj_name)
-{
-  return getValidParams(obj_name + "<RESIDUAL>");
-}
-
 MooseObjectPtr
 Factory::create(const std::string & obj_name,
                 const std::string & name,
-                InputParameters & parameters,
+                const InputParameters & parameters,
                 THREAD_ID tid /* =0 */,
                 bool print_deprecated /* =true */)
 {
@@ -256,9 +250,6 @@ Factory::deprecatedMessage(const std::string obj_name)
 void
 Factory::reportUnregisteredError(const std::string & obj_name) const
 {
-  // Make sure that we don't have an improperly registered object first
-  _app.checkRegistryLabels();
-
   std::ostringstream oss;
   std::set<std::string> paths = _app.getLoadedLibraryPaths();
 

@@ -18,8 +18,6 @@
 
 registerMooseObject("MooseApp", Eigenvalue);
 
-defineLegacyParams(Eigenvalue);
-
 InputParameters
 Eigenvalue::validParams()
 {
@@ -47,6 +45,12 @@ Eigenvalue::validParams()
       "Whether or not to use a matrix free fashion for forming the preconditioning matrix. "
       "If true, a shell matrix will be used for preconditioner.");
 
+  params.addParam<bool>("constant_matrices",
+                        false,
+                        "Whether or not to use constant matrices so that we can use them to form "
+                        "residuals on both linear and "
+                        "nonlinear iterations");
+
   params.addParam<bool>("precond_matrix_includes_eigen",
                         false,
                         "Whether or not to include eigen kernels in the preconditioning matrix. "
@@ -54,6 +58,7 @@ Eigenvalue::validParams()
 
   params.addPrivateParam<bool>("_use_eigen_value", true);
 
+  params.addParam<Real>("initial_eigenvalue", 1, "Initial eigenvalue");
   params.addParam<PostprocessorName>(
       "normalization", "Postprocessor evaluating norm of eigenvector for normalization");
   params.addParam<Real>("normal_factor",
@@ -117,10 +122,11 @@ Eigenvalue::Eigenvalue(const InputParameters & parameters)
       _eigen_problem.setNormalization(normpp);
   }
 
+  _eigen_problem.setInitialEigenvalue(getParam<Real>("initial_eigenvalue"));
+
   // Set a flag to nonlinear eigen system
   _eigen_problem.getNonlinearEigenSystem().precondMatrixIncludesEigenKernels(
       getParam<bool>("precond_matrix_includes_eigen"));
-
 #else
   mooseError("SLEPc is required to use Eigenvalue executioner, please use '--download-slepc in "
              "PETSc configuration'");

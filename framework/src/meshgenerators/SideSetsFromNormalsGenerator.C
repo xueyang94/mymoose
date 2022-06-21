@@ -26,8 +26,6 @@
 
 registerMooseObject("MooseApp", SideSetsFromNormalsGenerator);
 
-defineLegacyParams(SideSetsFromNormalsGenerator);
-
 InputParameters
 SideSetsFromNormalsGenerator::validParams()
 {
@@ -53,9 +51,6 @@ SideSetsFromNormalsGenerator::SideSetsFromNormalsGenerator(const InputParameters
         declareMeshProperty<std::map<BoundaryID, RealVectorValue>>("boundary_normals")),
     _tolerance(getParam<Real>("tolerance"))
 {
-  if (typeid(_input).name() == typeid(std::unique_ptr<DistributedMesh>).name())
-    mooseError("GenerateAllSideSetsByNormals only works with ReplicatedMesh.");
-
   // Get the BoundaryIDs from the mesh
   _boundary_names = getParam<std::vector<BoundaryName>>("new_boundary");
 
@@ -75,6 +70,9 @@ std::unique_ptr<MeshBase>
 SideSetsFromNormalsGenerator::generate()
 {
   std::unique_ptr<MeshBase> mesh = std::move(_input);
+  if (!_fixed_normal && !mesh->is_replicated())
+    mooseError("SideSetsFromNormalsGenerator is not implemented for distributed meshes when "
+               "fixed_normal = false");
 
   std::vector<BoundaryID> boundary_ids =
       MooseMeshUtils::getBoundaryIDs(*mesh, _boundary_names, true);

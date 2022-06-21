@@ -107,6 +107,21 @@ ElementSubdomainModifier::execute()
 }
 
 void
+ElementSubdomainModifier::threadJoin(const UserObject & in_uo)
+{
+  // Join the data from uo into _this_ object:
+  const ElementSubdomainModifier & uo = static_cast<const ElementSubdomainModifier &>(in_uo);
+
+  _moved_elems.insert(_moved_elems.end(), uo._moved_elems.begin(), uo._moved_elems.end());
+
+  _moved_displaced_elems.insert(_moved_displaced_elems.end(),
+                                uo._moved_displaced_elems.begin(),
+                                uo._moved_displaced_elems.end());
+
+  _moved_nodes.insert(uo._moved_nodes.begin(), uo._moved_nodes.end());
+}
+
+void
 ElementSubdomainModifier::finalize()
 {
   /*
@@ -146,9 +161,6 @@ ElementSubdomainModifier::finalize()
     // Set old and older solution on the initialized dofs
     setOldAndOlderSolutionsForMovedNodes(_fe_problem.getNonlinearSystemBase());
     setOldAndOlderSolutionsForMovedNodes(_fe_problem.getAuxiliarySystem());
-
-    if (_fe_problem.isTransient())
-      _fe_problem.restoreSolutions();
   }
 
   // Initialize stateful material properties for the newly activated elements
@@ -254,12 +266,13 @@ ElementSubdomainModifier::pushBoundarySideInfo(
 {
   auto elem_action_functor =
       [&mesh, this](processor_id_type,
-                    const std::vector<std::pair<dof_id_type, unsigned int>> & received_elem) {
-        // remove the side
-        for (const auto & pr : received_elem)
-          mesh.getMesh().get_boundary_info().remove_side(
-              mesh.getMesh().elem_ptr(pr.first), pr.second, _moving_boundary_id);
-      };
+                    const std::vector<std::pair<dof_id_type, unsigned int>> & received_elem)
+  {
+    // remove the side
+    for (const auto & pr : received_elem)
+      mesh.getMesh().get_boundary_info().remove_side(
+          mesh.getMesh().elem_ptr(pr.first), pr.second, _moving_boundary_id);
+  };
 
   Parallel::push_parallel_vector_data(
       mesh.getMesh().get_boundary_info().comm(), elems_to_push, elem_action_functor);
@@ -270,8 +283,9 @@ ElementSubdomainModifier::pushBoundaryNodeInfo(
     MooseMesh & mesh,
     std::unordered_map<processor_id_type, std::vector<dof_id_type>> & nodes_to_push)
 {
-  auto node_action_functor = [&mesh, this](processor_id_type,
-                                           const std::vector<dof_id_type> & received_nodes) {
+  auto node_action_functor =
+      [&mesh, this](processor_id_type, const std::vector<dof_id_type> & received_nodes)
+  {
     for (const auto & pr : received_nodes)
       mesh.getMesh().get_boundary_info().remove_node(mesh.getMesh().node_ptr(pr),
                                                      _moving_boundary_id);
@@ -296,7 +310,7 @@ ElementSubdomainModifier::buildMovedElemsRange()
   const auto elems_end = MeshBase::const_element_iterator(
       elem_itr_end, elem_itr_end, Predicates::NotNull<Elem * const *>());
 
-  _moved_elems_range = libmesh_make_unique<ConstElemRange>(elems_begin, elems_end);
+  _moved_elems_range = std::make_unique<ConstElemRange>(elems_begin, elems_end);
 }
 
 void
@@ -329,7 +343,7 @@ ElementSubdomainModifier::buildMovedBndNodesRange()
   const auto bnd_nodes_end = MooseMesh::const_bnd_node_iterator(
       bnd_node_itr_end, bnd_node_itr_end, Predicates::NotNull<const BndNode * const *>());
 
-  _moved_bnd_nodes_range = libmesh_make_unique<ConstBndNodeRange>(bnd_nodes_begin, bnd_nodes_end);
+  _moved_bnd_nodes_range = std::make_unique<ConstBndNodeRange>(bnd_nodes_begin, bnd_nodes_end);
 }
 
 void

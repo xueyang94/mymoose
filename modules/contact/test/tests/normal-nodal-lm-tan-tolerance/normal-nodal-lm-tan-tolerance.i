@@ -55,7 +55,7 @@
 []
 
 [Constraints]
-  [frictional_normal_lm]
+  [frictionless_normal_lm]
     type = NormalNodalLMMechanicalContact
     secondary = 101
     primary = 100
@@ -77,6 +77,7 @@
     component = x
     use_displaced_mesh = true
     compute_lm_residuals = false
+    correct_edge_dropping = true
   []
   [normal_y]
     type = NormalMortarMechanicalContact
@@ -89,6 +90,7 @@
     component = y
     use_displaced_mesh = true
     compute_lm_residuals = false
+    correct_edge_dropping = true
   []
 []
 

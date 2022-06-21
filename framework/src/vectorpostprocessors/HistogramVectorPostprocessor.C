@@ -13,8 +13,6 @@
 
 registerMooseObject("MooseApp", HistogramVectorPostprocessor);
 
-defineLegacyParams(HistogramVectorPostprocessor);
-
 InputParameters
 HistogramVectorPostprocessor::validParams()
 {
@@ -51,6 +49,7 @@ HistogramVectorPostprocessor::initialSetup()
 void
 HistogramVectorPostprocessor::initialize()
 {
+  // no need to reset, execute() writes in place
 }
 
 void

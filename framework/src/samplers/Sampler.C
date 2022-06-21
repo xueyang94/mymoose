@@ -13,8 +13,6 @@
 // MOOSE includes
 #include "Sampler.h"
 
-defineLegacyParams(Sampler);
-
 InputParameters
 Sampler::validParams()
 {
@@ -106,7 +104,7 @@ Sampler::init()
     _generator.seed(i, seed_generator.randl(0));
 
   // Save the initial state
-  _generator.saveState();
+  saveGeneratorState();
 
   // Mark class as initialized, which locks out certain methods
   _initialized = true;
@@ -128,6 +126,9 @@ Sampler::reinit()
 
   // Set the next row iterator index
   _next_local_row = _local_row_begin;
+
+  // Create communicator that only has processors with rows
+  _communicator.split(_n_local_rows > 0 ? 1 : MPI_UNDEFINED, processor_id(), _local_comm);
 
   // Update reinit() flag (see execute method)
   _needs_reinit = false;
@@ -183,10 +184,10 @@ Sampler::execute()
 
   if (_has_executed)
   {
-    _generator.restoreState();
+    restoreGeneratorState();
     advanceGeneratorsInternal(_n_rows * _n_cols);
   }
-  _generator.saveState();
+  saveGeneratorState();
   executeTearDown();
   _has_executed = true;
 }
@@ -207,7 +208,7 @@ Sampler::getGlobalSamples()
                ".");
 
   _next_local_row_requires_state_restore = true;
-  _generator.restoreState();
+  restoreGeneratorState();
   sampleSetUp(SampleMode::GLOBAL);
   DenseMatrix<Real> output(_n_rows, _n_cols);
   computeSampleMatrix(output);
@@ -230,10 +231,13 @@ Sampler::getLocalSamples()
                _limit_get_local_samples,
                ".");
 
-  _next_local_row_requires_state_restore = true;
-  _generator.restoreState();
-  sampleSetUp(SampleMode::LOCAL);
   DenseMatrix<Real> output(_n_local_rows, _n_cols);
+  if (_n_local_rows == 0)
+    return output;
+
+  _next_local_row_requires_state_restore = true;
+  restoreGeneratorState();
+  sampleSetUp(SampleMode::LOCAL);
   computeLocalSampleMatrix(output);
   sampleTearDown(SampleMode::LOCAL);
   return output;
@@ -242,13 +246,11 @@ Sampler::getLocalSamples()
 std::vector<Real>
 Sampler::getNextLocalRow()
 {
-  TIME_SECTION("getNextLocalRow", 1, "Getting Next Local Row");
-
   checkReinitStatus();
 
   if (_next_local_row_requires_state_restore)
   {
-    _generator.restoreState();
+    restoreGeneratorState();
     sampleSetUp(SampleMode::LOCAL);
     advanceGeneratorsInternal(_next_local_row * _n_cols);
     _next_local_row_requires_state_restore = false;
@@ -316,8 +318,6 @@ Sampler::computeLocalSampleMatrix(DenseMatrix<Real> & matrix)
 void
 Sampler::computeSampleRow(dof_id_type i, std::vector<Real> & data)
 {
-  TIME_SECTION("computeSampleRow", 2, "Computing Sample Row");
-
   for (dof_id_type j = 0; j < _n_cols; ++j)
   {
     data[j] = computeSample(i, j);

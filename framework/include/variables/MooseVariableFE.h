@@ -30,13 +30,6 @@ typedef MooseVariableFE<Real> MooseVariable;
 typedef MooseVariableFE<RealVectorValue> VectorMooseVariable;
 typedef MooseVariableFE<RealEigenVector> ArrayMooseVariable;
 
-template <>
-InputParameters validParams<MooseVariable>();
-template <>
-InputParameters validParams<VectorMooseVariable>();
-template <>
-InputParameters validParams<ArrayMooseVariable>();
-
 /**
  * Class for stuff related to variables
  *
@@ -88,10 +81,14 @@ public:
   using DoFValue = typename MooseVariableField<OutputType>::DoFValue;
 
   using FunctorArg = typename Moose::ADType<OutputType>::type;
-  using typename Moose::Functor<FunctorArg>::FunctorReturnType;
-  using typename Moose::Functor<FunctorArg>::ValueType;
+  using typename Moose::FunctorBase<FunctorArg>::FunctorReturnType;
+  using typename Moose::FunctorBase<FunctorArg>::ValueType;
+  using typename Moose::FunctorBase<FunctorArg>::GradientType;
+  using typename Moose::FunctorBase<FunctorArg>::DotType;
 
   MooseVariableFE(const InputParameters & parameters);
+
+  static InputParameters validParams();
 
   void clearDofIndices() override;
 
@@ -143,16 +140,12 @@ public:
    */
   bool computingCurl() const override final;
 
-  /**
-   * Get the variable name of a component in libMesh
-   */
-  std::string componentName(const unsigned int comp) const;
-
   const std::set<SubdomainID> & activeSubdomains() const override;
   bool activeOnSubdomain(SubdomainID subdomain) const override;
 
   bool isNodal() const override { return _element_data->isNodal(); }
   Moose::VarFieldType fieldType() const override;
+  bool isArray() const override;
   bool isVector() const override;
   const Node * const & node() const { return _element_data->node(); }
   const dof_id_type & nodalDofIndex() const override { return _element_data->nodalDofIndex(); }
@@ -684,10 +677,15 @@ protected:
   std::unique_ptr<MooseVariableData<OutputType>> _lower_data;
 
 private:
-  using typename Moose::Functor<FunctorArg>::FaceArg;
-  using typename Moose::Functor<FunctorArg>::ElemFromFaceArg;
   using MooseVariableField<OutputType>::evaluate;
-  ValueType evaluate(const Elem * const &, unsigned int) const override final
+  using ElemArg = Moose::ElemArg;
+  using ElemFromFaceArg = Moose::ElemFromFaceArg;
+  using ElemQpArg = Moose::ElemQpArg;
+  using ElemSideQpArg = Moose::ElemSideQpArg;
+  using FaceArg = Moose::FaceArg;
+  using SingleSidedFaceArg = Moose::SingleSidedFaceArg;
+
+  ValueType evaluate(const ElemArg &, unsigned int) const override final
   {
     mooseError("Elem functor overload not yet implemented for finite element variables");
   }
@@ -697,6 +695,10 @@ private:
         "Elem-and-face-info functor overload not yet implemented for finite element variables");
   }
   ValueType evaluate(const FaceArg &, unsigned int) const override final
+  {
+    mooseError("Face info functor overload not yet implemented for finite element variables");
+  }
+  ValueType evaluate(const SingleSidedFaceArg &, unsigned int) const override final
   {
     mooseError("Face info functor overload not yet implemented for finite element variables");
   }

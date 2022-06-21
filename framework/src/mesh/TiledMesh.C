@@ -17,8 +17,6 @@
 
 registerMooseObject("MooseApp", TiledMesh);
 
-defineLegacyParams(TiledMesh);
-
 InputParameters
 TiledMesh::validParams()
 {
@@ -81,7 +79,7 @@ TiledMesh::TiledMesh(const TiledMesh & other_mesh)
 std::unique_ptr<MooseMesh>
 TiledMesh::safeClone() const
 {
-  return libmesh_make_unique<TiledMesh>(*this);
+  return std::make_unique<TiledMesh>(*this);
 }
 
 std::string

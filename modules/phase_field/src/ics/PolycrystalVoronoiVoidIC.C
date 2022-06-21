@@ -19,7 +19,7 @@
 InputParameters
 PolycrystalVoronoiVoidIC::actionParameters()
 {
-  InputParameters params = ::validParams<MultiSmoothCircleIC>();
+  InputParameters params = MultiSmoothCircleIC::validParams();
 
   params.addRequiredParam<unsigned int>("op_num", "Number of order parameters");
 
@@ -41,16 +41,14 @@ PolycrystalVoronoiVoidIC::validParams()
                                      "Which structure type is being initialized, grains or voids");
   params.addParam<unsigned int>("op_index",
                                 0,
-                                "The index for the current "
-                                "order parameter, not needed if "
-                                "structure_type = voids");
+                                "The index for the current order parameter, "
+                                "not needed if structure_type = voids");
   params.addRequiredParam<UserObjectName>(
       "polycrystal_ic_uo", "UserObject for obtaining the polycrystal grain structure.");
-  params.addParam<FileName>(
-      "file_name",
-      "",
-      "File containing grain centroids, if file_name is provided, the centroids "
-      "from the file will be used.");
+  params.addParam<FileName>("file_name",
+                            "",
+                            "File containing grain centroids, if file_name is provided, "
+                            "the centroids from the file will be used.");
   return params;
 }
 
@@ -64,12 +62,11 @@ PolycrystalVoronoiVoidIC::PolycrystalVoronoiVoidIC(const InputParameters & param
     _file_name(getParam<FileName>("file_name"))
 {
   if (_invalue < _outvalue)
-    mooseError("PolycrystalVoronoiVoidIC requires that the voids be "
-               "represented with invalue > outvalue");
+    mooseWarning("Detected invalue < outvalue in PolycrystalVoronoiVoidIC. Please make sure that's "
+                 "the intended usage for representing voids.");
   if (_numbub == 0)
     mooseError("PolycrystalVoronoiVoidIC requires numbub > 0. If you want no voids to "
-               "be "
-               "represented, use invalue = outvalue. In general, you should use "
+               "be represented, use invalue = outvalue. In general, you should use "
                "PolycrystalVoronoi to represent Voronoi grain structures without "
                "voids.");
 }
@@ -111,7 +108,7 @@ PolycrystalVoronoiVoidIC::computeCircleCenters()
 
       Point rand_point;
 
-      for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+      for (const auto i : make_range(Moose::dim))
         rand_point(i) = _bottom_left(i) + _range(i) * _random.rand(_tid);
 
       // Allow the vectors to be sorted based on their distance from the
@@ -131,8 +128,11 @@ PolycrystalVoronoiVoidIC::computeCircleCenters()
 
       // Find Slope of Line in the plane orthogonal to the diff_centerpoint
       // vector
-      Point diff_centerpoints =
-          _mesh.minPeriodicVector(_var.number(), closest_point, next_closest_point);
+      Point pa = rand_point + _mesh.minPeriodicVector(_var.number(), rand_point, closest_point);
+      Point pb =
+          rand_point + _mesh.minPeriodicVector(_var.number(), rand_point, next_closest_point);
+      Point diff_centerpoints = pb - pa;
+
       Point diff_rand_center = _mesh.minPeriodicVector(_var.number(), closest_point, rand_point);
       Point normal_vector = diff_centerpoints.cross(diff_rand_center);
       Point slope = normal_vector.cross(diff_centerpoints);
@@ -146,14 +146,14 @@ PolycrystalVoronoiVoidIC::computeCircleCenters()
 
       Real slope_dot = slope * slope;
       mooseAssert(slope_dot > 0, "The dot product of slope with itself is zero");
-      for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+      for (const auto i : make_range(Moose::dim))
         lambda += (mid_rand_vector(i) * slope(i)) / slope_dot;
 
       // Assigning points to vector
       _centers[vp] = slope * lambda + midpoint;
 
       // Checking to see if points are in the domain ONLY WORKS FOR PERIODIC
-      for (unsigned int i = 0; i < LIBMESH_DIM; i++)
+      for (const auto i : make_range(Moose::dim))
         if ((_centers[vp](i) > _top_right(i)) || (_centers[vp](i) < _bottom_left(i)))
           try_again = true;
 

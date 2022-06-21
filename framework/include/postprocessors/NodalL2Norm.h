@@ -11,12 +11,6 @@
 
 #include "NodalVariablePostprocessor.h"
 
-// Forward Declarations
-class NodalL2Norm;
-
-template <>
-InputParameters validParams<NodalL2Norm>();
-
 /**
  * Computes the "nodal" L2-norm of the coupled variable, which is
  * defined by summing the square of its value at every node and taking
@@ -37,4 +31,3 @@ public:
 protected:
   Real _sum_of_squares;
 };
-

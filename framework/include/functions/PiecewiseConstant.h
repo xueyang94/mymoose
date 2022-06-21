@@ -11,15 +11,8 @@
 
 #include "PiecewiseTabularBase.h"
 
-// Forward declarations
-class PiecewiseConstant;
-
-template <>
-InputParameters validParams<PiecewiseConstant>();
-
 /**
- * Function which provides a piecewise continuous constant interpolation
- * of a provided (x,y) point data set.
+ * Function which provides a piecewise constant interpolation of a provided (x,y) point data set.
  */
 class PiecewiseConstant : public PiecewiseTabularBase
 {
@@ -28,13 +21,15 @@ public:
 
   PiecewiseConstant(const InputParameters & parameters);
 
+  using Function::value;
   /**
    * Get the value of the function (based on time only)
    * \param t The time
    * \param pt The point in space (x,y,z) (unused)
    * \return The value of the function at the specified time
    */
-  virtual Real value(Real t, const Point & pt) const override;
+  virtual Real value(Real t, const Point & p) const override;
+  virtual ADReal value(const ADReal & t, const ADPoint & p) const override;
 
   /**
    * Get the time derivative of the function (based on time only)
@@ -43,19 +38,10 @@ public:
    * \return The time derivative of the function at the specified time
    */
   virtual Real timeDerivative(Real t, const Point & pt) const override;
-
   virtual Real integral() const override;
-
   virtual Real average() const override;
 
 private:
-  enum DirectionEnum
-  {
-    LEFT = 0,
-    RIGHT,
-    UNDEFINED
-  };
-  DirectionEnum getDirection(const std::string & direction);
-
-  const DirectionEnum _direction;
+  /// Enum for which direction to apply values
+  const enum class Direction { LEFT, RIGHT, LEFT_INCLUSIVE, RIGHT_INCLUSIVE } _direction;
 };

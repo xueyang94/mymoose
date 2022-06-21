@@ -24,7 +24,7 @@
 
 [Materials]
   [diff]
-    type = ADGenericConstantFunctorMaterial
+    type = ADGenericFunctorMaterial
     prop_names = 'coeff'
     prop_values = '1'
   []
@@ -43,7 +43,6 @@
 [Problem]
   type = FEProblem
   coord_type = RZ
-  kernel_coverage_check = off
 []
 
 [Executioner]
@@ -51,6 +50,7 @@
   solve_type = 'NEWTON'
   petsc_options_iname = '-pc_type -pc_hypre_type'
   petsc_options_value = 'hypre boomeramg'
+  residual_and_jacobian_together = true
 []
 
 [Outputs]

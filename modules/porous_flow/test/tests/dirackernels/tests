@@ -5,7 +5,7 @@
     csvdiff = 'squarepulse1.csv'
     threading = '!pthreads'
     requirement = 'PorousFlowSquarePulsePointSource shall provide a constant mass point source/sink between two specified times'
-    design = 'porous_flow/tests/dirackernels/dirackernels_tests.md porous_flow/sinks.md PorousFlowSquarePulsePointSource'
+    design = 'porous_flow/tests/dirackernels/dirackernels_tests.md porous_flow/sinks.md PorousFlowSquarePulsePointSource.md'
     issues = '#6990'
   [../]
   [./frompps]
@@ -14,7 +14,7 @@
     csvdiff = 'frompps.csv'
     threading = '!pthreads'
     requirement = 'The system shall provide a mass point source/sink computed by a postprocessor'
-    design = 'porous_flow/tests/dirackernels/dirackernels_tests.md porous_flow/sinks.md PorousFlowPointSourceFromPostprocessor'
+    design = 'porous_flow/tests/dirackernels/dirackernels_tests.md porous_flow/sinks.md PorousFlowPointSourceFromPostprocessor.md'
     issues = '#15132'
   [../]
   [./hfrompps]
@@ -23,7 +23,7 @@
     csvdiff = 'hfrompps.csv'
     threading = '!pthreads'
     requirement = 'The system shall provide an enthalphy point source computed by a postprocessor'
-    design = 'porous_flow/sinks.md PorousFlowPointEnthalpySourceFromPostprocessor'
+    design = 'porous_flow/sinks.md PorousFlowPointEnthalpySourceFromPostprocessor.md'
     issues = '#15742'
   [../]
   [./theis1]
@@ -42,7 +42,7 @@
     threading = '!pthreads'
     requirement = 'PorousFlow shall be able to accurately simulate drawdown in 2D groundwater systems, to agree with the Theis solution'
     design = 'porous_flow/tests/dirackernels/dirackernels_tests.md porous_flow/sinks.md PorousFlowSquarePulsePointSource.md'
-    issues = '#6990 13155'
+    issues = '#6990 #13155'
   [../]
   [./theis2]
     type = 'CSVDiff'
@@ -351,6 +351,37 @@
     design = 'porous_flow/tests/dirackernels/dirackernels_tests.md porous_flow/sinks.md PorousFlowPolyLineSink.md'
     issues = '#7992 #8139'
   [../]
+  [./pls02reporter]
+    type = 'CSVDiff'
+    input = 'pls02reporter.i'
+    csvdiff = 'pls02reporter_out.csv'
+    threading = '!pthreads'
+    requirement = 'PorousFlowPolyLineSink shall extract fluid at the specified rate getting the coordinates from a reporter'
+    design = 'porous_flow/tests/dirackernels/dirackernels_tests.md porous_flow/sinks.md PorousFlowPolyLineSink.md'
+    issues = '#20018'
+  [../]
+  [./pls02reporter_wrongSize]
+    type = RunException
+    input = 'pls02reporter.i'
+    cli_args = "Reporters/pls02file/real_vector_values='0.10; 0 0; 0 0; -0.25 0.25'"
+    expect_err = 'weight size = 1;  x_coord size = 2;  y_coord size = 2;  z_coord size = 2'
+    threading = '!pthreads'
+    requirement = 'PorousFlowPolyLineSink shall abort with an error if the reporter containing the coordinates is not the same size as the reporter containing weights'
+    design = 'PorousFlowPolyLineSink.md'
+    issues = '#20506'
+  [../]
+  [./pls02reporter_empty]
+    type = RunException
+    input = 'pls02reporter.i'
+    cli_args = "Reporters/pls02file/type=EmptyReporter"
+    expect_err = 'PorousFlowLineGeometry: No points found in input.'
+    allow_test_objects = true
+    threading = '!pthreads'
+    requirement = 'PorousFlowPolyLineSink shall abort with an error if the coordinates reporter is empty'
+    design = 'PorousFlowPolyLineSink.md'
+    issues = '#20506'
+  [../]
+
 
   [./bh02]
     type = 'CSVDiff'
@@ -368,7 +399,7 @@
     threading = '!pthreads'
     requirement = 'PorousFlowPeacemanBorehole shall inject fluid at the specified rate in a fully-saturated system'
     design = 'porous_flow/tests/dirackernels/dirackernels_tests.md porous_flow/sinks.md PorousFlowPeacemanBorehole.md'
-    issues = '#7992 #8139'
+    issues = '#7992 #8139 #20452'
   [../]
   [./bh04]
     type = 'CSVDiff'
@@ -407,6 +438,15 @@
     requirement = 'PorousFlowPeacemanBorehole shall extract fluid at the specified rate in a cylindrical model'
     design = 'porous_flow/tests/dirackernels/dirackernels_tests.md porous_flow/sinks.md PorousFlowPeacemanBorehole.md'
     issues = '#7992 #8139'
+  [../]
+  [./bh02reporter]
+    type = 'CSVDiff'
+    input = 'bh02reporter.i'
+    csvdiff = 'bh02reporter_out.csv'
+    threading = '!pthreads'
+    requirement = 'PorousFlowPeacemanBorehole shall extract fluid at the specified rate in a fully-saturated system using reporter for input'
+    design = 'porous_flow/tests/dirackernels/dirackernels_tests.md porous_flow/sinks.md PorousFlowPeacemanBorehole.md'
+    issues = '#20018'
   [../]
   [./injection_production]
     type = 'Exodiff'

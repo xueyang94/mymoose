@@ -5,8 +5,20 @@ major changes to the project monthly highlights will be produced. These highligh
 monthly to the [MOOSE users](contact_us.md) and [MOOSE announcement](contact_us.md) lists as well as
 provided below.
 
+## 2022
+
+- [May, 2022](2022_05.md)
+- [April, 2022](2022_04.md)
+- [March, 2022](2022_03.md)
+- [February, 2022](2022_02.md)
+- [January, 2022](2022_01.md)
+
 ## 2021
 
+- [December, 2021](2021_12.md)
+- [November, 2021](2021_11.md)
+- [October, 2021](2021_10.md)
+- [September, 2021](2021_09.md)
 - [August, 2021](2021_08.md)
 - [July, 2021](2021_07.md)
 - [June, 2021](2021_06.md)
@@ -15,7 +27,6 @@ provided below.
 - [March, 2021](2021_03.md)
 - [February, 2021](2021_02.md)
 - [January, 2021](2021_01.md)
-
 
 ## 2020
 

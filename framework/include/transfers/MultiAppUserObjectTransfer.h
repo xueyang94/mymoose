@@ -12,12 +12,6 @@
 // MOOSE includes
 #include "MultiAppConservativeTransfer.h"
 
-// Forward declarations
-class MultiAppUserObjectTransfer;
-
-template <>
-InputParameters validParams<MultiAppUserObjectTransfer>();
-
 /**
  * Loops over a target mesh and uses either node or element centroid location (based on the target
  * variable type) for sampling a user object (i.e. the object must implement `spatialValue` API).
@@ -84,16 +78,26 @@ protected:
    */
   bool isBoundaryElem(const MooseMesh * mesh, const Elem * elem) const;
 
+  /**
+   * Gets the UserObject to transfer from when transferring from_multiapp
+   * @param p The point in the parent app that is being transferred to
+   * @return the subapp index, will return static_cast<unsigned int>(-1) if none is found
+   */
+  unsigned int findSubAppToTransferFrom(const Point & p);
+
   std::string _user_object_name;
 
   /**
-   * Boolean variable to generate error if every master node
+   * Boolean variable to generate error if every parent app node
    * cannot be mapped to a subApp during from_multiapp transfer
    **/
-  const bool _all_master_nodes_contained_in_sub_app;
+  const bool _all_parent_nodes_contained_in_sub_app;
 
   /// whether to check the bounding box check or not
   const bool _skip_bbox_check;
+
+  /// Whether to utilize the nearest sub-app to transfer from
+  const bool & _nearest_sub_app;
 
 private:
   /// Set of block ids this transfer is restricted to

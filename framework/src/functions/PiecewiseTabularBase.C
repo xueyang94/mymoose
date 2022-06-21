@@ -9,13 +9,13 @@
 
 #include "PiecewiseTabularBase.h"
 #include "DelimitedFileReader.h"
+#include "libmesh/int_range.h"
 
-defineLegacyParams(PiecewiseTabularBase);
-
+template <typename BaseClass>
 InputParameters
-PiecewiseTabularBase::validParams()
+PiecewiseTabularBaseTempl<BaseClass>::validParams()
 {
-  InputParameters params = PiecewiseBase::validParams();
+  InputParameters params = BaseClass::validParams();
 
   MooseEnum axis("x=0 y=1 z=2");
   params.addParam<MooseEnum>(
@@ -27,6 +27,10 @@ PiecewiseTabularBase::validParams()
   params.addParam<FileName>("data_file", "File holding CSV data");
   params.addParam<unsigned int>("x_index_in_file", 0, "The abscissa index in the data file");
   params.addParam<unsigned int>("y_index_in_file", 1, "The ordinate index in the data file");
+  params.addParam<std::string>(
+      "x_title", "The title of the column/row containing the x data in the data file");
+  params.addParam<std::string>(
+      "y_title", "The title of the column/row containing the y data in the data file");
   params.addParam<bool>(
       "xy_in_file_only", true, "If the data file only contains abscissa and ordinate data");
 
@@ -38,14 +42,15 @@ PiecewiseTabularBase::validParams()
   return params;
 }
 
-PiecewiseTabularBase::PiecewiseTabularBase(const InputParameters & parameters)
-  : PiecewiseBase(parameters),
-    _scale_factor(getParam<Real>("scale_factor")),
+template <typename BaseClass>
+PiecewiseTabularBaseTempl<BaseClass>::PiecewiseTabularBaseTempl(const InputParameters & parameters)
+  : BaseClass(parameters),
+    _scale_factor(this->template getParam<Real>("scale_factor")),
     _has_axis(isParamValid("axis"))
 {
   // determine function argument
   if (_has_axis)
-    _axis = getParam<MooseEnum>("axis");
+    _axis = this->template getParam<MooseEnum>("axis");
 
   // determine data source and check parameter consistency
   if (isParamValid("data_file") && !isParamValid("x") && !isParamValid("y") &&
@@ -63,49 +68,36 @@ PiecewiseTabularBase::PiecewiseTabularBase(const InputParameters & parameters)
                ": Either 'data_file', 'x' and 'y', or 'xy_data' must be specified exclusively.");
 }
 
+template <typename BaseClass>
 void
-PiecewiseTabularBase::buildFromFile()
+PiecewiseTabularBaseTempl<BaseClass>::buildFromFile()
 {
   // Input parameters
-  const FileName & data_file_name = getParam<FileName>("data_file");
-  const MooseEnum & format = getParam<MooseEnum>("format");
-  unsigned int x_index = getParam<unsigned int>("x_index_in_file");
-  unsigned int y_index = getParam<unsigned int>("y_index_in_file");
-  bool xy_only = getParam<bool>("xy_in_file_only");
+  const auto & data_file_name = this->template getParam<FileName>("data_file");
+  const MooseEnum format = this->template getParam<MooseEnum>("format");
 
-  if (x_index == y_index)
-    mooseError(
-        "In ", _name, ": 'x_index_in_file' and 'y_index_in_file' are set to the same value.");
+  // xy_in_file_only does not make sense here as it restricts the file to exactly
+  // two cows/columns, which is not a likely scenario when looking up data by name.
+  // A wrong 'format' parameter would be caught by the failing name resolution anyways.
+  bool xy_only = this->template getParam<bool>("xy_in_file_only");
+  if (isParamValid("x_title") || isParamValid("y_title"))
+  {
+    if (this->_pars.isParamSetByUser("xy_in_file_only") && xy_only)
+      paramError(
+          "xy_in_file_only",
+          "When accessing data through 'x_title' or 'y_title' this parameter should not be used");
+    else
+      xy_only = false;
+  }
 
   // Read the data from CSV file
   MooseUtils::DelimitedFileReader reader(data_file_name, &_communicator);
   reader.setFormatFlag(format.getEnum<MooseUtils::DelimitedFileReader::FormatFlag>());
   reader.setComment("#");
   reader.read();
-  const std::vector<std::vector<double>> & data = reader.getData();
 
-  // Check the data format
-  if (x_index >= data.size())
-    mooseError("In ",
-               _name,
-               ": The 'x_index_in_file' is out-of-range of the available data in '",
-               data_file_name,
-               "', which contains ",
-               data.size(),
-               " ",
-               format,
-               " of data.");
-
-  if (y_index >= data.size())
-    mooseError("In ",
-               _name,
-               ": The 'y_index_in_file' is out-of-range of the available data in '",
-               data_file_name,
-               "', which contains ",
-               data.size(),
-               " ",
-               format,
-               " of data.");
+  const auto & columns = reader.getNames();
+  const auto & data = reader.getData();
 
   if (data.size() > 2 && xy_only)
     mooseError("In ",
@@ -118,6 +110,46 @@ PiecewiseTabularBase::buildFromFile()
                format == "columns" ? "rows" : "columns",
                "\" or set \"xy_in_file_only\" to false?");
 
+  unsigned int x_index = libMesh::invalid_uint;
+  unsigned int y_index = libMesh::invalid_uint;
+  const auto setIndex = [&](unsigned int & index, const std::string & prefix)
+  {
+    if (isParamValid(prefix + "_title"))
+    {
+      const auto name = this->template getParam<std::string>(prefix + "_title");
+      for (const auto i : index_range(columns))
+        if (columns[i] == name)
+          index = i;
+
+      if (index == libMesh::invalid_uint)
+        paramError(prefix + "_title",
+                   "None of the ",
+                   format,
+                   " in the data file has the title '",
+                   name,
+                   "'.");
+    }
+    else
+      index = this->template getParam<unsigned int>(prefix + "_index_in_file");
+
+    if (index >= data.size())
+      paramError(prefix + "_index_in_file",
+                 "Index out-of-range of the available data in '",
+                 data_file_name,
+                 "', which contains ",
+                 data.size(),
+                 " ",
+                 format,
+                 " of data.");
+  };
+
+  setIndex(x_index, "x");
+  setIndex(y_index, "y");
+
+  if (x_index == y_index)
+    mooseError(
+        "In ", _name, ": 'x_index_in_file' and 'y_index_in_file' are set to the same value.");
+
   // Update the input vectors to contained the desired data
   _raw_x = reader.getData(x_index);
   _raw_y = reader.getData(y_index);
@@ -127,27 +159,32 @@ PiecewiseTabularBase::buildFromFile()
     mooseError("In ", _name, ": Lengths of x and y data do not match.");
 }
 
+template <typename BaseClass>
 void
-PiecewiseTabularBase::buildFromXandY()
+PiecewiseTabularBaseTempl<BaseClass>::buildFromXandY()
 {
-  _raw_x = getParam<std::vector<Real>>("x");
-  _raw_y = getParam<std::vector<Real>>("y");
+  _raw_x = this->template getParam<std::vector<Real>>("x");
+  _raw_y = this->template getParam<std::vector<Real>>("y");
 }
 
+template <typename BaseClass>
 void
-PiecewiseTabularBase::buildFromXY()
+PiecewiseTabularBaseTempl<BaseClass>::buildFromXY()
 {
-  std::vector<Real> xy = getParam<std::vector<Real>>("xy_data");
-  unsigned int xy_size = xy.size();
+  const auto & xy = this->template getParam<std::vector<Real>>("xy_data");
+  const auto xy_size = xy.size();
   if (xy_size % 2 != 0)
     mooseError("In ", _name, ": Length of data provided in 'xy_data' must be a multiple of 2.");
 
-  unsigned int data_size = xy_size / 2;
-  _raw_x.reserve(data_size);
-  _raw_y.reserve(data_size);
-  for (unsigned int i = 0; i < xy_size; i += 2)
+  const auto data_size = xy_size / 2;
+  _raw_x.resize(data_size);
+  _raw_y.resize(data_size);
+  for (const auto i : make_range(data_size))
   {
-    _raw_x.push_back(xy[i]);
-    _raw_y.push_back(xy[i + 1]);
+    _raw_x[i] = xy[2 * i];
+    _raw_y[i] = xy[2 * i + 1];
   }
 }
+
+template class PiecewiseTabularBaseTempl<PiecewiseBase>;
+template class PiecewiseTabularBaseTempl<ADPiecewiseBase>;

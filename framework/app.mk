@@ -24,7 +24,6 @@ $BUILD_EXEC$(STACK) := $(BUILD_EXEC)
 
 # install target related stuff
 share_install_dir := $(share_dir)/$(APPLICATION_NAME)
-tests_install_dir := $(share_install_dir)/test
 docs_install_dir := $(share_install_dir)/doc
 
 #
@@ -300,6 +299,16 @@ ifneq (,$(MODULE_NAME))
   endif
 else
   ifeq ($(BUILD_EXEC),yes)
+
+    # Set a default to install the main application's tests if one isn't set in the Makefile
+    ifndef INSTALLABLE_DIRS
+      ifneq ($(wildcard $(APPLICATION_DIR)/test/.),)
+        INSTALLABLE_DIRS := test/tests->tests
+      else
+        INSTALLABLE_DIRS := tests
+      endif
+    endif
+
     all: $(app_EXEC)
   else
     all: $(app_LIB)
@@ -409,37 +418,54 @@ $(app_EXEC): $(app_LIBS) $(mesh_library) $(main_object) $(app_test_LIB) $(depend
 	@$(codesign)
 
 ###### install stuff #############
-
 docs_dir := $(APPLICATION_DIR)/doc
 bindst = $(bin_install_dir)/$(notdir $(app_EXEC))
-binlink = $(tests_install_dir)/$(notdir $(app_EXEC))
-
-test_dir := $(APPLICATION_DIR)
-ifneq ($(wildcard $(APPLICATION_DIR)/test/.),)
-	test_dir := $(APPLICATION_DIR)/test
-endif
+binlink = $(share_install_dir)/$(notdir $(app_EXEC))
+# Strip the trailing slashes (if provided) and transform into a suitable Makefile targets
+copy_input_targets := $(foreach dir,$(INSTALLABLE_DIRS),target_$(APPLICATION_NAME)_$(patsubst %/,%,$(dir)))
 
 lib_install_targets = $(foreach lib,$(applibs),$(dir $(lib))install_lib_$(notdir $(lib)))
 ifneq ($(app_test_LIB),)
 	lib_install_targets += $(dir $(app_test_LIB))install_lib_$(notdir $(app_test_LIB))
 endif
 
-install_libs: $(lib_install_targets)
+install_libs:: $(lib_install_targets)
 
-install_$(APPLICATION_NAME)_tests: all
-	@echo "Installing tests"
-	@rm -rf $(tests_install_dir)
-	@mkdir -p $(tests_install_dir)
-	@cp -R $(test_dir)/tests $(tests_install_dir)/
-ifneq (,$(wildcard $(APPLICATION_DIR)/testroot))
-	@cp -f $(APPLICATION_DIR)/testroot $(tests_install_dir)/
-else
-ifneq (,$(wildcard $(test_dir)/testroot))
-	@cp -f $(test_dir)/testroot $(tests_install_dir)/
-else
-	@echo "app_name = $(APPLICATION_NAME)" > $(tests_install_dir)/testroot
+ifneq ($(wildcard $(APPLICATION_DIR)/data/.),)
+install_data_$(APPLICATION_NAME)_src := $(APPLICATION_DIR)/data
+install_data_$(APPLICATION_NAME)_dst := $(share_install_dir)
+install_data:: install_data_$(APPLICATION_NAME)
 endif
-endif
+
+install_data_%:
+	@echo "Installing "$($@_src)"..."
+	@mkdir -p $($@_dst)
+	@cp -r $($@_src) $($@_dst)
+
+$(copy_input_targets):
+	@$(eval kv := $(subst ->, ,$(subst target_$(APPLICATION_NAME)_,,$@)))
+	@$(eval source_dir := $(word 1, $(kv)))
+	@$(eval dest_dir := $(if $(word 2, $(kv)),$(word 2, $(kv)),$(source_dir)))
+	@echo "Installing inputs from directory \"$(source_dir)\" into $(dest_dir)"
+	@rm -rf $(share_install_dir)/$(dest_dir)
+	@mkdir -p $(share_install_dir)/$(dest_dir)
+	@$(eval abs_source_dir := $(realpath $(APPLICATION_DIR)/$(source_dir)))
+	@if [ "$(abs_source_dir)" != "" ]; \
+	then \
+		cp -R $(abs_source_dir)/ $(share_install_dir)/$(dest_dir); \
+	else \
+		(echo "ERROR: Source directory $(APPLICATION_DIR)/$(source_dir) does not exist!"; exit 1) \
+	fi;
+	@if [ -e $(APPLICATION_DIR)/testroot ]; \
+	then \
+		cp -f $(APPLICATION_DIR)/testroot $(share_install_dir)/$(dest_dir)/; \
+	elif [ -e $(source_dir)/testroot ]; \
+	then \
+		cp -f $(source_dir)/testroot $(share_install_dir)/$(dest_dir)/; \
+	else \
+		echo "app_name = $(APPLICATION_NAME)" > $(share_install_dir)/$(dest_dir)/testroot; \
+	fi; \
+
 
 install_lib_%: % all
 	@echo "Installing $<"
@@ -454,19 +480,19 @@ install_lib_%: % all
 	@$(eval libpaths := $(foreach lib,$(applibs),$(dir $(lib))$(shell grep "dlname='.*'" $(lib) 2>/dev/null | sed -E "s/dlname='(.*)'/\1/g")))
 	@for lib in $(libpaths); do $(call patch_relink,$(libdst),$$lib,$$(basename $$lib)); done
 
-$(binlink): all install_$(APPLICATION_NAME)_tests
-	@ln -s ../../../bin/$(notdir $(app_EXEC)) $@
+$(binlink): all $(copy_input_targets)
+	ln -sf ../../bin/$(notdir $(app_EXEC)) $@
 
-install_$(APPLICATION_NAME)_docs:
+install_$(APPLICATION_NAME)_docs: all
 ifeq ($(MOOSE_SKIP_DOCS),)
 	@echo "Installing docs"
 	@mkdir -p $(docs_install_dir)
-	@if [ -f "$(docs_dir)/moosedocs.py" ]; then cd $(docs_dir) && ./moosedocs.py build --destination $(docs_install_dir); fi
+	@if [ -f "$(docs_dir)/moosedocs.py" ]; then cd $(docs_dir) && ./moosedocs.py build $(MOOSE_DOCS_FLAGS) --destination $(docs_install_dir); fi
 else
 	@echo "Skipping docs installation."
 endif
 
-$(bindst): $(app_EXEC) all install_$(APPLICATION_NAME)_tests install_$(APPLICATION_NAME)_docs $(binlink)
+$(bindst): $(app_EXEC) all $(copy_input_targets) install_$(APPLICATION_NAME)_docs $(binlink)
 	@echo "Installing $<"
 	@mkdir -p $(bin_install_dir)
 	@cp $< $@

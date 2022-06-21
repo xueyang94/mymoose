@@ -2,6 +2,11 @@
 MOOSE_UNITY ?= true
 MOOSE_HEADER_SYMLINKS ?= true
 
+# We ignore this in the contrib folder because we will set up the include
+# directories manually later
+IGNORE_CONTRIB_INC ?= libtorch
+ENABLE_LIBTORCH ?= false
+
 # this allows us to modify the linked names/rpaths safely later for install targets
 ifneq (,$(findstring darwin,$(libmesh_HOST)))
 	libmesh_LDFLAGS += -headerpad_max_install_names
@@ -39,7 +44,6 @@ pcre_deps      := $(patsubst %.cc, %.$(obj-suffix).d, $(pcre_srcfiles)) \
 # hit (new getpot parser)
 #
 HIT_DIR ?= $(MOOSE_DIR)/framework/contrib/hit
-$(info Using HIT from $(HIT_DIR))
 hit_CONTENT   := $(shell ls $(HIT_DIR) 2> /dev/null)
 ifeq ($(hit_CONTENT),)
   $(error The HIT input file parser does not seem to be available. If set, make sure the HIT_DIR environment variable is set to the correct location of your HIT parser.)
@@ -49,11 +53,41 @@ hit_objects   := $(patsubst %.cc, %.$(obj-suffix), $(hit_srcfiles))
 hit_LIB       := $(HIT_DIR)/libhit-$(METHOD).la
 # dependency files
 hit_deps      := $(patsubst %.cc, %.$(obj-suffix).d, $(hit_srcfiles))
+# hit command line tool
+hit_CLI_srcfiles := $(HIT_DIR)/main.cc
+hit_CLI          := $(HIT_DIR)/hit
 
 #
 # hit python bindings
 #
 pyhit_srcfiles  := $(HIT_DIR)/hit.cpp $(HIT_DIR)/lex.cc $(HIT_DIR)/parse.cc $(HIT_DIR)/braceexpr.cc
+
+#
+# Conditional parts if the user wants to compile MOOSE with torchlib
+#
+ifeq ($(ENABLE_LIBTORCH),true)
+  UNAME_S := $(shell uname -s)
+	LIBTORCH_LIB := libtorch.so
+  ifeq ($(UNAME_S),Darwin)
+    LIBTORCH_LIB := libtorch.dylib
+  endif
+
+  ifneq ($(wildcard $(LIBTORCH_DIR)/lib/$(LIBTORCH_LIB)),)
+    # Enabling parts that have pytorch dependencies
+    libmesh_CXXFLAGS += -DLIBTORCH_ENABLED
+
+    # Adding the include directories, we use -isystem to silence the warning coming from
+	# libtorch (which would cause errors in the testing phase)
+    libmesh_CXXFLAGS += -isystem $(LIBTORCH_DIR)/include/torch/csrc/api/include
+    libmesh_CXXFLAGS += -isystem $(LIBTORCH_DIR)/include
+
+    # Dynamically linking with the available pytorch library
+    libmesh_LDFLAGS += -Wl,-rpath,$(LIBTORCH_DIR)/lib
+    libmesh_LDFLAGS += -L$(LIBTORCH_DIR)/lib -ltorch
+  else
+    $(error ERROR! Cannot locate any dynamic libraries of libtorch. Make sure to install libtorch (manually or using scripts/setup_libtorch.sh) and to run the configure --with-libtorch before compiling moose!)
+  endif
+endif
 
 #
 # FParser JIT defines
@@ -85,9 +119,10 @@ else
 endif
 
 
-hit $(pyhit_LIB): $(pyhit_srcfiles)
+hit $(pyhit_LIB) $(hit_CLI): $(pyhit_srcfiles) $(hit_CLI_srcfiles)
 	@echo "Building and linking "$@"..."
-	@bash -c '(cd "$(HIT_DIR)" && $(libmesh_CXX) -std=c++11 -w -fPIC -lstdc++ -shared $^ $(pyhit_COMPILEFLAGS) $(DYNAMIC_LOOKUP) -o $(pyhit_LIB))'
+	@bash -c '(cd "$(HIT_DIR)" && $(libmesh_CXX) -std=c++17 -w -fPIC -lstdc++ -shared $^ $(pyhit_COMPILEFLAGS) $(DYNAMIC_LOOKUP) -o $(pyhit_LIB))'
+	@bash -c '(cd "$(HIT_DIR)" && $(MAKE))'
 
 #
 # gtest
@@ -161,6 +196,11 @@ moose_INC_DIRS := $(shell find $(FRAMEWORK_DIR)/include -type d)
 endif
 
 moose_INC_DIRS += $(shell find $(FRAMEWORK_DIR)/contrib/*/include -type d)
+
+# We filter out the unnecessary include dirs from the contribs
+ignore_contrib_include := $(foreach ex_dir, $(IGNORE_CONTRIB_INC), $(if $(dir $(wildcard $(FRAMEWORK_DIR)/contrib/$(ex_dir)/.)),$(shell find $(FRAMEWORK_DIR)/contrib/$(ex_dir)/include -type d),))
+moose_INC_DIRS := $(filter-out $(ignore_contrib_include), $(moose_INC_DIRS))
+
 moose_INC_DIRS += $(gtest_DIR)
 moose_INC_DIRS += $(HIT_DIR)
 moose_INCLUDE  := $(foreach i, $(moose_INC_DIRS), -I$(i))
@@ -380,7 +420,11 @@ moose_share_dir = $(share_dir)/moose
 python_install_dir = $(moose_share_dir)/python
 bin_install_dir = $(PREFIX)/bin
 
-install: install_libs install_bin install_harness install_exodiff install_adreal_monolith
+install: install_libs install_bin install_harness install_exodiff install_adreal_monolith install_hit install_data
+
+install_data::
+	@mkdir -p $(moose_share_dir)
+	@cp -a $(FRAMEWORK_DIR)/data $(moose_share_dir)
 
 install_adreal_monolith: ADRealMonolithic.h
 	@ mkdir -p $(moose_include_dir)
@@ -391,7 +435,7 @@ install_exodiff: all
 	@cp $(MOOSE_DIR)/framework/contrib/exodiff/exodiff $(bin_install_dir)
 
 install_harness:
-	@echo "Installing test harness"
+	@echo "Installing TestHarness"
 	@rm -rf $(python_install_dir)
 	@mkdir -p $(python_install_dir)
 	@mkdir -p $(moose_share_dir)/bin
@@ -403,6 +447,10 @@ install_harness:
 	@cp -f $(MOOSE_DIR)/framework/include/base/MooseConfig.h $(moose_include_dir)/
 	@cp -f $(HIT_DIR)/hit.so $(python_install_dir)/
 	@echo "libmesh_install_dir = '$(LIBMESH_DIR)'" > $(moose_share_dir)/moose_config.py
+
+install_hit: all
+	@echo "Installing HIT"
+	@cp $(MOOSE_DIR)/framework/contrib/hit/hit $(bin_install_dir)
 
 lib_install_suffix = lib/$(APPLICATION_NAME)
 lib_install_dir = $(PREFIX)/$(lib_install_suffix)
@@ -451,7 +499,6 @@ clean:
 # .) moose (ignore a possible MOOSE submodule)
 # .) .git  (don't accidentally delete any of git's metadata)
 # Notes:
-# .) Be careful: running 'make -n clobber' will actually delete files!
 # .) 'make clobber' does not respect $(METHOD), it just deletes
 #    everything it can find!
 # .) Running 'make clobberall' is a good way to clean up outdated
@@ -466,7 +513,7 @@ cleanall: clean
 	@echo "Cleaning in:"
 	@for dir in $(app_DIRS); do \
           echo \ $$dir; \
-          make -C $$dir clean ; \
+          $(MAKE) -C $$dir clean ; \
         done
 
 # clobberall runs 'make clobber' in all dependent application directories
@@ -474,14 +521,14 @@ clobberall: clobber
 	@echo "Clobbering in:"
 	@for dir in $(app_DIRS); do \
           echo \ $$dir; \
-          make -C $$dir clobber ; \
+          $(MAKE) -C $$dir clobber ; \
         done
 
 # clang_complete builds a clang configuration file for various clang-based autocompletion plugins
 .clang_complete:
 	@echo "Building .clang_complete file"
 	@echo "-xc++" > .clang_complete
-	@echo "-std=c++11" >> .clang_complete
+	@echo "-std=c++17" >> .clang_complete
 	@for item in $(libmesh_CPPFLAGS) $(CXXFLAGS) $(libmesh_CXXFLAGS) $(app_INCLUDES) $(libmesh_INCLUDE); do \
           echo $$item >> .clang_complete;  \
         done

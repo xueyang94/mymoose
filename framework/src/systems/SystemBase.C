@@ -823,6 +823,13 @@ SystemBase::addVariable(const std::string & var_type,
     // The number returned by libMesh is the _last_ variable number... we want to hold onto the
     // _first_
     var_num = system().add_variables(var_names, fe_type, &blocks) - (components - 1);
+
+    // Set as array variable
+    if (parameters.isParamSetByUser("array") && !parameters.get<bool>("array"))
+      mooseError("Variable '",
+                 name,
+                 "' is an array variable ('components' > 1) but 'array' is set to false.");
+    parameters.set<bool>("array") = true;
   }
   else
     var_num = system().add_variable(name, fe_type, &blocks);
@@ -846,10 +853,14 @@ SystemBase::addVariable(const std::string & var_type,
       for (MooseIndex(components) component = 0; component < components; ++component)
         _numbered_vars[tid][var_num + component] = fe_var;
 
-      auto * const functor = dynamic_cast<Moose::FunctorBase *>(fe_var);
-      if (!functor)
+      if (auto * const functor = dynamic_cast<Moose::FunctorBase<ADReal> *>(fe_var))
+        _subproblem.addFunctor(name, *functor, tid);
+      else if (auto * const functor = dynamic_cast<Moose::FunctorBase<ADRealVectorValue> *>(fe_var))
+        _subproblem.addFunctor(name, *functor, tid);
+      else if (auto * const functor = dynamic_cast<Moose::FunctorBase<RealEigenVector> *>(fe_var))
+        _subproblem.addFunctor(name, *functor, tid);
+      else
         mooseError("This should be a functor");
-      _subproblem.addFunctor(name, const_cast<const Moose::FunctorBase *>(functor), tid);
     }
 
     if (var->blockRestricted())
@@ -1227,7 +1238,7 @@ SystemBase::copyVars(ExodusII_IO & io)
     if (hasVariable(vci._dest_name))
     {
       const auto & var = getVariable(0, vci._dest_name);
-      if (var.count() > 1) // array variable
+      if (var.isArray())
       {
         const auto & array_var = getFieldVariable<RealEigenVector>(0, vci._dest_name);
         for (MooseIndex(var.count()) i = 0; i < var.count(); ++i)
@@ -1434,6 +1445,8 @@ SystemBase::solutionState(const unsigned int state)
 void
 SystemBase::needSolutionState(const unsigned int state)
 {
+  libmesh_parallel_only(this->comm());
+
   if (hasSolutionState(state))
     return;
 
@@ -1519,7 +1532,7 @@ SystemBase::cacheVarIndicesByFace(const std::vector<VariableName> & vars)
   }
 
   _mesh.cacheVarIndicesByFace(moose_vars);
-  _mesh.computeFaceInfoFaceCoords(_subproblem);
+  _mesh.computeFaceInfoFaceCoords();
 }
 
 #ifdef MOOSE_GLOBAL_AD_INDEXING

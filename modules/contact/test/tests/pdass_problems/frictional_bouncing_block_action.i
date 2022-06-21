@@ -10,6 +10,7 @@ offset = 1e-2
     type = FileMeshGenerator
     file = long-bottom-block-1elem-blocks.e
   []
+  allow_renumbering = false
   uniform_refine = 0 # 1,2
   patch_update_strategy = always
 []
@@ -66,14 +67,13 @@ offset = 1e-2
 
 [Contact]
   [frictional]
-    mesh = file
     primary = 20
     secondary = 10
     formulation = mortar
     model = coulomb
     friction_coefficient = 0.4
-    c_normal = 1.0e3
-    c_tangential = 5.0e1
+    c_normal = 1.0e1
+    c_tangential = 1.0e1
   []
 []
 
@@ -113,13 +113,14 @@ offset = 1e-2
   dt = 0.25 # 0.1 for finer meshes (uniform_refine)
   dtmin = .01
   solve_type = 'PJFNK'
+
   petsc_options = '-snes_converged_reason -ksp_converged_reason -pc_svd_monitor '
-                  '-snes_linesearch_monitor '
-  petsc_options_iname = '-pc_type -pc_factor_shift_type -pc_factor_shift_amount -mat_mffd_err'
-  petsc_options_value = 'lu       NONZERO               1e-15                   1e-5'
+                  '-snes_linesearch_monitor'
+  petsc_options_iname = '-pc_type -pc_factor_mat_solver_type -pc_factor_shift_type -pc_factor_shift_amount -mat_mffd_err'
+  petsc_options_value = 'lu       superlu_dist                  NONZERO               1e-15                   1e-5'
   l_max_its = 30
   nl_max_its = 40
-  line_search = 'none'
+  line_search = 'basic'
   snesmf_reuse_base = false
   nl_abs_tol = 1e-9
   nl_rel_tol = 1e-9
@@ -148,7 +149,6 @@ offset = 1e-2
 []
 
 [Outputs]
-  exodus = true
   [checkfile]
     type = CSV
     show = 'cont_press friction'

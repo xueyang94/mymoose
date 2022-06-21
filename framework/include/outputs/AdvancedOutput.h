@@ -23,11 +23,6 @@ class PetscOutput;
 class Console;
 class TransientMultiApp;
 
-class AdvancedOutput;
-
-template <>
-InputParameters validParams<AdvancedOutput>();
-
 /**
  * Based class for output objects
  *
@@ -393,7 +388,7 @@ AdvancedOutput::initPostprocessorOrVectorPostprocessorLists(const std::string & 
       .query()
       .condition<AttribSystem>("UserObject")
       .condition<AttribThread>(0)
-      .queryInto(objs);
+      .queryIntoUnsorted(objs);
 
   for (const auto & obj : objs)
   {

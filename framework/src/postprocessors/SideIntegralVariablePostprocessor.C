@@ -13,14 +13,12 @@
 
 registerMooseObject("MooseApp", SideIntegralVariablePostprocessor);
 
-defineLegacyParams(SideIntegralVariablePostprocessor);
-
 InputParameters
 SideIntegralVariablePostprocessor::validParams()
 {
   InputParameters params = SideIntegralPostprocessor::validParams();
   params.addRequiredCoupledVar("variable",
-                               "The name of the variable that this boundary condition applies to");
+                               "The name of the variable which this postprocessor integrates");
   params.addClassDescription("Computes a surface integral of the specified variable");
   return params;
 }

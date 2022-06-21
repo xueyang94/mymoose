@@ -13,12 +13,6 @@
 #include "SideIntegralVariableUserObject.h"
 #include "LayeredBase.h"
 
-// Forward Declarations
-class LayeredSideIntegral;
-
-template <>
-InputParameters validParams<LayeredSideIntegral>();
-
 /**
  * This UserObject computes volume integrals of a variable storing
  * partial sums for the specified number of intervals in a direction
@@ -38,9 +32,10 @@ public:
    */
   virtual Real spatialValue(const Point & p) const override { return integralValue(p); }
 
+  virtual const std::vector<Point> spatialPoints() const override;
+
   virtual void initialize() override;
   virtual void execute() override;
   virtual void finalize() override;
   virtual void threadJoin(const UserObject & y) override;
 };
-

@@ -14,13 +14,13 @@
 #include "MeshMetaDataInterface.h"
 #include "Registry.h"
 #include "PerfGraphInterface.h"
+#include "DataFileInterface.h"
 
 #include "libmesh/parallel_object.h"
 
 #include <string>
 #include <ostream>
 
-class Action;
 class ActionWarehouse;
 class ActionFactory;
 class MooseMesh;
@@ -29,16 +29,14 @@ class Executioner;
 class MooseApp;
 class Factory;
 
-template <>
-InputParameters validParams<Action>();
-
 /**
  * Base class for actions.
  */
 class Action : public ConsoleStreamInterface,
                public MeshMetaDataInterface,
                public PerfGraphInterface,
-               public libMesh::ParallelObject
+               public libMesh::ParallelObject,
+               public DataFileInterface<Action>
 {
 public:
   static InputParameters validParams();

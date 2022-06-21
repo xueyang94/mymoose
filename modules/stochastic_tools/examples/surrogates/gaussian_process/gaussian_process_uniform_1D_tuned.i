@@ -48,7 +48,7 @@
 
 [Controls]
   [cmdline]
-    type = MultiAppCommandLineControl
+    type = MultiAppSamplerControl
     multi_app = sub
     sampler = train_sample
     param_names = 'Kernels/source/value'
@@ -58,7 +58,7 @@
 [Transfers]
   [data]
     type = SamplerReporterTransfer
-    multi_app = sub
+    from_multi_app = sub
     sampler = train_sample
     stochastic_reporter = results
     from_reporter = 'avg/value'
@@ -84,6 +84,7 @@
     tune_parameters = ' signal_variance length_factor'
     tuning_min = ' 1e-9 1e-9'
     tuning_max = ' 1e16  1e16'
+    tuning_algorithm = 'tao'
   []
 []
 

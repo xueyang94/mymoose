@@ -41,7 +41,6 @@
 // Forward declarations
 class AuxiliarySystem;
 class DisplacedProblem;
-class FEProblemBase;
 class MooseMesh;
 class NonlinearSystemBase;
 class NonlinearSystem;
@@ -90,9 +89,6 @@ namespace libMesh
 class CouplingMatrix;
 class NonlinearImplicitSystem;
 } // namespace libMesh
-
-template <>
-InputParameters validParams<FEProblemBase>();
 
 /// Enumeration for nonlinear convergence reasons
 enum class MooseNonlinearConvergenceReason
@@ -154,9 +150,7 @@ public:
   virtual MooseMesh & mesh() override { return _mesh; }
   virtual const MooseMesh & mesh() const override { return _mesh; }
 
-  virtual Moose::CoordinateSystemType getCoordSystem(SubdomainID sid) const override;
-  virtual void setCoordSystem(const std::vector<SubdomainName> & blocks,
-                              const MultiMooseEnum & coord_sys);
+  void setCoordSystem(const std::vector<SubdomainName> & blocks, const MultiMooseEnum & coord_sys);
   void setAxisymmetricCoordAxis(const MooseEnum & rz_coord_axis);
 
   /**
@@ -287,22 +281,6 @@ public:
   virtual void setActiveScalarVariableCoupleableMatrixTags(std::set<TagID> & mtags,
                                                            THREAD_ID tid) override;
 
-  /**
-   * Record and set the material properties required by the current computing thread.
-   * @param mat_prop_ids The set of material properties required by the current computing thread.
-   *
-   * @param tid The thread id
-   */
-  virtual void setActiveMaterialProperties(const std::set<unsigned int> & mat_prop_ids,
-                                           THREAD_ID tid) override;
-
-  /**
-   * Clear the active material properties. Should be called at the end of every computing thread
-   *
-   * @param tid The thread id
-   */
-  virtual void clearActiveMaterialProperties(THREAD_ID tid) override;
-
   virtual void createQRules(QuadratureType type,
                             Order order,
                             Order volume_order = INVALID_ORDER,
@@ -430,6 +408,7 @@ public:
   virtual void init() override;
   virtual void solve() override;
 
+  ///@{
   /**
    * In general, {evaluable elements} >= {local elements} U {algebraic ghosting elements}. That is,
    * the number of evaluable elements does NOT necessarily equal to the number of local and
@@ -438,8 +417,17 @@ public:
    * local or algebraically ghosted, then all the nodal (Lagrange) degrees of freedom associated
    * with the non-local, non-algebraically-ghosted element will be evaluable, and hence that
    * element will be considered evaluable.
+   *
+   * getNonlinearEvaluableElementRange() returns the evaluable element range based on the nonlinear
+   * system dofmap;
+   * getAuxliaryEvaluableElementRange() returns the evaluable element range based on the auxiliary
+   * system dofmap;
+   * getEvaluableElementRange() returns the element range that is evaluable based on both the
+   * nonlinear dofmap and the auxliary dofmap.
    */
   const ConstElemRange & getEvaluableElementRange();
+  const ConstElemRange & getNonlinearEvaluableElementRange();
+  ///@}
 
   /**
    * Set an exception.  Usually this should not be directly called - but should be called through
@@ -471,6 +459,11 @@ public:
   virtual unsigned int nLinearIterations() const override;
   virtual Real finalNonlinearResidual() const override;
   virtual bool computingInitialResidual() const override;
+
+  /**
+   * Return solver type as a human readable string
+   */
+  virtual std::string solverTypeString() { return Moose::stringify(solverParams()._type); }
 
   /**
    * Returns true if we are in or beyond the initialSetup stage
@@ -551,7 +544,7 @@ public:
   void forceOutput();
 
   /**
-   * Reinitialize petsc output for proper linear/nonlinear iteration display
+   * Reinitialize PETSc output for proper linear/nonlinear iteration display
    */
   virtual void initPetscOutput();
 
@@ -748,7 +741,7 @@ public:
    */
   virtual void prepareMaterials(SubdomainID blk_id, THREAD_ID tid);
 
-  virtual void reinitMaterials(SubdomainID blk_id, THREAD_ID tid, bool swap_stateful = true);
+  void reinitMaterials(SubdomainID blk_id, THREAD_ID tid, bool swap_stateful = true);
 
   /**
    * reinit materials on element faces
@@ -760,10 +753,10 @@ public:
    * should be \p false when for example executing material objects for mortar contexts in which
    * stateful properties don't make sense
    */
-  virtual void reinitMaterialsFace(SubdomainID blk_id,
-                                   THREAD_ID tid,
-                                   bool swap_stateful = true,
-                                   bool execute_stateful = true);
+  void reinitMaterialsFace(SubdomainID blk_id,
+                           THREAD_ID tid,
+                           bool swap_stateful = true,
+                           const std::deque<MaterialBase *> * reinit_mats = nullptr);
 
   /**
    * reinit materials on the neighboring element face
@@ -775,10 +768,10 @@ public:
    * should be \p false when for example executing material objects for mortar contexts in which
    * stateful properties don't make sense
    */
-  virtual void reinitMaterialsNeighbor(SubdomainID blk_id,
-                                       THREAD_ID tid,
-                                       bool swap_stateful = true,
-                                       bool execute_stateful = true);
+  void reinitMaterialsNeighbor(SubdomainID blk_id,
+                               THREAD_ID tid,
+                               bool swap_stateful = true,
+                               const std::deque<MaterialBase *> * reinit_mats = nullptr);
 
   /**
    * reinit materials on a boundary
@@ -790,19 +783,51 @@ public:
    * should be \p false when for example executing material objects for mortar contexts in which
    * stateful properties don't make sense
    */
-  virtual void reinitMaterialsBoundary(BoundaryID boundary_id,
-                                       THREAD_ID tid,
-                                       bool swap_stateful = true,
-                                       bool execute_stateful = true);
+  void reinitMaterialsBoundary(BoundaryID boundary_id,
+                               THREAD_ID tid,
+                               bool swap_stateful = true,
+                               const std::deque<MaterialBase *> * reinit_mats = nullptr);
 
-  virtual void
-  reinitMaterialsInterface(BoundaryID boundary_id, THREAD_ID tid, bool swap_stateful = true);
+  void reinitMaterialsInterface(BoundaryID boundary_id, THREAD_ID tid, bool swap_stateful = true);
+
   /*
    * Swap back underlying data storing stateful material properties
    */
   virtual void swapBackMaterials(THREAD_ID tid);
   virtual void swapBackMaterialsFace(THREAD_ID tid);
   virtual void swapBackMaterialsNeighbor(THREAD_ID tid);
+
+  /**
+   * Record and set the material properties required by the current computing thread.
+   * @param mat_prop_ids The set of material properties required by the current computing thread.
+   *
+   * @param tid The thread id
+   */
+  void setActiveMaterialProperties(const std::set<unsigned int> & mat_prop_ids, THREAD_ID tid);
+
+  /**
+   * Get the material properties required by the current computing thread.
+   *
+   * @param tid The thread id
+   */
+  const std::set<unsigned int> & getActiveMaterialProperties(THREAD_ID tid) const;
+
+  /**
+   * Method to check whether or not a list of active material roperties has been set. This method
+   * is called by reinitMaterials to determine whether Material computeProperties methods need to be
+   * called. If the return is False, this check prevents unnecessary material property computation
+   * @param tid The thread id
+   *
+   * @return True if there has been a list of active material properties set, False otherwise
+   */
+  bool hasActiveMaterialProperties(THREAD_ID tid) const;
+
+  /**
+   * Clear the active material properties. Should be called at the end of every computing thread
+   *
+   * @param tid The thread id
+   */
+  void clearActiveMaterialProperties(THREAD_ID tid);
 
   /**
    * Method for creating and adding an object to the warehouse.
@@ -903,11 +928,6 @@ public:
    * @return true if the user object exists, false otherwise
    */
   bool hasUserObject(const std::string & name) const;
-
-  /**
-   * No longer used. To be removed after application patching
-   */
-  void initPostprocessorData(const std::string &) {}
 
   /**
    * Whether or not a Postprocessor value exists by a given name.
@@ -1160,6 +1180,14 @@ public:
    */
   virtual void computeResidual(const NumericVector<Number> & soln,
                                NumericVector<Number> & residual);
+
+  /**
+   * Form a residual and Jacobian with default tags
+   */
+  void computeResidualAndJacobian(const NumericVector<Number> & soln,
+                                  NumericVector<Number> & residual,
+                                  SparseMatrix<Number> & jacobian);
+
   /**
    * Form a residual vector for a given tag
    */
@@ -1363,7 +1391,9 @@ public:
       const std::pair<BoundaryID, BoundaryID> & primary_secondary_boundary_pair,
       const std::pair<SubdomainID, SubdomainID> & primary_secondary_subdomain_pair,
       bool on_displaced,
-      bool periodic);
+      bool periodic,
+      const bool debug,
+      const bool correct_edge_dropping);
 
   const AutomaticMortarGeneration &
   getMortarInterface(const std::pair<BoundaryID, BoundaryID> & primary_secondary_boundary_pair,
@@ -1515,6 +1545,11 @@ public:
   void setParallelBarrierMessaging(bool flag) { _parallel_barrier_messaging = flag; }
 
   /**
+   * Whether or not to use verbose printing for MultiApps.
+   */
+  bool verboseMultiApps() const { return _verbose_multiapps; }
+
+  /**
    * Calls parentOutputPositionChanged() on all sub apps.
    */
   void parentOutputPositionChanged();
@@ -1619,6 +1654,9 @@ public:
    * Convenience function for performing execution of MOOSE systems.
    */
   virtual void execute(const ExecFlagType & exec_type);
+  virtual void executeAllObjects(const ExecFlagType & exec_type);
+
+  virtual Executor & getExecutor(const std::string & name) { return _app.getExecutor(name); }
 
   /**
    * Call compute methods on UserObjects.
@@ -1747,7 +1785,7 @@ public:
   bool isSNESMFReuseBaseSetbyUser() { return _snesmf_reuse_base_set_by_user; }
 
   /**
-   * If petsc options are already inserted
+   * If PETSc options are already inserted
    */
   bool & petscOptionsInserted() { return _is_petsc_options_inserted; }
 
@@ -1813,6 +1851,7 @@ public:
    * Returns the mortar data object
    */
   const MortarData & mortarData() const { return _mortar_data; }
+  MortarData & mortarData() { return _mortar_data; }
 
   /**
    * Whether the simulation has neighbor coupling
@@ -2057,6 +2096,9 @@ protected:
   /// Transfers executed just after MultiApps to transfer data from them
   ExecuteMooseObjectWarehouse<Transfer> _from_multi_app_transfers;
 
+  /// Transfers executed just before MultiApps to transfer data between them
+  ExecuteMooseObjectWarehouse<Transfer> _between_multi_app_transfers;
+
   /// A map of objects that consume random numbers
   std::map<std::string, std::unique_ptr<RandomData>> _random_data_objects;
 
@@ -2182,6 +2224,14 @@ protected:
   /// Determines whether a check to verify an active kernel on every subdomain
   bool _kernel_coverage_check;
 
+  /// whether to perform checking of boundary restricted nodal object variable dependencies,
+  /// e.g. whether the variable dependencies are defined on the selected boundaries
+  const bool _boundary_restricted_node_integrity_check;
+
+  /// whether to perform checking of boundary restricted elemental object variable dependencies,
+  /// e.g. whether the variable dependencies are defined on the selected boundaries
+  const bool _boundary_restricted_elem_integrity_check;
+
   /// Determines whether a check to verify an active material on every subdomain
   bool _material_coverage_check;
 
@@ -2209,6 +2259,9 @@ protected:
   /// Whether or not information about how many transfers have completed is printed
   bool _parallel_barrier_messaging;
 
+  /// Whether or not to be verbose with multiapps
+  const bool _verbose_multiapps;
+
   /// The error message to go with an exception
   std::string _exception_message;
 
@@ -2224,12 +2277,14 @@ protected:
   PetscOptions _petsc_option_data_base;
 #endif
 
-  /// If or not petsc options have been added to database
+  /// If or not PETSc options have been added to database
   bool _is_petsc_options_inserted;
 
   std::shared_ptr<LineSearch> _line_search;
 
   std::unique_ptr<ConstElemRange> _evaluable_local_elem_range;
+  std::unique_ptr<ConstElemRange> _nl_evaluable_local_elem_range;
+  std::unique_ptr<ConstElemRange> _aux_evaluable_local_elem_range;
 
   /// Automatic differentiaion (AD) flag which indicates whether any consumer has
   /// requested an AD material property or whether any suppier has declared an AD material property
@@ -2293,6 +2348,8 @@ private:
   /// Flag used to indicate whether we are computing the scaling Residual
   bool _computing_scaling_residual = false;
 };
+
+using FVProblemBase = FEProblemBase;
 
 template <typename T>
 void

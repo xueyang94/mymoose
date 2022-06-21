@@ -13,11 +13,6 @@
 #include "FunctionInterface.h"
 #include "BicubicSplineInterpolation.h"
 
-class BicubicSplineFunction;
-
-template <>
-InputParameters validParams<BicubicSplineFunction>();
-
 /**
  * Function that uses spline interpolation
  */
@@ -28,6 +23,7 @@ public:
 
   BicubicSplineFunction(const InputParameters & parameters);
 
+  using Function::value;
   virtual Real value(Real t, const Point & p) const override;
 
   virtual Real derivative(const Point & p, unsigned int deriv_var) const;

@@ -34,7 +34,7 @@
 
 [Problem]
   type = SlowProblem
-  seconds_to_sleep = 4
+  seconds_to_sleep = 8
 []
 
 [Executioner]
@@ -46,5 +46,4 @@
 
 [Outputs]
   perf_graph_live_time_limit = 1
-  exodus = true
 []

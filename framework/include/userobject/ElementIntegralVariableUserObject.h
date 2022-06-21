@@ -12,12 +12,6 @@
 #include "ElementIntegralUserObject.h"
 #include "MooseVariableInterface.h"
 
-// Forward Declarations
-class ElementIntegralVariableUserObject;
-
-template <>
-InputParameters validParams<ElementIntegralVariableUserObject>();
-
 /**
  * This postprocessor computes a volume integral of the specified variable.
  *
@@ -40,4 +34,3 @@ protected:
   /// Holds the solution gradient at the current quadrature points
   const VariableGradient & _grad_u;
 };
-

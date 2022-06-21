@@ -32,19 +32,23 @@ InputParameters::InputParameters()
     _collapse_nesting(false),
     _moose_object_syntax_visibility(true),
     _show_deprecated_message(true),
-    _allow_copy(true)
+    _allow_copy(true),
+    _from_legacy_construction(true)
 {
 }
 
 InputParameters::InputParameters(const InputParameters & rhs)
-  : Parameters(), _show_deprecated_message(true), _allow_copy(true)
+  : Parameters(),
+    _show_deprecated_message(true),
+    _allow_copy(true),
+    _from_legacy_construction(rhs._from_legacy_construction)
 
 {
   *this = rhs;
 }
 
 InputParameters::InputParameters(const Parameters & rhs)
-  : _show_deprecated_message(true), _allow_copy(true)
+  : _show_deprecated_message(true), _allow_copy(true), _from_legacy_construction(true)
 {
   _params.clear();
   Parameters::operator=(rhs);
@@ -63,6 +67,7 @@ InputParameters::clear()
   _moose_object_syntax_visibility = true;
   _show_deprecated_message = true;
   _allow_copy = true;
+  _from_legacy_construction = true;
   _block_fullpath = "";
   _block_location = "";
 }
@@ -454,12 +459,13 @@ InputParameters::mooseObjectSyntaxVisibility() const
 #define dynamicCastRangeCheck(type, up_type, long_name, short_name, param, oss)                    \
   do                                                                                               \
   {                                                                                                \
+    libMesh::Parameters::Value * val = MooseUtils::get(param);                                     \
     InputParameters::Parameter<type> * scalar_p =                                                  \
-        dynamic_cast<InputParameters::Parameter<type> *>(param);                                   \
+        dynamic_cast<InputParameters::Parameter<type> *>(val);                                     \
     if (scalar_p)                                                                                  \
       rangeCheck<type, up_type>(long_name, short_name, scalar_p, oss);                             \
     InputParameters::Parameter<std::vector<type>> * vector_p =                                     \
-        dynamic_cast<InputParameters::Parameter<std::vector<type>> *>(param);                      \
+        dynamic_cast<InputParameters::Parameter<std::vector<type>> *>(val);                        \
     if (vector_p)                                                                                  \
       rangeCheck<type, up_type>(long_name, short_name, vector_p, oss);                             \
   } while (0)
@@ -683,9 +689,12 @@ InputParameters::addParamNamesToGroup(const std::string & space_delim_names,
 }
 
 std::vector<std::string>
-InputParameters::getSyntax(const std::string & name)
+InputParameters::getSyntax(const std::string & name) const
 {
-  return _params[name]._cli_flag_names;
+  auto it = _params.find(name);
+  if (it == _params.end())
+    mooseError("No parameter exists with the name ", name);
+  return it->second._cli_flag_names;
 }
 
 std::string
@@ -821,7 +830,7 @@ InputParameters::applyParameter(const InputParameters & common,
   if (local_exist && common_exist && common_valid && (!local_valid || !local_set) &&
       (!common_priv || !local_priv))
   {
-    delete _values[common_name];
+    remove(common_name);
     _values[common_name] = common._values.find(common_name)->second->clone();
     set_attributes(common_name, false);
   }
@@ -850,11 +859,12 @@ InputParameters::isParamSetByUser(const std::string & name) const
 }
 
 const std::string &
-InputParameters::getDescription(const std::string & name)
+InputParameters::getDescription(const std::string & name) const
 {
-  if (_params.count(name) == 0)
+  auto it = _params.find(name);
+  if (it == _params.end())
     mooseError("No parameter exists with the name ", name);
-  return _params[name]._doc_string;
+  return it->second._doc_string;
 }
 
 template <>

@@ -9,6 +9,7 @@ offset = 1e-2
   file = long-bottom-block-1elem-blocks.e
   uniform_refine = 0 # 1,2
   patch_update_strategy = always
+  allow_renumbering = false
 []
 
 [Variables]
@@ -77,8 +78,8 @@ offset = 1e-2
     use_displaced_mesh = true
     friction_lm = frictional_tangential_lm
     mu = 0.4
-    c = 1.0e3
-    c_t = 5.0e1
+    c = 1.0e1
+    c_t = 1.0e1
   []
   [normal_x]
     type = NormalMortarMechanicalContact
@@ -167,9 +168,9 @@ offset = 1e-2
   dtmin = .01
   solve_type = 'PJFNK'
   petsc_options = '-snes_converged_reason -ksp_converged_reason -pc_svd_monitor '
-                  '-snes_linesearch_monitor '
-  petsc_options_iname = '-pc_type -pc_factor_shift_type -pc_factor_shift_amount -mat_mffd_err'
-  petsc_options_value = 'lu       NONZERO               1e-15                   1e-5'
+                  '-snes_linesearch_monitor'
+  petsc_options_iname = '-pc_type -pc_factor_mat_solver_type -pc_factor_shift_type -pc_factor_shift_amount -mat_mffd_err'
+  petsc_options_value = 'lu       superlu_dist                  NONZERO               1e-15                   1e-5'
   l_max_its = 30
   nl_max_its = 40
   line_search = 'none'
@@ -189,6 +190,7 @@ offset = 1e-2
     variable = frictional_normal_lm
     boundary = '10'
     sort_by = x
+
     execute_on = FINAL
   []
   [friction]

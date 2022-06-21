@@ -35,24 +35,24 @@
 [Transfers]
   [quad]
     type = SamplerParameterTransfer
-    multi_app = quad_sub
+    to_multi_app = quad_sub
     sampler = quadrature
     parameters = 'Materials/diffusivity/prop_values Materials/xs/prop_values'
     to_control = 'stochastic'
   []
   [data]
-    type = SamplerPostprocessorTransfer
-    multi_app = quad_sub
+    type = SamplerReporterTransfer
+    from_multi_app = quad_sub
     sampler = quadrature
-    to_vector_postprocessor = storage
-    from_postprocessor = avg
+    stochastic_reporter = storage
+    from_reporter = avg/value
   []
 []
 
-[VectorPostprocessors]
+[Reporters]
   [storage]
-    type = StochasticResults
-    parallel_type = REPLICATED
+    type = StochasticReporter
+    parallel_type = ROOT
   []
 []
 
@@ -63,7 +63,7 @@
     order = 5
     distributions = 'D_dist S_dist'
     sampler = quadrature
-    response = storage/data:avg
+    response = storage/data:avg:value
   []
 []
 

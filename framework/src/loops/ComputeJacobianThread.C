@@ -15,8 +15,6 @@
 #include "InterfaceKernelBase.h"
 #include "MooseVariableFE.h"
 #include "NonlinearSystem.h"
-#include "NonlocalIntegratedBC.h"
-#include "NonlocalKernel.h"
 #include "SwapBackSentinel.h"
 #include "TimeDerivative.h"
 #include "FVElementalKernel.h"
@@ -64,14 +62,11 @@ ComputeJacobianThread::computeJacobian()
       {
         kernel->prepareShapes(kernel->variable().number());
         kernel->computeJacobian();
-        /// done only when nonlocal kernels exist in the system
-        if (_fe_problem.checkNonlocalCouplingRequirement())
-        {
-          std::shared_ptr<NonlocalKernel> nonlocal_kernel =
-              std::dynamic_pointer_cast<NonlocalKernel>(kernel);
-          if (nonlocal_kernel)
-            kernel->computeNonlocalJacobian();
-        }
+        if (_fe_problem.checkNonlocalCouplingRequirement() &&
+            !_fe_problem.computingScalingJacobian())
+          mooseError(
+              "Nonlocal kernels only supported for non-diagonal coupling. Please specify an SMP "
+              "preconditioner, with appropriate row-column coupling or specify full = true.");
       }
   }
 
@@ -101,14 +96,10 @@ ComputeJacobianThread::computeFaceJacobian(BoundaryID bnd_id, const Elem *)
     {
       bc->prepareShapes(bc->variable().number());
       bc->computeJacobian();
-      /// done only when nonlocal integrated_bcs exist in the system
-      if (_fe_problem.checkNonlocalCouplingRequirement())
-      {
-        std::shared_ptr<NonlocalIntegratedBC> nonlocal_integrated_bc =
-            std::dynamic_pointer_cast<NonlocalIntegratedBC>(bc);
-        if (nonlocal_integrated_bc)
-          bc->computeNonlocalJacobian();
-      }
+      if (_fe_problem.checkNonlocalCouplingRequirement() && !_fe_problem.computingScalingJacobian())
+        mooseError("Nonlocal boundary conditions only supported for non-diagonal coupling. Please "
+                   "specify an SMP preconditioner, with appropriate row-column coupling or specify "
+                   "full = true.");
     }
 }
 
@@ -175,7 +166,6 @@ ComputeJacobianThread::subdomainChanged()
         .template condition<AttribSystem>("FVElementalKernel")
         .template condition<AttribSubdomains>(_subdomain)
         .template condition<AttribThread>(_tid)
-        .template condition<AttribMatrixTags>(_tags)
         .queryInto(fv_kernels);
     for (const auto fv_kernel : fv_kernels)
     {
@@ -276,28 +266,21 @@ ComputeJacobianThread::onInternalSide(const Elem * elem, unsigned int side)
     // Pointer to the neighbor we are currently working on.
     const Elem * neighbor = elem->neighbor_ptr(side);
 
-    // Get the global id of the element and the neighbor
-    const dof_id_type elem_id = elem->id(), neighbor_id = neighbor->id();
+    _fe_problem.reinitElemNeighborAndLowerD(elem, side, _tid);
 
-    if ((neighbor->active() && (neighbor->level() == elem->level()) && (elem_id < neighbor_id)) ||
-        (neighbor->level() < elem->level()))
+    // Set up Sentinels so that, even if one of the reinitMaterialsXXX() calls throws, we
+    // still remember to swap back during stack unwinding.
+    SwapBackSentinel face_sentinel(_fe_problem, &FEProblem::swapBackMaterialsFace, _tid);
+    _fe_problem.reinitMaterialsFace(elem->subdomain_id(), _tid);
+
+    SwapBackSentinel neighbor_sentinel(_fe_problem, &FEProblem::swapBackMaterialsNeighbor, _tid);
+    _fe_problem.reinitMaterialsNeighbor(neighbor->subdomain_id(), _tid);
+
+    computeInternalFaceJacobian(neighbor);
+
     {
-      _fe_problem.reinitElemNeighborAndLowerD(elem, side, _tid);
-
-      // Set up Sentinels so that, even if one of the reinitMaterialsXXX() calls throws, we
-      // still remember to swap back during stack unwinding.
-      SwapBackSentinel face_sentinel(_fe_problem, &FEProblem::swapBackMaterialsFace, _tid);
-      _fe_problem.reinitMaterialsFace(elem->subdomain_id(), _tid);
-
-      SwapBackSentinel neighbor_sentinel(_fe_problem, &FEProblem::swapBackMaterialsNeighbor, _tid);
-      _fe_problem.reinitMaterialsNeighbor(neighbor->subdomain_id(), _tid);
-
-      computeInternalFaceJacobian(neighbor);
-
-      {
-        Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
-        _fe_problem.addJacobianNeighborLowerD(_tid);
-      }
+      Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
+      _fe_problem.addJacobianNeighborLowerD(_tid);
     }
   }
 }

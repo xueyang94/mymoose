@@ -21,8 +21,6 @@
 
 registerMooseObject("MooseApp", CombinerGenerator);
 
-defineLegacyParams(CombinerGenerator);
-
 InputParameters
 CombinerGenerator::validParams()
 {
@@ -50,7 +48,9 @@ CombinerGenerator::validParams()
 }
 
 CombinerGenerator::CombinerGenerator(const InputParameters & parameters)
-  : MeshGenerator(parameters), _input_names(getParam<std::vector<MeshGeneratorName>>("inputs"))
+  : MeshGenerator(parameters),
+    _meshes(getMeshes("inputs")),
+    _input_names(getParam<std::vector<MeshGeneratorName>>("inputs"))
 {
   if (_input_names.empty())
     paramError("input_names", "You need to specify at least one MeshGenerator as an input.");
@@ -65,10 +65,6 @@ CombinerGenerator::CombinerGenerator(const InputParameters & parameters)
       paramError("positions",
                  "If only one input mesh is given, then 'positions' or 'positions_file' must also "
                  "be supplied");
-
-  // Grab the input mesh references as pointers
-  for (auto & input_name : _input_names)
-    _meshes.push_back(&getMeshByName(input_name));
 }
 
 void
@@ -124,7 +120,6 @@ CombinerGenerator::generate()
   // Two cases:
   // 1. Multiple input meshes and optional positions
   // 2. One input mesh and multiple positions
-
   fillPositions();
 
   // Case 1
@@ -245,7 +240,6 @@ CombinerGenerator::copyIntoMesh(UnstructuredMesh & destination, const Unstructur
   // list APIs rather than element-by-element for speed.
   BoundaryInfo & boundary = destination.get_boundary_info();
   const BoundaryInfo & other_boundary = source.get_boundary_info();
-
   for (const auto & t : other_boundary.build_node_list())
     boundary.add_node(std::get<0>(t) + node_delta, std::get<1>(t));
 
@@ -257,4 +251,7 @@ CombinerGenerator::copyIntoMesh(UnstructuredMesh & destination, const Unstructur
 
   for (const auto & t : other_boundary.build_shellface_list())
     boundary.add_shellface(std::get<0>(t) + elem_delta, std::get<1>(t), std::get<2>(t));
+
+  for (auto elem : other_boundary.get_sideset_name_map())
+    boundary.set_sideset_name_map().insert(elem);
 }

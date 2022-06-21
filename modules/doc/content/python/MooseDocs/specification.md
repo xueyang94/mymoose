@@ -63,12 +63,14 @@ tables. [user-ext] provides a list of extensions that are useful for those writi
 | [extensions/template.md] | Tools for building MooseDocs markdown templates. |
 | [extensions/datetime.md] | Functions for adding date/time information. |
 | [extensions/gitutils.md] | Tools for gleaning information regarding git repository. |
+| [extensions/algorithm.md] | Provides means of displaying algorithms. |
 
 !table id=devel-ext caption=List of extensions useful for writing extensions for "MooseDown".
 | Extension | Description |
 | :- | :- |
 | [extensions/command.md] | Basis for creating extensions that rely on commands (see [extensions/appsyntax.md]). |
 | [extensions/floats.md] | Tools for creating numbered and/or captioned content (see [extensions/media.md]). |
+| [extensions/modal.md] | Creates links to modal windows displaying code content. |
 | [extensions/devel.md] | Tools for documenting MooseDocs extensions. |
 | [extensions/package.md] | Tools for linking to MOOSE environment packages. |
 | [extensions/content.md] | Creates complete list of markdown pages within a directory. |

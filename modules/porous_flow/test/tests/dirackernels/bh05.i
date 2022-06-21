@@ -6,8 +6,8 @@
   nx = 1
   ny = 1
   nz = 1
-  xmin = -1
-  xmax = 1
+  xmin = 1
+  xmax = 3
   ymin = -1
   ymax = 1
   zmin = -1
@@ -136,12 +136,13 @@
     type = FunctionValuePostprocessor
     function = mass_bal_fcn
     execute_on = timestep_end
+    indirect_dependencies = 'fluid_mass1 fluid_mass0 bh_report'
   []
 
   [p0]
     type = PointValue
     variable = pp
-    point = '0 0 0'
+    point = '2 0 0'
     execute_on = timestep_end
   []
 []

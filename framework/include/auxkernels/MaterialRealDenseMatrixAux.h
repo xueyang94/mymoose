@@ -12,12 +12,6 @@
 // MOOSE includes
 #include "MaterialAuxBase.h"
 
-// Forward declarations
-class MaterialRealDenseMatrixAux;
-
-template <>
-InputParameters validParams<MaterialRealDenseMatrixAux>();
-
 /**
  * AuxKernel for outputting a DenseMatrix<Real> material property component to an AuxVariable
  */
@@ -42,4 +36,3 @@ protected:
   /// The column index to output
   unsigned int _col;
 };
-

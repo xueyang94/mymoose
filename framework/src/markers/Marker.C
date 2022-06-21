@@ -15,8 +15,6 @@
 #include "MooseVariableFE.h"
 #include "SystemBase.h"
 
-defineLegacyParams(Marker);
-
 InputParameters
 Marker::validParams()
 {
@@ -38,6 +36,7 @@ Marker::Marker(const InputParameters & parameters)
     BlockRestrictable(this),
     SetupInterface(this),
     DependencyResolverInterface(),
+    MooseVariableDependencyInterface(this),
     UserObjectInterface(this),
     Restartable(this, "Markers"),
     PostprocessorInterface(this),

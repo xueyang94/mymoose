@@ -43,7 +43,7 @@
 
 [Controls]
   [cmdline]
-    type = MultiAppCommandLineControl
+    type = MultiAppSamplerControl
     multi_app = sub
     sampler = sample
     param_names = 'Materials/conductivity/prop_values Kernels/source/value Mesh/xmax BCs/right/value'
@@ -53,7 +53,7 @@
 [Transfers]
   [data]
     type = SamplerReporterTransfer
-    multi_app = sub
+    from_multi_app = sub
     sampler = sample
     stochastic_reporter = results
     from_reporter = 'avg/value max/value'

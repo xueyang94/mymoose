@@ -11,12 +11,6 @@
 
 #include "ElementPostprocessor.h"
 
-// Forward Declarations
-class ElementIntegralPostprocessor;
-
-template <>
-InputParameters validParams<ElementIntegralPostprocessor>();
-
 /**
  * This postprocessor computes a volume integral of the specified variable.
  *
@@ -43,4 +37,3 @@ protected:
 
   Real _integral_value;
 };
-

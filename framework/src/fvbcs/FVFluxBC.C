@@ -22,6 +22,7 @@ FVFluxBC::validParams()
 
   // FVFluxBCs always rely on Boundary MaterialData
   params.set<Moose::MaterialDataType>("_material_data_type") = Moose::BOUNDARY_MATERIAL_DATA;
+  params.set<bool>("_residual_object") = true;
 
   return params;
 }
@@ -34,6 +35,10 @@ FVFluxBC::FVFluxBC(const InputParameters & parameters)
     _u(_var.adSln()),
     _u_neighbor(_var.adSlnNeighbor())
 {
+  if (_var.kind() == Moose::VarKindType::VAR_AUXILIARY)
+    paramError("variable",
+               "There should not be a need to specify a flux "
+               "boundary condition for an auxiliary variable.");
 }
 
 void
@@ -41,7 +46,7 @@ FVFluxBC::computeResidual(const FaceInfo & fi)
 {
   _face_info = &fi;
   _normal = fi.normal();
-  auto ft = fi.faceType(_var.name());
+  _face_type = fi.faceType(_var.name());
 
   // For FV flux kernels, the normal is always oriented outward from the lower-id
   // element's perspective.  But for BCs, there is only a residual
@@ -50,13 +55,13 @@ FVFluxBC::computeResidual(const FaceInfo & fi)
   // side of the face the BC's variable is defined on; we flip it if this
   // variable is defined on the neighbor side of the face (instead of elem) since
   // the FaceInfo normal polarity is always oriented with respect to the lower-id element.
-  if (ft == FaceInfo::VarFaceNeighbors::NEIGHBOR)
+  if (_face_type == FaceInfo::VarFaceNeighbors::NEIGHBOR)
     _normal = -_normal;
 
-  if (ft == FaceInfo::VarFaceNeighbors::BOTH)
+  if (_face_type == FaceInfo::VarFaceNeighbors::BOTH)
     mooseError("A FVFluxBC is being triggered on an internal face with centroid: ",
                fi.faceCentroid());
-  else if (ft == FaceInfo::VarFaceNeighbors::NEITHER)
+  else if (_face_type == FaceInfo::VarFaceNeighbors::NEITHER)
     mooseError("A FVFluxBC is being triggered on a face which does not connect to a block ",
                "with the relevant finite volume variable. Its centroid: ",
                fi.faceCentroid());
@@ -67,13 +72,22 @@ FVFluxBC::computeResidual(const FaceInfo & fi)
   // restriction where the var is only defined on one side of the face.  We
   // need to make sure that we add the residual contribution to the correct
   // side - the one where the variable is defined.
-  if (ft == FaceInfo::VarFaceNeighbors::ELEM)
+  if (_face_type == FaceInfo::VarFaceNeighbors::ELEM)
     prepareVectorTag(_assembly, _var.number());
-  else if (ft == FaceInfo::VarFaceNeighbors::NEIGHBOR)
+  else if (_face_type == FaceInfo::VarFaceNeighbors::NEIGHBOR)
     prepareVectorTagNeighbor(_assembly, _var.number());
 
   _local_re(0) = r;
   accumulateTaggedLocalResidual();
+}
+
+void
+FVFluxBC::computeResidualAndJacobian(const FaceInfo & fi)
+{
+#ifndef MOOSE_GLOBAL_AD_INDEXING
+  mooseError("computeResidualAndJacobian not supported for ", name());
+#endif
+  computeJacobian(fi);
 }
 
 void
@@ -136,7 +150,7 @@ FVFluxBC::computeJacobian(const FaceInfo & fi)
 {
   _face_info = &fi;
   _normal = fi.normal();
-  auto ft = fi.faceType(_var.name());
+  _face_type = fi.faceType(_var.name());
 
   // For FV flux kernels, the normal is always oriented outward from the lower-id
   // element's perspective.  But for BCs, there is only a Jacobian
@@ -145,17 +159,23 @@ FVFluxBC::computeJacobian(const FaceInfo & fi)
   // side of the face the BC's variable is defined on; we flip it if this
   // variable is defined on the neighbor side of the face (instead of elem) since
   // the FaceInfo normal polarity is always oriented with respect to the lower-id element.
-  if (ft == FaceInfo::VarFaceNeighbors::NEIGHBOR)
+  if (_face_type == FaceInfo::VarFaceNeighbors::NEIGHBOR)
     _normal = -_normal;
 
   ADReal r = fi.faceArea() * fi.faceCoord() * computeQpResidual();
 
-  const auto & dof_indices =
-      (ft == FaceInfo::VarFaceNeighbors::ELEM) ? _var.dofIndices() : _var.dofIndicesNeighbor();
+  const auto & dof_indices = (_face_type == FaceInfo::VarFaceNeighbors::ELEM)
+                                 ? _var.dofIndices()
+                                 : _var.dofIndicesNeighbor();
 
   mooseAssert(dof_indices.size() == 1, "We're currently built to use CONSTANT MONOMIALS");
 
-  auto local_functor = [&](const ADReal & residual, dof_id_type, const std::set<TagID> &) {
+#ifdef MOOSE_GLOBAL_AD_INDEXING
+  _assembly.processResidualAndJacobian(r, dof_indices[0], _vector_tags, _matrix_tags);
+#else
+
+  auto local_functor = [&](const ADReal & residual, dof_id_type, const std::set<TagID> &)
+  {
     // Even though the elem element is always the non-null pointer on mesh
     // external boundary faces, this could be an "internal" boundary - one
     // created by variable block restriction where the var is only defined on
@@ -165,11 +185,11 @@ FVFluxBC::computeJacobian(const FaceInfo & fi)
     // Also, we don't need to worry about ElementNeighbor or NeighborElement
     // contributions here because, once again, this is a boundary face with the
     // variable only defined on one side.
-    if (ft == FaceInfo::VarFaceNeighbors::ELEM)
+    if (_face_type == FaceInfo::VarFaceNeighbors::ELEM)
       computeJacobian(Moose::ElementElement, residual);
-    else if (ft == FaceInfo::VarFaceNeighbors::NEIGHBOR)
+    else if (_face_type == FaceInfo::VarFaceNeighbors::NEIGHBOR)
       computeJacobian(Moose::NeighborNeighbor, residual);
-    else if (ft == FaceInfo::VarFaceNeighbors::BOTH)
+    else if (_face_type == FaceInfo::VarFaceNeighbors::BOTH)
       mooseError("A FVFluxBC is being triggered on an internal face with centroid: ",
                  fi.faceCentroid());
     else
@@ -178,7 +198,8 @@ FVFluxBC::computeJacobian(const FaceInfo & fi)
                  fi.faceCentroid());
   };
 
-  _assembly.processDerivatives(r, dof_indices[0], _matrix_tags, local_functor);
+  _assembly.processJacobian(r, dof_indices[0], _matrix_tags, local_functor);
+#endif
 }
 
 const ADReal &
@@ -223,8 +244,8 @@ FVFluxBC::uOnGhost() const
     return _u[_qp];
 }
 
-std::tuple<const libMesh::Elem *, const FaceInfo *, SubdomainID>
-FVFluxBC::makeSidedFace(const bool fi_elem) const
+Moose::ElemFromFaceArg
+FVFluxBC::makeSidedFace(const bool fi_elem, const bool correct_skewness) const
 {
   const auto ft = _face_info->faceType(_var.name());
   const Elem * const elem = fi_elem ? &_face_info->elem() : _face_info->neighborPtr();
@@ -233,7 +254,7 @@ FVFluxBC::makeSidedFace(const bool fi_elem) const
   if (fi_elem == (ft == FaceInfo::VarFaceNeighbors::ELEM))
   {
     mooseAssert(elem, "This should be non-null");
-    return std::make_tuple(elem, _face_info, elem->subdomain_id());
+    return {elem, _face_info, correct_skewness, elem->subdomain_id()};
   }
   else
   {
@@ -241,24 +262,24 @@ FVFluxBC::makeSidedFace(const bool fi_elem) const
     mooseAssert(elem_across,
                 "The elem across should be non-null and the element across should have dof indices "
                 "for this variable defined on it");
-    return std::make_tuple(elem, _face_info, elem_across->subdomain_id());
+    return {elem, _face_info, correct_skewness, elem_across->subdomain_id()};
   }
 }
 
-std::tuple<const libMesh::Elem *, const FaceInfo *, SubdomainID>
-FVFluxBC::elemFromFace() const
+Moose::ElemFromFaceArg
+FVFluxBC::elemFromFace(const bool correct_skewness) const
 {
-  return makeSidedFace(true);
+  return makeSidedFace(true, correct_skewness);
 }
 
-std::tuple<const libMesh::Elem *, const FaceInfo *, SubdomainID>
-FVFluxBC::neighborFromFace() const
+Moose::ElemFromFaceArg
+FVFluxBC::neighborFromFace(const bool correct_skewness) const
 {
-  return makeSidedFace(false);
+  return makeSidedFace(false, correct_skewness);
 }
 
 std::pair<SubdomainID, SubdomainID>
 FVFluxBC::faceArgSubdomains() const
 {
-  return std::make_pair(std::get<2>(elemFromFace()), std::get<2>(neighborFromFace()));
+  return std::make_pair(elemFromFace().sub_id, neighborFromFace().sub_id);
 }

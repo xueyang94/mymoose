@@ -10,26 +10,22 @@
 #include "LinearInterpolation.h"
 
 #include "DualRealOps.h"
+#include "ChainedReal.h"
 
 #include <cassert>
 #include <fstream>
 #include <stdexcept>
 
-template <typename T>
-int LinearInterpolationTempl<T>::_file_number = 0;
-
-template <typename T>
-LinearInterpolationTempl<T>::LinearInterpolationTempl(const std::vector<Real> & x,
-                                                      const std::vector<Real> & y,
-                                                      const bool extrap)
+LinearInterpolation::LinearInterpolation(const std::vector<Real> & x,
+                                         const std::vector<Real> & y,
+                                         const bool extrap)
   : _x(x), _y(y), _extrap(extrap)
 {
   errorCheck();
 }
 
-template <typename T>
 void
-LinearInterpolationTempl<T>::errorCheck()
+LinearInterpolation::errorCheck()
 {
   if (_x.size() != _y.size())
     throw std::domain_error("Vectors are not the same length");
@@ -46,19 +42,20 @@ LinearInterpolationTempl<T>::errorCheck()
 
 template <typename T>
 T
-LinearInterpolationTempl<T>::sample(const T & x) const
+LinearInterpolation::sample(const T & x) const
 {
-  // sanity check (empty LinearInterpolationTempls get constructed in many places
-  // so we cannot put this into the errorCheck)
-  if (_extrap)
-    assert(_x.size() > 1);
-  else
-    assert(_x.size() > 0);
+  // this is a hard error
+  if (_x.empty())
+    mooseError("Trying to evaluate an empty LinearInterpolation");
+
+  // special case for single function nodes
+  if (_x.size() == 1)
+    return _y[0];
 
   // endpoint cases
   if (_extrap)
   {
-    if (x <= _x[0])
+    if (x < _x[0])
       return _y[0] + (x - _x[0]) / (_x[1] - _x[0]) * (_y[1] - _y[0]);
     if (x >= _x.back())
       return _y.back() +
@@ -66,9 +63,12 @@ LinearInterpolationTempl<T>::sample(const T & x) const
   }
   else
   {
-    if (x <= _x[0])
+    if (x < _x[0])
       return _y[0];
-    if (x >= _x.back())
+    if (x == _x.back())
+      return _y.back() +
+             (x - _x.back()) / (_x[_x.size() - 2] - _x.back()) * (_y[_y.size() - 2] - _y.back());
+    if (x > _x.back())
       return _y.back();
   }
 
@@ -76,13 +76,18 @@ LinearInterpolationTempl<T>::sample(const T & x) const
     if (x >= _x[i] && x < _x[i + 1])
       return _y[i] + (_y[i + 1] - _y[i]) * (x - _x[i]) / (_x[i + 1] - _x[i]);
 
-  throw std::out_of_range("Unreachable");
+  // If this point is reached, x must be a NaN.
+  mooseException("Sample point in LinearInterpolation is a NaN.");
   return 0;
 }
 
+template Real LinearInterpolation::sample<Real>(const Real &) const;
+template ADReal LinearInterpolation::sample<ADReal>(const ADReal &) const;
+template ChainedReal LinearInterpolation::sample<ChainedReal>(const ChainedReal &) const;
+
 template <typename T>
 T
-LinearInterpolationTempl<T>::sampleDerivative(const T & x) const
+LinearInterpolation::sampleDerivative(const T & x) const
 {
   // endpoint cases
   if (_extrap)
@@ -104,13 +109,17 @@ LinearInterpolationTempl<T>::sampleDerivative(const T & x) const
     if (x >= _x[i] && x < _x[i + 1])
       return (_y[i + 1] - _y[i]) / (_x[i + 1] - _x[i]);
 
-  throw std::out_of_range("Unreachable");
+  // If this point is reached, x must be a NaN.
+  mooseException("Sample point in LinearInterpolation is a NaN.");
   return 0;
 }
 
-template <typename T>
+template Real LinearInterpolation::sampleDerivative<Real>(const Real &) const;
+template ADReal LinearInterpolation::sampleDerivative<ADReal>(const ADReal &) const;
+template ChainedReal LinearInterpolation::sampleDerivative<ChainedReal>(const ChainedReal &) const;
+
 Real
-LinearInterpolationTempl<T>::integrate()
+LinearInterpolation::integrate()
 {
   Real answer = 0;
   for (unsigned int i = 1; i < _x.size(); ++i)
@@ -119,26 +128,20 @@ LinearInterpolationTempl<T>::integrate()
   return answer;
 }
 
-template <typename T>
 Real
-LinearInterpolationTempl<T>::domain(int i) const
+LinearInterpolation::domain(int i) const
 {
   return _x[i];
 }
 
-template <typename T>
 Real
-LinearInterpolationTempl<T>::range(int i) const
+LinearInterpolation::range(int i) const
 {
   return _y[i];
 }
 
-template <typename T>
 unsigned int
-LinearInterpolationTempl<T>::getSampleSize() const
+LinearInterpolation::getSampleSize() const
 {
   return _x.size();
 }
-
-template class LinearInterpolationTempl<Real>;
-template class LinearInterpolationTempl<DualReal>;

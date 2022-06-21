@@ -18,15 +18,14 @@
   [sample]
     type = AdaptiveImportance
     distributions = 'mu1 mu2'
-    execute_on = 'PRE_MULTIAPP_SETUP'
-    proposal_std = '0.15 0.15'
-    output_limit = 0.45
-    num_samples_train = 5
-    std_factor = 0.8
+    proposal_std = '1.0 1.0'
+    output_limit = 0.65
+    num_samples_train = 30
+    std_factor = 0.9
+    initial_values = '-0.103 1.239'
+    inputs_reporter = 'adaptive_MC/inputs'
     use_absolute_value = true
     seed = 1012
-    initial_values = '-0.10329808102501603 1.2396280668056123'
-    inputs_reporter = 'adaptive_MC/inputs'
   []
 []
 
@@ -41,7 +40,7 @@
 [Transfers]
   [param]
     type = SamplerParameterTransfer
-    multi_app = sub
+    to_multi_app = sub
     sampler = sample
     parameters = 'BCs/left/value BCs/right/value'
     to_control = 'stochastic'
@@ -50,7 +49,7 @@
     type = SamplerReporterTransfer
     from_reporter = 'average/value'
     stochastic_reporter = 'constant'
-    multi_app = sub
+    from_multi_app = sub
     sampler = sample
   []
 []
@@ -65,11 +64,16 @@
     inputs = 'inputs'
     sampler = sample
   []
+  [ais_stats]
+    type = AdaptiveImportanceStats
+    output_value = constant/reporter_transfer:average:value
+    sampler = sample
+  []
 []
 
 [Executioner]
   type = Transient
-  num_steps = 10
+  num_steps = 60
 []
 
 [Outputs]

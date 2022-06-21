@@ -182,7 +182,7 @@
     boundary = 201
   [../]
   [./disp_z]
-    type = NodalMaxValue
+    type = NodalExtremeValue
     variable = disp_z
     boundary = 201
   [../]
@@ -192,7 +192,7 @@
   type = Transient
   solve_type = 'PJFNK'
 
-  petsc_options_iname = '-pc_type -pc_factor_mat_solver_package'
+  petsc_options_iname = '-pc_type -pc_factor_mat_solver_type'
   petsc_options_value = 'lu    superlu_dist'
   line_search = 'none'
 

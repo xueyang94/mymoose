@@ -169,8 +169,10 @@ ADDGKernel::computeElemNeighJacobian(Moose::DGJacobianType type)
 
   auto local_functor = [&](const std::vector<ADReal> & input_residuals,
                            const std::vector<dof_id_type> &,
-                           const std::set<TagID> &) {
-    auto compute_jacobian_type = [&](const Moose::DGJacobianType nested_type) {
+                           const std::set<TagID> &)
+  {
+    auto compute_jacobian_type = [&](const Moose::DGJacobianType nested_type)
+    {
       const VariableTestValue & loc_phi =
           (nested_type == Moose::ElementElement || nested_type == Moose::NeighborElement)
               ? _phi
@@ -206,11 +208,12 @@ ADDGKernel::computeElemNeighJacobian(Moose::DGJacobianType type)
     }
   };
 
-  _assembly.processDerivatives(residuals,
-                               type == Moose::ElementElement ? _var.dofIndices()
-                                                             : _var.dofIndicesNeighbor(),
-                               _matrix_tags,
-                               local_functor);
+  _assembly.processJacobian(residuals,
+                            type == Moose::ElementElement ? _var.dofIndices()
+                                                          : _var.dofIndicesNeighbor(),
+                            _matrix_tags,
+                            _var.scalingFactor(),
+                            local_functor);
 
   if (_has_diag_save_in)
   {
@@ -261,7 +264,8 @@ ADDGKernel::computeOffDiagElemNeighJacobian(Moose::DGJacobianType type, const Mo
 
   auto local_functor = [&](const std::vector<ADReal> & input_residuals,
                            const std::vector<dof_id_type> &,
-                           const std::set<TagID> &) {
+                           const std::set<TagID> &)
+  {
     auto & ce = _assembly.couplingEntries();
     for (const auto & it : ce)
     {
@@ -274,7 +278,8 @@ ADDGKernel::computeOffDiagElemNeighJacobian(Moose::DGJacobianType type, const Mo
       if (ivar != _var.number())
         continue;
 
-      auto compute_jacobian_type = [&](const Moose::DGJacobianType nested_type) {
+      auto compute_jacobian_type = [&](const Moose::DGJacobianType nested_type)
+      {
         const VariableTestValue & loc_phi =
             (nested_type == Moose::ElementElement || nested_type == Moose::NeighborElement)
                 ? _phi
@@ -318,9 +323,10 @@ ADDGKernel::computeOffDiagElemNeighJacobian(Moose::DGJacobianType type, const Mo
     }
   };
 
-  _assembly.processDerivatives(residuals,
-                               type == Moose::ElementElement ? _var.dofIndices()
-                                                             : _var.dofIndicesNeighbor(),
-                               _matrix_tags,
-                               local_functor);
+  _assembly.processJacobian(residuals,
+                            type == Moose::ElementElement ? _var.dofIndices()
+                                                          : _var.dofIndicesNeighbor(),
+                            _matrix_tags,
+                            _var.scalingFactor(),
+                            local_functor);
 }

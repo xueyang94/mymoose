@@ -13,19 +13,14 @@
 #include "InputParameters.h"
 #include "MaterialData.h"
 
-// Forward declarations
-class BoundaryRestrictable;
 class MooseMesh;
-
-template <>
-InputParameters validParams<BoundaryRestrictable>();
 
 /**
  * /class BoundaryRestrictable
  * /brief Provides functionality for limiting the object to certain boundary ids
  * The is class the inheriting class with methods useful for limiting an object
  * to certain boundaries. The parameters "_boundary_id" and "boundary", which are
- * created with validParams<BoundaryRestrictable> are used the framework.
+ * created with BoundaryRestrictable::validParams() are used the framework.
  */
 class BoundaryRestrictable
 {
@@ -175,6 +170,14 @@ public:
    */
   const std::set<BoundaryID> & meshBoundaryIDs() const;
 
+  /**
+   * Whether integrity/coverage checking should be conducted for moose variables used in this
+   * object. This should return true if variables are only evaluated locally, e.g. on the current
+   * node or element. This should return false if evaluation of this object entails non-local
+   * variable evaluations
+   */
+  virtual bool checkVariableBoundaryIntegrity() const { return true; }
+
 private:
   /// Pointer to FEProblemBase
   FEProblemBase * _bnd_feproblem;
@@ -209,10 +212,13 @@ private:
   /// Whether or not this object is restricted to nodesets
   bool _bnd_nodal;
 
+  /// The moose object that this is an interface for
+  const MooseObject & _moose_object;
+
   /**
    * An initialization routine needed for dual constructors
    */
-  void initializeBoundaryRestrictable(const MooseObject * moose_object);
+  void initializeBoundaryRestrictable();
 
 protected:
   /**

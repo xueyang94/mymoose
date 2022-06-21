@@ -17,13 +17,9 @@
 #include "TransientInterface.h"
 #include "ElementIDInterface.h"
 
-class InternalSideUserObject;
-
-template <>
-InputParameters validParams<InternalSideUserObject>();
-
 /**
- *
+ * Base class for user objects executed on all element sides internal to one or more
+ * blocks, by default to the whole mesh.
  */
 class InternalSideUserObject : public UserObject,
                                public BlockRestrictable,

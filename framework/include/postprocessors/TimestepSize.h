@@ -11,12 +11,6 @@
 
 #include "GeneralPostprocessor.h"
 
-// Forward Declarations
-class TimestepSize;
-
-template <>
-InputParameters validParams<TimestepSize>();
-
 class TimestepSize : public GeneralPostprocessor
 {
 public:
@@ -35,4 +29,3 @@ public:
 protected:
   FEProblemBase & _feproblem;
 };
-

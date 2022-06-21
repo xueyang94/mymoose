@@ -17,8 +17,6 @@
 
 #include "libmesh/quadrature.h"
 
-defineLegacyParams(ArrayIntegratedBC);
-
 InputParameters
 ArrayIntegratedBC::validParams()
 {
@@ -149,6 +147,12 @@ ArrayIntegratedBC::computeJacobian()
   }
 }
 
+RealEigenVector
+ArrayIntegratedBC::computeQpJacobian()
+{
+  return RealEigenVector::Zero(_var.count());
+}
+
 void
 ArrayIntegratedBC::computeOffDiagJacobian(const unsigned int jvar_num)
 {
@@ -191,6 +195,15 @@ ArrayIntegratedBC::computeOffDiagJacobian(const unsigned int jvar_num)
   }
 }
 
+RealEigenMatrix
+ArrayIntegratedBC::computeQpOffDiagJacobian(const MooseVariableFEBase & jvar)
+{
+  if (jvar.number() == _var.number())
+    return computeQpJacobian().asDiagonal();
+  else
+    return RealEigenMatrix::Zero(_var.count(), jvar.count());
+}
+
 void
 ArrayIntegratedBC::computeOffDiagJacobianScalar(unsigned int jvar)
 {
@@ -206,4 +219,10 @@ ArrayIntegratedBC::computeOffDiagJacobianScalar(unsigned int jvar)
     }
 
   accumulateTaggedLocalMatrix();
+}
+
+RealEigenMatrix
+ArrayIntegratedBC::computeQpOffDiagJacobianScalar(const MooseVariableScalar & jvar)
+{
+  return RealEigenMatrix::Zero(_var.count(), (unsigned int)jvar.order() + 1);
 }

@@ -11,12 +11,6 @@
 
 #include "SideIntegralPostprocessor.h"
 
-// Forward Declarations
-class AreaPostprocessor;
-
-template <>
-InputParameters validParams<AreaPostprocessor>();
-
 /**
  * This postprocessor computes the area of a specified block.
  */
@@ -32,4 +26,3 @@ public:
 protected:
   virtual Real computeQpIntegral() override;
 };
-

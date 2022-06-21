@@ -17,6 +17,8 @@
 #include "MeshChangedInterface.h"
 #include "ScalarCoupleable.h"
 #include "MooseFunctor.h"
+#include "MooseADWrapper.h"
+#include "ChainedReal.h"
 
 // libMesh
 #include "libmesh/vector_value.h"
@@ -39,7 +41,7 @@ class FunctionTempl : public MooseFunctionBase,
                       public Restartable,
                       public MeshChangedInterface,
                       public ScalarCoupleable,
-                      public Moose::Functor<T>
+                      public Moose::FunctorBase<T>
 {
 public:
   /**
@@ -65,6 +67,24 @@ public:
   virtual Real value(Real t, const Point & p) const;
 
   /**
+   * Override this to evaluate the scalar function at point (t,x,y,z), using dual numbers by default
+   * this uses value, gradient, and timeDerivative to assemble a dual number, although the function
+   * can be overridden with a custom computation using dual numbers.
+   * \param t The time
+   * \param p The Point in space (x,y,z)
+   * \return A scalar of the function evaluated at the time and location
+   */
+  virtual ADReal value(const ADReal & t, const ADPoint & p) const;
+
+  ///@{ Helpers to call value(t,x,y,z)
+  ChainedReal value(const ChainedReal & t) const;
+  template <typename U>
+  auto value(const U & t) const;
+  template <typename U>
+  auto value(const U & t, const U & x, const U & y = 0, const U & z = 0) const;
+  ///@}
+
+  /**
    * Override this to evaluate the vector function at a point (t,x,y,z), by default
    * this returns a zero vector, you must override it.
    * \param t The time
@@ -82,6 +102,7 @@ public:
    */
   virtual RealVectorValue vectorCurl(Real t, const Point & p) const;
 
+  using Moose::FunctorBase<T>::gradient;
   /**
    * Function objects can optionally provide a gradient at a point. By default
    * this returns 0, you must override it.
@@ -99,6 +120,13 @@ public:
    */
   virtual Real timeDerivative(Real t, const Point & p) const;
 
+  ///@{ Helpers to call timeDerivative(t,x,y,z)
+  template <typename U>
+  auto timeDerivative(const U & t) const;
+  template <typename U>
+  auto timeDerivative(const U & t, const U & x, const U & y = 0, const U & z = 0) const;
+  ///@}
+
   // Not defined
   virtual Real integral() const;
 
@@ -109,26 +137,50 @@ public:
   void residualSetup() override;
   void jacobianSetup() override;
 
+  bool hasBlocks(const SubdomainID &) const override { return true; }
+
 private:
-  using typename Moose::Functor<T>::FaceArg;
-  using typename Moose::Functor<T>::ElemFromFaceArg;
-  using typename Moose::Functor<T>::ElemQpArg;
-  using typename Moose::Functor<T>::ElemSideQpArg;
-  using typename Moose::Functor<T>::ValueType;
+  using typename Moose::FunctorBase<T>::ValueType;
+  using typename Moose::FunctorBase<T>::GradientType;
+  using typename Moose::FunctorBase<T>::DotType;
 
   /**
    * @return the time associated with the requested \p state
    */
   Real getTime(unsigned int state) const;
 
-  ValueType evaluate(const Elem * const & elem, unsigned int state) const override final;
+  using ElemArg = Moose::ElemArg;
+  using ElemFromFaceArg = Moose::ElemFromFaceArg;
+  using ElemQpArg = Moose::ElemQpArg;
+  using ElemSideQpArg = Moose::ElemSideQpArg;
+  using FaceArg = Moose::FaceArg;
+  using SingleSidedFaceArg = Moose::SingleSidedFaceArg;
+
+  ValueType evaluate(const ElemArg & elem, unsigned int state) const override final;
   ValueType evaluate(const ElemFromFaceArg & elem_from_face,
                      unsigned int state) const override final;
   ValueType evaluate(const FaceArg & face, unsigned int state) const override final;
+  ValueType evaluate(const SingleSidedFaceArg & face, unsigned int state) const override final;
   ValueType evaluate(const ElemQpArg & qp, unsigned int state) const override final;
   ValueType evaluate(const ElemSideQpArg & elem_side_qp, unsigned int state) const override final;
-  ValueType evaluate(const std::tuple<Moose::ElementType, unsigned int, SubdomainID> & tqp,
-                     unsigned int state) const override final;
+
+  GradientType evaluateGradient(const ElemArg & elem, unsigned int state) const override final;
+  GradientType evaluateGradient(const ElemFromFaceArg & elem_from_face,
+                                unsigned int state) const override final;
+  GradientType evaluateGradient(const FaceArg & face, unsigned int state) const override final;
+  GradientType evaluateGradient(const SingleSidedFaceArg & face,
+                                unsigned int state) const override final;
+  GradientType evaluateGradient(const ElemQpArg & qp, unsigned int state) const override final;
+  GradientType evaluateGradient(const ElemSideQpArg & elem_side_qp,
+                                unsigned int state) const override final;
+
+  DotType evaluateDot(const ElemArg & elem, unsigned int state) const override final;
+  DotType evaluateDot(const ElemFromFaceArg & elem_from_face,
+                      unsigned int state) const override final;
+  DotType evaluateDot(const FaceArg & face, unsigned int state) const override final;
+  DotType evaluateDot(const SingleSidedFaceArg & face, unsigned int state) const override final;
+  DotType evaluateDot(const ElemQpArg & qp, unsigned int state) const override final;
+  DotType evaluateDot(const ElemSideQpArg & elem_side_qp, unsigned int state) const override final;
 
   /**
    * Compute \p _current_elem_qp_functor_xyz if we are on a new element
@@ -160,6 +212,42 @@ private:
   mutable std::vector<Point> _current_elem_side_qp_functor_xyz;
 };
 
+template <typename T>
+template <typename U>
+auto
+FunctionTempl<T>::value(const U & t) const
+{
+  static const MooseADWrapper<Point, MooseIsADType<U>::value> p;
+  return value(t, p);
+}
+
+template <typename T>
+template <typename U>
+auto
+FunctionTempl<T>::value(const U & t, const U & x, const U & y, const U & z) const
+{
+  MooseADWrapper<Point, MooseIsADType<U>::value> p(x, y, z);
+  return value(t, p);
+}
+
+template <typename T>
+template <typename U>
+auto
+FunctionTempl<T>::timeDerivative(const U & t) const
+{
+  static const MooseADWrapper<Point, MooseIsADType<U>::value> p;
+  return timeDerivative(t, p);
+}
+
+template <typename T>
+template <typename U>
+auto
+FunctionTempl<T>::timeDerivative(const U & t, const U & x, const U & y, const U & z) const
+{
+  MooseADWrapper<Point, MooseIsADType<U>::value> p(x, y, z);
+  return timeDerivative(t, p);
+}
+
 class Function : public FunctionTempl<Real>
 {
 public:
@@ -167,5 +255,4 @@ public:
   Function(const InputParameters & params) : FunctionTempl<Real>(params) {}
 };
 
-template <>
-InputParameters validParams<Function>();
+typedef FunctionTempl<ADReal> ADFunction;

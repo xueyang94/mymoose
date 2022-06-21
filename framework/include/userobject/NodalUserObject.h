@@ -18,12 +18,6 @@
 #include "TransientInterface.h"
 #include "RandomInterface.h"
 
-// Forward Declarations
-class NodalUserObject;
-
-template <>
-InputParameters validParams<NodalUserObject>();
-
 /**
  * A user object that runs over all the nodes and does an aggregation
  * step to compute a single value.
@@ -58,4 +52,3 @@ protected:
   // Flag for enable/disabling multiple execute calls on nodes that share block ids
   const bool & _unique_node_execute;
 };
-

@@ -19,10 +19,9 @@
 #include "LockFile.h"
 
 #include "libmesh/exodusII_io.h"
+#include "libmesh/libmesh_config.h" // LIBMESH_HAVE_HDF5
 
 registerMooseObject("MooseApp", Exodus);
-
-defineLegacyParams(Exodus);
 
 InputParameters
 Exodus::validParams()
@@ -71,6 +70,14 @@ Exodus::validParams()
   params.addParam<bool>(
       "discontinuous", false, "Enables discontinuous output format for Exodus files.");
 
+  // Flag for outputting Exodus data in HDF5 format (when libMesh is
+  // configured with HDF5 support).  libMesh wants to do so by default
+  // (for backwards compatibility with libMesh HDF5 users), but we
+  // want to avoid this by default (for backwards compatibility with
+  // most Moose users and to avoid generating regression test gold
+  // files that non-HDF5 Moose builds can't read)
+  params.addParam<bool>("write_hdf5", false, "Enables HDF5 output format for Exodus files.");
+
   // Need a layer of geometric ghosting for mesh serialization
   params.addRelationshipManager("MooseGhostPointNeighbors",
                                 Moose::RelationshipManagerType::GEOMETRIC);
@@ -86,10 +93,12 @@ Exodus::Exodus(const InputParameters & parameters)
     _recovering(_app.isRecovering()),
     _exodus_mesh_changed(declareRestartableData<bool>("exodus_mesh_changed", true)),
     _sequence(isParamValid("sequence") ? getParam<bool>("sequence")
-                                       : _use_displaced ? true : false),
+              : _use_displaced         ? true
+                                       : false),
     _overwrite(getParam<bool>("overwrite")),
     _output_dimension(getParam<MooseEnum>("output_dimension").getEnum<OutputDimension>()),
-    _discontinuous(getParam<bool>("discontinuous"))
+    _discontinuous(getParam<bool>("discontinuous")),
+    _write_hdf5(getParam<bool>("write_hdf5"))
 {
   if (isParamValid("use_problem_dimension"))
   {
@@ -173,8 +182,18 @@ Exodus::outputSetup()
       return;
   }
 
-  // Exodus is serial output so that we have to gather everything to "zero".
-  _problem_ptr->mesh().getMesh().gather_to_zero();
+  auto serialize = [this](auto & moose_mesh)
+  {
+    auto & lm_mesh = moose_mesh.getMesh();
+    // Exodus is serial output so that we have to gather everything to "zero".
+    lm_mesh.gather_to_zero();
+    // This makes the face information out-of-date on process 0 for distributed meshes, e.g.
+    // elements will have neighbors that they didn't previously have
+    if ((this->processor_id() == 0) && !lm_mesh.is_replicated())
+      moose_mesh.faceInfoDirty();
+  };
+  serialize(_problem_ptr->mesh());
+
   // We need to do the same thing for displaced mesh to make them consistent.
   // In general, it is a good idea to make the reference mesh and the displaced mesh
   // consistent since some operations or calculations are already based on this assumption.
@@ -185,13 +204,25 @@ Exodus::outputSetup()
   // Here we assume that the displaced mesh and the reference mesh are identical except
   // coordinations.
   if (_problem_ptr->getDisplacedProblem())
-  {
-    _problem_ptr->getDisplacedProblem()->mesh().getMesh().gather_to_zero();
-  }
+    serialize(_problem_ptr->getDisplacedProblem()->mesh());
 
   // Create the ExodusII_IO object
-  _exodus_io_ptr = libmesh_make_unique<ExodusII_IO>(_es_ptr->get_mesh());
+  _exodus_io_ptr = std::make_unique<ExodusII_IO>(_es_ptr->get_mesh());
   _exodus_initialized = false;
+
+  if (_write_hdf5)
+  {
+#ifndef LIBMESH_HAVE_HDF5
+    mooseError("Moose input requested HDF Exodus output, but libMesh was built without HDF5.");
+#endif
+
+    // This is redundant unless the libMesh default changes
+    _exodus_io_ptr->set_hdf5_writing(true);
+  }
+  else
+  {
+    _exodus_io_ptr->set_hdf5_writing(false);
+  }
 
   // Increment file number and set appending status, append if all the following conditions are met:
   //   (1) If the application is recovering (not restarting)

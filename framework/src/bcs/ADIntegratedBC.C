@@ -93,36 +93,33 @@ template <typename T>
 void
 ADIntegratedBCTempl<T>::computeResidual()
 {
-  DenseVector<Number> & re = _assembly.residualBlock(_var.number());
-  _local_re.resize(re.size());
-  _local_re.zero();
+  _residuals.resize(_test.size(), 0);
+  for (auto & r : _residuals)
+    r = 0;
 
   if (_use_displaced_mesh)
     for (_qp = 0; _qp < _qrule->n_points(); _qp++)
       for (_i = 0; _i < _test.size(); _i++)
-        _local_re(_i) += raw_value(_ad_JxW[_qp] * _ad_coord[_qp] * computeQpResidual());
+        _residuals[_i] += raw_value(_ad_JxW[_qp] * _ad_coord[_qp] * computeQpResidual());
   else
     for (_qp = 0; _qp < _qrule->n_points(); _qp++)
       for (_i = 0; _i < _test.size(); _i++)
-        _local_re(_i) += raw_value(_JxW[_qp] * _coord[_qp] * computeQpResidual());
+        _residuals[_i] += raw_value(_JxW[_qp] * _coord[_qp] * computeQpResidual());
 
-  re += _local_re;
+  _assembly.processResiduals(_residuals, _var.dofIndices(), _vector_tags, _var.scalingFactor());
 
   if (_has_save_in)
-  {
-    Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
     for (unsigned int i = 0; i < _save_in.size(); i++)
-      _save_in[i]->sys().solution().add_vector(_local_re, _save_in[i]->dofIndices());
-  }
+      _save_in[i]->sys().solution().add_vector(_residuals.data(), _save_in[i]->dofIndices());
 }
 
 template <typename T>
 void
 ADIntegratedBCTempl<T>::computeResidualsForJacobian()
 {
-  if (_residuals.size() != _test.size())
-    _residuals.resize(_test.size(), 0);
-  for (auto & r : _residuals)
+  if (_residuals_and_jacobians.size() != _test.size())
+    _residuals_and_jacobians.resize(_test.size(), 0);
+  for (auto & r : _residuals_and_jacobians)
     r = 0;
 
   if (_use_displaced_mesh)
@@ -131,12 +128,28 @@ ADIntegratedBCTempl<T>::computeResidualsForJacobian()
       _r = _ad_JxW[_qp];
       _r *= _ad_coord[_qp];
       for (_i = 0; _i < _test.size(); _i++)
-        _residuals[_i] += _r * computeQpResidual();
+        _residuals_and_jacobians[_i] += _r * computeQpResidual();
     }
   else
     for (_qp = 0; _qp < _qrule->n_points(); _qp++)
       for (_i = 0; _i < _test.size(); _i++)
-        _residuals[_i] += _JxW[_qp] * _coord[_qp] * computeQpResidual();
+        _residuals_and_jacobians[_i] += _JxW[_qp] * _coord[_qp] * computeQpResidual();
+}
+
+template <typename T>
+void
+ADIntegratedBCTempl<T>::computeResidualAndJacobian()
+{
+#ifdef MOOSE_GLOBAL_AD_INDEXING
+  computeResidualsForJacobian();
+  _assembly.processResidualsAndJacobian(_residuals_and_jacobians,
+                                        _var.dofIndices(),
+                                        _vector_tags,
+                                        _matrix_tags,
+                                        _var.scalingFactor());
+#else
+  mooseError("residual and jacobian together only supported for global AD indexing");
+#endif
 }
 
 template <typename T>
@@ -156,7 +169,7 @@ ADIntegratedBCTempl<T>::addJacobian(const MooseVariableFieldBase & jvariable)
       mooseAssert(ad_offset + _j < MOOSE_AD_MAX_DOFS_PER_ELEM,
                   "Out of bounds access in derivative vector.");
 #endif
-      _local_ke(_i, _j) += _residuals[_i].derivatives()[ad_offset + _j];
+      _local_ke(_i, _j) += _residuals_and_jacobians[_i].derivatives()[ad_offset + _j];
     }
   accumulateTaggedLocalMatrix();
 }
@@ -196,23 +209,28 @@ ADIntegratedBCTempl<T>::computeADJacobian(
   computeResidualsForJacobian();
 
   auto local_functor =
-      [&](const std::vector<ADReal> &, const std::vector<dof_id_type> &, const std::set<TagID> &) {
-        for (const auto & it : coupling_entries)
-        {
-          MooseVariableFEBase & ivariable = *(it.first);
-          MooseVariableFEBase & jvariable = *(it.second);
+      [&](const std::vector<ADReal> &, const std::vector<dof_id_type> &, const std::set<TagID> &)
+  {
+    for (const auto & it : coupling_entries)
+    {
+      MooseVariableFEBase & ivariable = *(it.first);
+      MooseVariableFEBase & jvariable = *(it.second);
 
-          unsigned int ivar = ivariable.number();
+      unsigned int ivar = ivariable.number();
 
-          if (ivar != _var.number() || !jvariable.hasBlocks(_current_elem->subdomain_id()))
-            continue;
+      if (ivar != _var.number() || !jvariable.hasBlocks(_current_elem->subdomain_id()))
+        continue;
 
-          // Make sure to get the correct undisplaced/displaced variable
-          addJacobian(getVariable(jvariable.number()));
-        }
-      };
+      // Make sure to get the correct undisplaced/displaced variable
+      addJacobian(getVariable(jvariable.number()));
+    }
+  };
 
-  _assembly.processDerivatives(_residuals, _var.dofIndices(), _matrix_tags, local_functor);
+  _assembly.processJacobian(_residuals_and_jacobians,
+                            _var.dofIndices(),
+                            _matrix_tags,
+                            _var.scalingFactor(),
+                            local_functor);
 }
 
 template <typename T>

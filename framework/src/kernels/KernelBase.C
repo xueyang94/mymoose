@@ -17,8 +17,6 @@
 
 #include "libmesh/threads.h"
 
-defineLegacyParams(KernelBase);
-
 InputParameters
 KernelBase::validParams()
 {
@@ -51,9 +49,8 @@ KernelBase::validParams()
   // Kernels always couple within their element
   params.addRelationshipManager("ElementSideNeighborLayers",
                                 Moose::RelationshipManagerType::COUPLING,
-                                [](const InputParameters &, InputParameters & rm_params) {
-                                  rm_params.set<unsigned short>("layers") = 0;
-                                });
+                                [](const InputParameters &, InputParameters & rm_params)
+                                { rm_params.set<unsigned short>("layers") = 0; });
   return params;
 }
 
@@ -73,7 +70,8 @@ KernelBase::KernelBase(const InputParameters & parameters)
     _has_save_in(false),
     _save_in_strings(parameters.get<std::vector<AuxVariableName>>("save_in")),
     _has_diag_save_in(false),
-    _diag_save_in_strings(parameters.get<std::vector<AuxVariableName>>("diag_save_in"))
+    _diag_save_in_strings(parameters.get<std::vector<AuxVariableName>>("diag_save_in")),
+    _use_displaced_mesh(getParam<bool>("use_displaced_mesh"))
 {
   auto num_disp = coupledComponents("displacements");
   for (decltype(num_disp) i = 0; i < num_disp; ++i)

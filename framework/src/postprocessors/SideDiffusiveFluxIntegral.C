@@ -24,8 +24,6 @@ registerMooseObjectRenamed("MooseApp",
                            "06/30/2021 24:00",
                            ADSideDiffusiveFluxIntegral);
 
-defineLegacyParams(SideDiffusiveFluxIntegral);
-
 template <bool is_ad, typename T>
 InputParameters
 SideDiffusiveFluxIntegralTempl<is_ad, T>::validParams()
@@ -84,7 +82,7 @@ SideDiffusiveFluxIntegralTempl<is_ad, T>::diffusivityGradientProduct(
     const RealVectorValue & grad_u, const RealVectorValue & diffusivity)
 {
   RealVectorValue d_grad_u = grad_u;
-  for (unsigned int i = 0; i < LIBMESH_DIM; i++)
+  for (const auto i : make_range(Moose::dim))
     d_grad_u(i) *= diffusivity(i);
 
   return d_grad_u;

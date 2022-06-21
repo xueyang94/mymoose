@@ -11,8 +11,6 @@
 
 registerMooseObject("MooseApp", CompositeFunction);
 
-defineLegacyParams(CompositeFunction);
-
 InputParameters
 CompositeFunction::validParams()
 {
@@ -58,6 +56,17 @@ Real
 CompositeFunction::value(Real t, const Point & p) const
 {
   Real val = _scale_factor;
+
+  for (const auto & func : _f)
+    val *= func->value(t, p);
+
+  return val;
+}
+
+ADReal
+CompositeFunction::value(const ADReal & t, const ADPoint & p) const
+{
+  ADReal val = _scale_factor;
 
   for (const auto & func : _f)
     val *= func->value(t, p);

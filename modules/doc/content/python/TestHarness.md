@@ -75,18 +75,22 @@ Testers represent individual tests in MOOSE. Testers encompass a set of instruct
 a task and then verifying the result. There are several built-in testers in the framework but the
 Tester system is completely pluggable and extendable. The list of default testers is listed here:
 
-- [RunApp](RunApp.md)
-- Exodiff
-- CSVDiff
+- [RunApp](RunApp.md) (includes syntax-only checking)
+- [RunCommand](RunCommand.md)
+- [RunException](RunException.md)
+- [Exodiff](Exodiff.md)
+- [CSVDiff](testers/CSVDiff_tester.md)
+- [JSONDiff](JSONDiff.md)
+- [XMLDiff](XMLDiff.md)
+- [ImageDiff](ImageDiff.md)
 - [CSVValidationTester](CSVValidationTester.md)
-- FileTester
-- AnalyzeJacobian
-- CheckFiles
-- ImageDiff
-- PetscJacobianTester
-- RunCommand
-- RunException
-- VTKDiff
+- [FileTester](FileTester.md)
+- [CheckFiles](CheckFiles.md)
+- [AnalyzeJacobian](AnalyzeJacobian.md)
+- [PetscJacobianTester](PetscJacobianTester.md)
+- [PythonUnitTest](PythonUnitTest.md) (includes [Method of Manufactured solutions](python/mms.md) testing)
+- [BenchmarkTesting](application_development/performance_benchmarking.md)
+
 
 ## Test Specifications
 
@@ -137,7 +141,7 @@ The "prereq" parameter is still honored when using "parallel_scheduling = True".
 
 #### PYTHONPATH
 
-PYTHONPATH instructs python to include the designated paths while attempting to import python modules. +While normally not needing to be set+, sometimes it is necessary. For example, when testing the TestHarness (unittests). Another use-case, is when a developer wants to utilize the moosedocs system for creating [moose documentation](MooseDocs/index.md) (the website you are using right now).
+PYTHONPATH instructs python to include the designated paths while attempting to import python modules. +While normally not needing to be set+, sometimes it is necessary. For example, when testing the TestHarness (unittests). Another use-case, is when a developer wants to utilize the moosedocs system for creating [moose documentation](MooseDocs/index.md optional=True) (the website you are using right now).
 
 In either case, when you need to modify PYTHONPATH for MOOSE related development, you will almost always want to point it at `moose/python`.
 

@@ -11,12 +11,6 @@
 
 #include "ODEKernel.h"
 
-// Forward Declarations
-class ODETimeKernel;
-
-template <>
-InputParameters validParams<ODETimeKernel>();
-
 /**
  * Base class for ODEKernels that contribute to the time residual
  * vector.
@@ -37,4 +31,3 @@ protected:
   /// Derivative of u_dot wrt u
   const VariableValue & _du_dot_du;
 };
-

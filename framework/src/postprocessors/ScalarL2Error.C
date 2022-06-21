@@ -16,8 +16,6 @@
 
 registerMooseObject("MooseApp", ScalarL2Error);
 
-defineLegacyParams(ScalarL2Error);
-
 InputParameters
 ScalarL2Error::validParams()
 {
@@ -49,7 +47,6 @@ Real
 ScalarL2Error::getValue()
 {
   _var.reinit();
-  Point p;
-  Real diff = (_var.sln()[0] - _func.value(_t, p));
+  Real diff = (_var.sln()[0] - _func.value(_t));
   return std::sqrt(diff * diff);
 }

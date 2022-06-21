@@ -128,6 +128,7 @@ namespace moose
 
 namespace internal
 {
+inline Threads::spin_mutex moose_stream_lock;
 
 /// Builds and returns a string of the form:
 ///
@@ -170,7 +171,10 @@ mooseWarningStream(S & oss, Args &&... args)
   if (Moose::_throw_on_error)
     throw std::runtime_error(msg);
 
-  oss << msg << std::flush;
+  {
+    Threads::spin_mutex::scoped_lock lock(moose_stream_lock);
+    oss << msg << std::flush;
+  }
 }
 
 template <typename S, typename... Args>
@@ -183,19 +187,30 @@ mooseUnusedStream(S & oss, Args &&... args)
   if (Moose::_throw_on_error)
     throw std::runtime_error(msg);
 
-  oss << msg << std::flush;
+  {
+    Threads::spin_mutex::scoped_lock lock(moose_stream_lock);
+    oss << msg << std::flush;
+  }
+}
+
+template <typename S, typename... Args>
+void
+mooseInfoStreamRepeated(S & oss, Args &&... args)
+{
+  std::ostringstream ss;
+  mooseStreamAll(ss, args...);
+  std::string msg = mooseMsgFmt(ss.str(), "*** Info ***", COLOR_CYAN);
+  {
+    Threads::spin_mutex::scoped_lock lock(moose_stream_lock);
+    oss << msg << std::flush;
+  }
 }
 
 template <typename S, typename... Args>
 void
 mooseInfoStream(S & oss, Args &&... args)
 {
-  mooseDoOnce({
-    std::ostringstream ss;
-    mooseStreamAll(ss, args...);
-    std::string msg = mooseMsgFmt(ss.str(), "*** Info ***", COLOR_CYAN);
-    oss << msg << std::flush;
-  });
+  mooseDoOnce(mooseInfoStreamRepeated(oss, args...););
 }
 
 template <typename S, typename... Args>
@@ -212,13 +227,16 @@ mooseDeprecatedStream(S & oss, bool expired, Args &&... args)
                   expired ? COLOR_RED : COLOR_YELLOW);
               oss << msg;
               ss.str("");
-              if (Moose::show_trace) {
+              if (Moose::show_trace)
+              {
                 if (libMesh::global_n_processors() == 1)
                   print_trace(ss);
                 else
                   libMesh::write_traceout();
-                oss << ss.str() << std::endl;
-                ;
+                {
+                  Threads::spin_mutex::scoped_lock lock(moose_stream_lock);
+                  oss << ss.str() << std::endl;
+                };
               });
 }
 /**
@@ -281,4 +299,12 @@ void
 mooseInfo(Args &&... args)
 {
   moose::internal::mooseInfoStream(Moose::out, std::forward<Args>(args)...);
+}
+
+/// Emit an informational message with the given stringified, concatenated args.
+template <typename... Args>
+void
+mooseInfoRepeated(Args &&... args)
+{
+  moose::internal::mooseInfoStreamRepeated(Moose::out, std::forward<Args>(args)...);
 }

@@ -50,8 +50,12 @@ addAdvancedOutputParams(InputParameters & params)
                         false,
                         "Output VectorsPostprocessors vectors as Reporter values.");
 
-  // 'Variables' Group
-  params.addParamNamesToGroup("hide show", "Variables");
+  // Group for selecting the output
+  params.addParamNamesToGroup("hide show", "Selection/restriction of output");
+
+  // Group for converting outputs
+  params.addParamNamesToGroup("postprocessors_as_reporters vectorpostprocessors_as_reporters",
+                              "Conversions before output");
 
   // **** DEPRECATED PARAMS ****
   params.addDeprecatedParam<bool>("output_postprocessors",
@@ -84,8 +88,6 @@ addAdvancedOutputParams(InputParameters & params)
                                   "'execute_input_on' has replaced this parameter");
 }
 }
-
-defineLegacyParams(AdvancedOutput);
 
 InputParameters
 AdvancedOutput::validParams()
@@ -420,7 +422,7 @@ AdvancedOutput::initAvailableLists()
       for (unsigned int i = 0; i < var.count(); ++i)
       {
         VariableName vname = var_name;
-        if (var.count() > 1)
+        if (var.isArray())
           vname = SubProblem::arrayVariableComponent(var_name, i);
 
         if (type.order == CONSTANT && type.family != MONOMIAL_VEC)
@@ -507,7 +509,7 @@ AdvancedOutput::initShowHideLists(const std::vector<VariableName> & show,
       for (unsigned int i = 0; i < var.count(); ++i)
       {
         VariableName vname = var_name;
-        if (var.count() > 1)
+        if (var.isArray())
           vname = SubProblem::arrayVariableComponent(var_name, i);
 
         if (type.order == CONSTANT)
@@ -562,7 +564,7 @@ AdvancedOutput::initShowHideLists(const std::vector<VariableName> & show,
       for (unsigned int i = 0; i < var.count(); ++i)
       {
         VariableName vname = var_name;
-        if (var.count() > 1)
+        if (var.isArray())
           vname = SubProblem::arrayVariableComponent(var_name, i);
 
         if (type.order == CONSTANT)
@@ -677,7 +679,7 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
   {
     params.addParam<ExecFlagEnum>(
         "execute_nodal_on", empty_execute_on, "Control the output of nodal variables");
-    params.addParamNamesToGroup("execute_nodal_on", "Variables");
+    params.addParamNamesToGroup("execute_nodal_on", "Selection/restriction of output");
   }
 
   // Elemental output
@@ -685,7 +687,7 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
   {
     params.addParam<ExecFlagEnum>(
         "execute_elemental_on", empty_execute_on, "Control the output of elemental variables");
-    params.addParamNamesToGroup("execute_elemental_on", "Variables");
+    params.addParamNamesToGroup("execute_elemental_on", "Selection/restriction of output");
 
     // Add material output control, which are output via elemental variables
     params.addParam<bool>("output_material_properties",
@@ -693,7 +695,7 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
                           "Flag indicating if material properties should be output");
     params.addParam<std::vector<std::string>>(
         "show_material_properties",
-        "List of materialproperties that should be written to the output");
+        "List of material properties that should be written to the output");
     params.addParamNamesToGroup("output_material_properties show_material_properties", "Materials");
   }
 
@@ -702,14 +704,14 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
   {
     params.addParam<ExecFlagEnum>(
         "execute_scalars_on", empty_execute_on, "Control the output of scalar variables");
-    params.addParamNamesToGroup("execute_scalars_on", "Variables");
+    params.addParamNamesToGroup("execute_scalars_on", "Selection/restriction of output");
   }
 
   // Nodal and scalar output
   if (types.contains("nodal") && types.contains("scalar"))
   {
     params.addParam<bool>("scalar_as_nodal", false, "Output scalar variables as nodal");
-    params.addParamNamesToGroup("scalar_as_nodal", "Variables");
+    params.addParamNamesToGroup("scalar_as_nodal", "Conversions before output");
   }
 
   // Elemental and nodal
@@ -717,7 +719,7 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
   {
     params.addParam<bool>(
         "elemental_as_nodal", false, "Output elemental nonlinear variables as nodal");
-    params.addParamNamesToGroup("elemental_as_nodal", "Variables");
+    params.addParamNamesToGroup("elemental_as_nodal", "Conversions before output");
   }
 
   // Postprocessors
@@ -725,7 +727,7 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
   {
     params.addParam<ExecFlagEnum>(
         "execute_postprocessors_on", empty_execute_on, "Control of when postprocessors are output");
-    params.addParamNamesToGroup("execute_postprocessors_on", "Variables");
+    params.addParamNamesToGroup("execute_postprocessors_on", "Selection/restriction of output");
   }
 
   // Vector Postprocessors
@@ -734,7 +736,8 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
     params.addParam<ExecFlagEnum>("execute_vector_postprocessors_on",
                                   empty_execute_on,
                                   "Enable/disable the output of VectorPostprocessors");
-    params.addParamNamesToGroup("execute_vector_postprocessors_on", "Variables");
+    params.addParamNamesToGroup("execute_vector_postprocessors_on",
+                                "Selection/restriction of output");
   }
 
   // Reporters
@@ -742,7 +745,7 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
   {
     params.addParam<ExecFlagEnum>(
         "execute_reporters_on", empty_execute_on, "Control of when Reporter values are output");
-    params.addParamNamesToGroup("execute_reporters_on", "Variables");
+    params.addParamNamesToGroup("execute_reporters_on", "Selection/restriction of output");
   }
 
   // Input file
@@ -750,7 +753,7 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
   {
     params.addParam<ExecFlagEnum>(
         "execute_input_on", empty_execute_on, "Enable/disable the output of the input file");
-    params.addParamNamesToGroup("execute_input_on", "Variables");
+    params.addParamNamesToGroup("execute_input_on", "Selection/restriction of output");
   }
 
   // System Information
@@ -759,7 +762,7 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
     params.addParam<ExecFlagEnum>("execute_system_information_on",
                                   empty_execute_on,
                                   "Control when the output of the simulation information occurs");
-    params.addParamNamesToGroup("execute_system_information_on", "Variables");
+    params.addParamNamesToGroup("execute_system_information_on", "Selection/restriction of output");
   }
 }
 

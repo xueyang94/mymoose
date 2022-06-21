@@ -11,11 +11,7 @@
 
 #include "FEProblemBase.h"
 
-class FEProblem;
 class NonlinearSystem;
-
-template <>
-InputParameters validParams<FEProblem>();
 
 /**
  * Specialization of SubProblem for solving nonlinear equations plus auxiliary equations
@@ -42,3 +38,4 @@ protected:
   std::shared_ptr<NonlinearSystem> _nl_sys;
 };
 
+using FVProblem = FEProblem;

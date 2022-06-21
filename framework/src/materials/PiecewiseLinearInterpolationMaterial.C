@@ -14,8 +14,6 @@
 
 registerMooseObject("MooseApp", PiecewiseLinearInterpolationMaterial);
 
-defineLegacyParams(PiecewiseLinearInterpolationMaterial);
-
 InputParameters
 PiecewiseLinearInterpolationMaterial::validParams()
 {
@@ -90,7 +88,7 @@ PiecewiseLinearInterpolationMaterial::PiecewiseLinearInterpolationMaterial(
 
   try
   {
-    _linear_interp = libmesh_make_unique<LinearInterpolation>(x, y, _extrap);
+    _linear_interp = std::make_unique<LinearInterpolation>(x, y, _extrap);
   }
   catch (std::domain_error & e)
   {

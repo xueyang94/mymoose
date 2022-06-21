@@ -81,7 +81,7 @@
     app_type = MooseTestApp
     positions = '0 0 0'
     input_files = 'transient_sub.i'
-    clone_master_mesh = true
+    clone_parent_mesh = true
     execute_on = 'timestep_begin'
   []
 []
@@ -89,16 +89,14 @@
 [Transfers]
   [v_from_sub]
     type = MultiAppNearestNodeTransfer
-    direction = from_multiapp
-    multi_app = sub
+    from_multi_app = sub
     source_variable = v
     variable = v
     execute_on = 'timestep_begin'
   []
   [u_to_sub]
     type = MultiAppNearestNodeTransfer
-    direction = to_multiapp
-    multi_app = sub
+    to_multi_app = sub
     source_variable = u
     variable = u
     execute_on = 'timestep_begin'

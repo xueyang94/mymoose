@@ -17,7 +17,6 @@
 
 // Forward Declarations
 class InputParameters;
-class LayeredBase;
 class SubProblem;
 class UserObject;
 
@@ -28,9 +27,6 @@ class Point;
 
 template <typename T>
 InputParameters validParams();
-
-template <>
-InputParameters validParams<LayeredBase>();
 
 /**
  * This base class computes volume integrals of a variable storing
@@ -151,6 +147,9 @@ private:
 
   /// Whether the values are cumulative over the layers
   bool _cumulative;
+
+  /// Whether the cumulative values should be summed in the positive or negative direction
+  const bool _positive_cumulative_direction;
 
   /// List of SubdomainIDs, if given
   std::vector<SubdomainID> _layer_bounding_blocks;

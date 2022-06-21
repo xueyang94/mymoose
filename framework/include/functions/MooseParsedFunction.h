@@ -33,6 +33,7 @@ public:
 
   MooseParsedFunctionTempl(const InputParameters & parameters);
 
+  using T::value;
   /**
    * Evaluate the equation at the given location. For 1-D and 2-D equations
    * x and y are optional.
@@ -42,6 +43,7 @@ public:
    */
   virtual Real value(Real t, const Point & pt) const override;
 
+  using T::gradient;
   /**
    * Evaluate the gradient of the function. This is computed in libMesh
    * through automatic symbolic differentiation.
@@ -86,5 +88,3 @@ public:
   }
 };
 
-template <>
-InputParameters validParams<MooseParsedFunction>();

@@ -13,12 +13,6 @@
 #include "Function.h"
 #include "MooseParsedFunctionBase.h"
 
-// Forward declerations
-class MooseParsedGradFunction;
-
-template <>
-InputParameters validParams<MooseParsedGradFunction>();
-
 /**
  * This class is similar to ParsedFunction except it also supports returning the
  * gradient of the function.
@@ -42,6 +36,7 @@ public:
    */
   virtual ~MooseParsedGradFunction();
 
+  using Function::value;
   /**
    * Return a scalar value from the function
    * @param t Current time

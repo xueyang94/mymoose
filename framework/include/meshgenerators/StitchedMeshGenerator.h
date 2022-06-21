@@ -13,12 +13,6 @@
 #include "libmesh/replicated_mesh.h"
 #include "MooseEnum.h"
 
-// Forward declarations
-class StitchedMeshGenerator;
-
-template <>
-InputParameters validParams<StitchedMeshGenerator>();
-
 /**
  * Allows multiple mesh files to be "stitched" together to form a single mesh.
  */
@@ -32,6 +26,9 @@ public:
   std::unique_ptr<MeshBase> generate() override;
 
 protected:
+  // Holds pointers to the pointers to the meshes.
+  std::vector<std::unique_ptr<MeshBase> *> _mesh_ptrs;
+
   /// The mesh generator inputs to read
   const std::vector<MeshGeneratorName> & _input_names;
 
@@ -40,12 +37,6 @@ protected:
 
   /// A transformed version of _stitch_boundaries into a more logical "pairwise" structure
   std::vector<std::vector<std::string>> _stitch_boundaries_pairs;
-
-  // Holds pointers to the pointers to the meshes.
-  std::vector<std::unique_ptr<MeshBase> *> _mesh_ptrs;
-
-  /// The meshes to be stitched together.
-  std::vector<std::unique_ptr<ReplicatedMesh>> _meshes;
 
   /// Type of algorithm used to find matching nodes (binary or exhaustive)
   MooseEnum _algorithm;

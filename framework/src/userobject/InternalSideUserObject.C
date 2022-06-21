@@ -10,8 +10,6 @@
 #include "InternalSideUserObject.h"
 #include "Assembly.h"
 
-defineLegacyParams(InternalSideUserObject);
-
 InputParameters
 InternalSideUserObject::validParams()
 {
@@ -33,7 +31,7 @@ InternalSideUserObject::InternalSideUserObject(const InputParameters & parameter
     BlockRestrictable(this),
     TwoMaterialPropertyInterface(this, blockIDs(), Moose::EMPTY_BOUNDARY_IDS),
     NeighborCoupleable(this, false, false),
-    MooseVariableDependencyInterface(),
+    MooseVariableDependencyInterface(this),
     TransientInterface(this),
     ElementIDInterface(this),
     _mesh(_subproblem.mesh()),

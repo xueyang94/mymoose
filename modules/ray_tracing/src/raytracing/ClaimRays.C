@@ -67,8 +67,9 @@ ClaimRays::claim()
       }
 
   // Functor for possibly claiming a vector of Rays
-  auto claim_functor = [&](processor_id_type /* pid */,
-                           const std::vector<std::shared_ptr<Ray>> & rays) {
+  auto claim_functor =
+      [&](processor_id_type /* pid */, const std::vector<std::shared_ptr<Ray>> & rays)
+  {
     for (auto & ray : rays)
       possiblyClaim(ray);
   };
@@ -148,11 +149,10 @@ ClaimRays::postClaimRay(std::shared_ptr<Ray> & ray, const Elem * elem)
   // if we can find an incoming side that is valid.
   auto starting_incoming_side = RayTracingCommon::invalid_side;
   if (!(!ray->invalidCurrentIncomingSide() &&
-        _study.sidePtrHelper(elem, ray->currentIncomingSide())
-            ->contains_point(ray->currentPoint()) &&
+        _study.elemSide(*elem, ray->currentIncomingSide()).contains_point(ray->currentPoint()) &&
         _study.sideIsIncoming(elem, ray->currentIncomingSide(), ray->direction(), /* tid = */ 0)))
     for (const auto s : elem->side_index_range())
-      if (_study.sidePtrHelper(elem, s)->contains_point(ray->currentPoint()) &&
+      if (_study.elemSide(*elem, s).contains_point(ray->currentPoint()) &&
           _study.sideIsIncoming(elem, s, ray->direction(), /* tid = */ 0))
       {
         starting_incoming_side = s;
@@ -230,8 +230,9 @@ ClaimRays::verifyClaiming()
   // Map from Ray ID -> whether or not it was generated (false) or
   // claimed/possibly also generated (true)
   std::map<RayID, char> local_map;
-  auto add_to_local_map = [this, &local_map](const std::vector<std::shared_ptr<Ray>> & rays,
-                                             const bool claimed_rays) {
+  auto add_to_local_map =
+      [this, &local_map](const std::vector<std::shared_ptr<Ray>> & rays, const bool claimed_rays)
+  {
     for (const auto & ray : rays)
     {
       const auto id = getID(ray);
@@ -239,22 +240,12 @@ ClaimRays::verifyClaiming()
       // Try to insert into the map
       auto emplace_pair = local_map.emplace(id, claimed_rays);
 
-      // Already existed in the map
-      if (!emplace_pair.second)
+      // If it already exists but has not been claimed yet, set it to being claimed
+      if (!emplace_pair.second && claimed_rays)
       {
-        // If it already exists but has not been claimed yet, set it to being claimed
-        if (claimed_rays && !emplace_pair.first->second)
-          emplace_pair.first->second = true;
-        // Otherwise, it is being doubly generated/claimed
-        else
-          _study.mooseError("Ray with ID ",
-                            id,
-                            " was ",
-                            claimed_rays ? "claimed" : "generated",
-                            " multiple times on pid ",
-                            _pid,
-                            "\n\n",
-                            ray->getInfo());
+        mooseAssert(!emplace_pair.first->second,
+                    "Ray was claimed more than once on a single processor");
+        emplace_pair.first->second = true;
       }
     }
   };
@@ -273,12 +264,12 @@ ClaimRays::verifyClaiming()
   std::map<RayID, std::vector<std::pair<processor_id_type, char>>> global_map;
 
   // Functor for receiving the generation/claiming information
-  auto receive_functor =
-      [&global_map](processor_id_type pid,
-                    const std::vector<std::pair<RayID, char>> & id_claimed_pairs) {
-        for (const auto & id_claimed_pair : id_claimed_pairs)
-          global_map[id_claimed_pair.first].emplace_back(pid, id_claimed_pair.second);
-      };
+  auto receive_functor = [&global_map](processor_id_type pid,
+                                       const std::vector<std::pair<RayID, char>> & id_claimed_pairs)
+  {
+    for (const auto & id_claimed_pair : id_claimed_pairs)
+      global_map[id_claimed_pair.first].emplace_back(pid, id_claimed_pair.second);
+  };
 
   // Send claiming information to rank 0
   Parallel::push_parallel_vector_data(comm(), send_info, receive_functor);
@@ -297,14 +288,7 @@ ClaimRays::verifyClaiming()
           claimed_pids.push_back(pid_claimed_pair.first);
 
       if (claimed_pids.size() == 0)
-        mooseError("ClaimRays for ", _study.name(), ": Failed to claim the Ray with ID ", id);
-      if (claimed_pids.size() > 1)
-      {
-        std::stringstream oss;
-        oss << "ClaimRays for " << _study.name() << ": The Ray with ID " << id
-            << " was claimed on processors ";
-        std::copy(claimed_pids.begin(), claimed_pids.end(), std::ostream_iterator<RayID>(oss, " "));
-        mooseError(oss.str());
-      }
+        _study.mooseError("Failed to claim the Ray with ID ", id);
+      mooseAssert(claimed_pids.size() == 1, "Ray was claimed on multiple processors");
     }
 }

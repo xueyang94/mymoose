@@ -40,13 +40,6 @@ class MultiMooseEnum;
 class Problem;
 
 /**
- * This is the templated validParams() function that every
- * MooseObject-derived class is required to specialize.
- */
-template <class T>
-InputParameters validParams();
-
-/**
  * The main MOOSE class responsible for handling user-defined
  * parameters in almost every MOOSE system.
  */
@@ -271,12 +264,12 @@ public:
   /**
    * Get the syntax for a command-line parameter
    */
-  std::vector<std::string> getSyntax(const std::string & name);
+  std::vector<std::string> getSyntax(const std::string & name) const;
 
   /**
    * Get the documentation string for a parameter
    */
-  const std::string & getDescription(const std::string & name);
+  const std::string & getDescription(const std::string & name) const;
 
   /**
    * This method takes a space delimited list of parameter names and adds them to the specified
@@ -828,6 +821,10 @@ public:
    * usually only set/useable for file-path type parameters.
    */
   std::string & rawParamVal(const std::string & param) { return _params[param]._raw_val; }
+  const std::string & rawParamVal(const std::string & param) const
+  {
+    return _params.at(param)._raw_val;
+  }
 
   /**
    * Informs this object that values for this parameter set from the input file or from the command
@@ -847,6 +844,11 @@ public:
    */
   template <typename T>
   bool isType(const std::string & name) const;
+
+  /**
+   * @returns True if these parameters were constructed using the legacy method.
+   **/
+  bool fromLegacyConstruction() const { return _from_legacy_construction; }
 
 private:
   // Private constructor so that InputParameters can only be created in certain places.
@@ -1003,6 +1005,9 @@ private:
   /// A flag for toggling the error message in the copy constructor.
   bool _allow_copy;
 
+  /// Whether or not these parameters were constructed using legacy contruction (remove with #19440)
+  bool _from_legacy_construction;
+
   /// A map from deprecated coupled variable names to the new blessed name
   std::unordered_map<std::string, std::string> _new_to_deprecated_coupled_vars;
 
@@ -1010,6 +1015,10 @@ private:
   friend InputParameters emptyInputParameters();
   friend class InputParameterWarehouse;
   friend class Parser;
+
+  // For setting _from_legacy_construction (remove with #19440)
+  template <typename T>
+  friend InputParameters validParams();
 };
 
 template <typename T>
@@ -1026,17 +1035,14 @@ InputParameters::set(const std::string & name, bool quiet_mode)
   checkParamName(name);
   checkConsistentType<T>(name);
 
-  if (!this->have_parameter<T>(name))
-    _values[name] = new Parameter<T>;
-
-  set_attributes(name, false);
+  T & result = this->Parameters::set<T>(name);
 
   if (quiet_mode)
     _params[name]._set_by_add_param = true;
 
   setHelper<T>(name);
 
-  return cast_ptr<Parameter<T> *>(_values[name])->set();
+  return result;
 }
 
 template <typename T, typename... Ts>
@@ -1397,9 +1403,14 @@ template <typename T>
 void
 InputParameters::checkConsistentType(const std::string & name) const
 {
-  // Do we have a parameter with the same name but a different type?
+  // If we don't currently have the Parameter, can't be any inconsistency
   InputParameters::const_iterator it = _values.find(name);
-  if (it != _values.end() && dynamic_cast<const Parameter<T> *>(it->second) == NULL)
+  if (it == _values.end())
+    return;
+
+  // Now, if we already have the Parameter, but it doesn't have the
+  // right type, throw an error.
+  if (!this->Parameters::have_parameter<T>(name))
     mooseError("Attempting to set parameter \"",
                name,
                "\" with type (",
@@ -1635,20 +1646,6 @@ InputParameters::get(const std::string & param1, const std::string & param2) con
 
 InputParameters emptyInputParameters();
 
-template <class T>
-InputParameters
-validParams()
-{
-  // If users forgot to make their (old) validParams, they screwed up and
-  // should get an error - so it is okay for us to try to call the new
-  // validParams static function - which will error if they didn't implement
-  // the new function.  We can't have the old static assert that use to be
-  // here because then the sfinae for toggling between old and new-style
-  // templating will always see this function and call it even if an object
-  // has *only* the new style validParams.
-  return T::validParams();
-}
-
 template <typename T>
 bool
 InputParameters::isType(const std::string & name) const
@@ -1656,4 +1653,44 @@ InputParameters::isType(const std::string & name) const
   if (!_params.count(name))
     mooseError("Parameter \"", name, "\" is not valid.");
   return have_parameter<T>(name);
+}
+
+template <class T>
+InputParameters
+validParams()
+{
+  // If users forgot to make their (old) validParams, they screwed up and
+  // should get an error - so it is okay for us to try to call the new
+  // validParams static function - which will error if they didn't implement
+  // the new function
+  auto params = T::validParams();
+
+  // If calling the static member method worked, we didn't build these parameters
+  // using the legacy method. Therefore, we won't throw an error for this object
+  // in CheckLegacyParamsAction. This should be removed with the closure of #19439.
+  params._from_legacy_construction = false;
+
+  return params;
+}
+
+namespace moose
+{
+namespace internal
+{
+/**
+ * Calls the valid parameter method for the object of type T.
+ *
+ * This isn't necessary anymore, but is hanging around until we finally
+ * get rid of all mention of the legacy parameter construction. Once
+ * #19439 is closed, we can replace
+ * moose::internal::callValidParams<T>() -> T::validParams(), and we
+ * should return T::validParams() here instead.
+ */
+template <typename T>
+InputParameters
+callValidParams()
+{
+  return validParams<T>();
+}
+}
 }

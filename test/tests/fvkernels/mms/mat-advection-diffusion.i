@@ -15,10 +15,6 @@ a=1.1
   [../]
 []
 
-[Problem]
-  kernel_coverage_check = off
-[]
-
 [Variables]
   [./v]
     family = MONOMIAL
@@ -56,7 +52,7 @@ a=1.1
 
 [Materials]
   [diff]
-    type = ADGenericConstantFunctorMaterial
+    type = ADGenericFunctorMaterial
     prop_names = 'coeff'
     prop_values = '${diff}'
   []
@@ -87,7 +83,6 @@ a=1.1
 
 [Outputs]
   exodus = true
-  csv = true
 []
 
 [Postprocessors]
@@ -95,12 +90,10 @@ a=1.1
     type = ElementL2Error
     variable = v
     function = exact
-    outputs = 'console csv'
-    execute_on = 'timestep_end'
+    outputs = 'console'    execute_on = 'timestep_end'
   [../]
   [h]
     type = AverageElementSize
-    outputs = 'console csv'
-    execute_on = 'timestep_end'
+    outputs = 'console'    execute_on = 'timestep_end'
   []
 []

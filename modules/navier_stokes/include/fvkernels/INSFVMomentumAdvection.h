@@ -9,116 +9,43 @@
 
 #pragma once
 
-#include "FVMatAdvection.h"
-#include "TheWarehouse.h"
-#include "SubProblem.h"
-#include "MooseApp.h"
-#include "INSFVAttributes.h"
-
-#include <vector>
-#include <set>
-
-class INSFVVelocityVariable;
-class INSFVPressureVariable;
+#include "INSFVAdvectionKernel.h"
+#include "INSFVMomentumResidualObject.h"
+#include "PiecewiseByBlockLambdaFunctor.h"
 
 /**
  * An advection kernel that implements interpolation schemes specific to Navier-Stokes flow
  * physics
  */
-class INSFVMomentumAdvection : public FVMatAdvection
+class INSFVMomentumAdvection : public INSFVAdvectionKernel, public INSFVMomentumResidualObject
 {
 public:
   static InputParameters validParams();
   INSFVMomentumAdvection(const InputParameters & params);
+  void gatherRCData(const Elem &) override final {}
+  void gatherRCData(const FaceInfo & fi) override final;
   void initialSetup() override;
 
 protected:
-  /**
-   * interpolation overload for the velocity
-   */
-  virtual void interpolate(Moose::FV::InterpMethod m, ADRealVectorValue & interp_v);
-
   virtual ADReal computeQpResidual() override;
 
-  void residualSetup() override final { clearRCCoeffs(); }
-  void jacobianSetup() override final { clearRCCoeffs(); }
-
-  /// The dynamic viscosity
-  const Moose::Functor<ADReal> & _mu;
-
   /**
-   * Returns the Rhie-Chow 'a' coefficient for the requested element \p elem
-   * @param elem The elem to get the Rhie-Chow coefficient for
-   * @param mu The dynamic viscosity
+   * A virtual method that allows us to reuse all the code from free-flow for porous
    */
-  const VectorValue<ADReal> & rcCoeff(const Elem & elem) const;
-
-  /**
-   * method for computing the Rhie-Chow 'a' coefficients for the given elem \p elem
-   * @param elem The elem to compute the Rhie-Chow coefficient for
-   * @param mu The dynamic viscosity
-   */
-  virtual VectorValue<ADReal> coeffCalculator(const Elem & elem) const;
-
-  /**
-   * Clear the RC 'a' coefficient cache
-   */
-  void clearRCCoeffs();
-
-  bool skipForBoundary(const FaceInfo & fi) const override;
-
-  /// pressure variable
-  const INSFVPressureVariable * const _p_var;
-  /// x-velocity
-  const INSFVVelocityVariable * const _u_var;
-  /// y-velocity
-  const INSFVVelocityVariable * const _v_var;
-  /// z-velocity
-  const INSFVVelocityVariable * const _w_var;
+  virtual const Moose::FunctorBase<ADReal> & epsilon() const { return _unity_functor; }
 
   /// Density
   const Moose::Functor<ADReal> & _rho;
 
-  /// the dimension of the simulation
-  const unsigned int _dim;
+  /// Our local momentum functor
+  std::unique_ptr<PiecewiseByBlockLambdaFunctor<ADReal>> _rho_u;
 
-  /// The interpolation method to use for the velocity
-  Moose::FV::InterpMethod _velocity_interp_method;
+  /// The a coefficient for the element
+  ADReal _ae = 0;
 
-  /// Boundary IDs with no slip walls
-  std::set<BoundaryID> _no_slip_wall_boundaries;
+  /// The a coefficient for the neighbor
+  ADReal _an = 0;
 
-  /// Boundary IDs with slip walls
-  std::set<BoundaryID> _slip_wall_boundaries;
-
-  /// Flow Boundary IDs
-  std::set<BoundaryID> _flow_boundaries;
-
-  /// Fully Developed Flow Boundary IDs. This is a subset of \p _flow_boundaries
-  std::set<BoundaryID> _fully_developed_flow_boundaries;
-
-  /// Symmetry Boundary IDs
-  std::set<BoundaryID> _symmetry_boundaries;
-
-  /// All the BoundaryIDs covered by our different types of INSFVBCs
-  std::set<BoundaryID> _all_boundaries;
-
-  /// A map from elements to the 'a' coefficients used in the Rhie-Chow interpolation. The size of
-  /// the vector is equal to the number of threads in the simulation. We maintain a map from
-  /// MooseApp pointer to RC coefficients in order to support MultiApp simulations
-  static std::unordered_map<const MooseApp *,
-                            std::vector<std::unordered_map<const Elem *, VectorValue<ADReal>>>>
-      _rc_a_coeffs;
-
-private:
-  /**
-   * Query for \p INSFVBCs::INSFVFlowBC on \p bc_id and add if query successful
-   */
-  void setupFlowBoundaries(BoundaryID bnd_id);
-
-  /**
-   * Query for \p INSFVBCs on \p bc_id and add if query successful
-   */
-  template <typename T>
-  void setupBoundaries(const BoundaryID bnd_id, INSFVBCs bc_type, std::set<BoundaryID> & bnd_ids);
+  /// A unity functor used in the epsilon virtual method
+  const Moose::ConstantFunctor<ADReal> _unity_functor{1};
 };

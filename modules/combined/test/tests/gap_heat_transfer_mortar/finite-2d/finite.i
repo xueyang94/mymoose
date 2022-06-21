@@ -51,8 +51,8 @@ name = 'finite'
   [block_rename]
     type = RenameBlockGenerator
     input = combined
-    old_block_id = '1 2'
-    new_block_name = 'plank block'
+    old_block = '1 2'
+    new_block = 'plank block'
   []
 
   [secondary]
@@ -99,7 +99,6 @@ name = 'finite'
   [frictionless_normal_lm]
     order = FIRST
     block = 'frictionless_secondary_subdomain'
-    scaling = 1e3
     use_dual = true
   []
 []
@@ -327,7 +326,6 @@ name = 'finite'
 []
 
 [Outputs]
-  exodus = true
   file_base = ${name}
   checkpoint = true
   [comp]

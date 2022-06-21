@@ -17,7 +17,7 @@
 []
 
 [Controls/cli]
-  type = MultiAppCommandLineControl
+  type = MultiAppSamplerControl
   multi_app = sub
   param_names = 'Postprocessors/pp1/scale_factor'
 []
@@ -25,19 +25,19 @@
 [Transfers]
   [param]
     type = SamplerParameterTransfer
-    multi_app = sub
+    to_multi_app = sub
     to_control = receiver
     parameters = 'Postprocessors/pp2/scale_factor'
   []
   [rep]
     type = SamplerReporterTransfer
-    multi_app = sub
+    from_multi_app = sub
     stochastic_reporter = reporter
     from_reporter = 'pp1/value'
   []
   [pp]
     type = SamplerPostprocessorTransfer
-    multi_app = sub
+    from_multi_app = sub
     to_vector_postprocessor = vpp
     from_postprocessor = 'pp2'
   []

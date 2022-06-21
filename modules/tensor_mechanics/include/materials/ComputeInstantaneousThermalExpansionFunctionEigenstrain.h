@@ -10,33 +10,41 @@
 #pragma once
 
 #include "ComputeThermalExpansionEigenstrainBase.h"
-#include "DerivativeMaterialInterface.h"
 
 /**
  * ComputeInstantaneousThermalExpansionFunctionEigenstrain computes an eigenstrain for thermal
  * expansion according to an instantaneous thermal expansion function.
  */
-class ComputeInstantaneousThermalExpansionFunctionEigenstrain
-  : public ComputeThermalExpansionEigenstrainBase
+template <bool is_ad>
+class ComputeInstantaneousThermalExpansionFunctionEigenstrainTempl
+  : public ComputeThermalExpansionEigenstrainBaseTempl<is_ad>
 {
 public:
   static InputParameters validParams();
 
-  ComputeInstantaneousThermalExpansionFunctionEigenstrain(const InputParameters & parameters);
+  ComputeInstantaneousThermalExpansionFunctionEigenstrainTempl(const InputParameters & parameters);
 
 protected:
   virtual void initQpStatefulProperties() override;
-  virtual void computeThermalStrain(Real & thermal_strain, Real & instantaneous_cte) override;
 
-  const VariableValue & _temperature_old;
+  virtual ValueAndDerivative<is_ad> computeThermalStrain() override;
+
   const Function & _thermal_expansion_function;
 
-  /// Stores the thermal strain as a scalar for use in computing an incremental update to this.
-  //@{
-  MaterialProperty<Real> & _thermal_strain;
+  /**
+   *@{ Stores the thermal strain as a scalar for use in computing an incremental update.
+   */
+  GenericMaterialProperty<Real, is_ad> & _thermal_strain;
   const MaterialProperty<Real> & _thermal_strain_old;
   //@}
 
   /// Indicates whether we are on the first step, avoiding false positives when restarting
   bool & _step_one;
+
+  using ComputeThermalExpansionEigenstrainBaseTempl<is_ad>::_qp;
 };
+
+typedef ComputeInstantaneousThermalExpansionFunctionEigenstrainTempl<false>
+    ComputeInstantaneousThermalExpansionFunctionEigenstrain;
+typedef ComputeInstantaneousThermalExpansionFunctionEigenstrainTempl<true>
+    ADComputeInstantaneousThermalExpansionFunctionEigenstrain;

@@ -435,8 +435,8 @@ Parser::getPrimaryFileName(bool stripLeadingPath) const
 void
 Parser::walkRaw(std::string /*fullpath*/, std::string /*nodepath*/, hit::Node * n)
 {
-  InputParameters active_list_params = validParams<Action>();
-  InputParameters params = validParams<EmptyAction>();
+  InputParameters active_list_params = Action::validParams();
+  InputParameters params = EmptyAction::validParams();
 
   std::string section_name = n->fullpath();
   std::string curr_identifier = n->fullpath();
@@ -799,10 +799,10 @@ Parser::initSyntaxFormatter(SyntaxFormatterType type, bool dump_mode)
   switch (type)
   {
     case INPUT_FILE:
-      _syntax_formatter = libmesh_make_unique<InputFileFormatter>(dump_mode);
+      _syntax_formatter = std::make_unique<InputFileFormatter>(dump_mode);
       break;
     case YAML:
-      _syntax_formatter = libmesh_make_unique<YAMLFormatter>(dump_mode);
+      _syntax_formatter = std::make_unique<YAMLFormatter>(dump_mode);
       break;
     default:
       mooseError("Unrecognized Syntax Formatter requested");
@@ -1232,7 +1232,7 @@ Parser::extractParams(const std::string & prefix, InputParameters & p)
       // parser.
 
       InputParameters::Parameter<OutFileBase> * scalar_p =
-          dynamic_cast<InputParameters::Parameter<OutFileBase> *>(it.second);
+          dynamic_cast<InputParameters::Parameter<OutFileBase> *>(MooseUtils::get(it.second));
       if (scalar_p)
       {
         std::string input_file_name = getPrimaryFileName();
@@ -1250,8 +1250,8 @@ Parser::extractParams(const std::string & prefix, InputParameters & p)
                    full_name,
                    "' is a private parameter and should not be used in an input file.");
 
-      auto par = it.second;
-      auto short_name = it.first;
+      auto & short_name = it.first;
+      libMesh::Parameters::Value * par = MooseUtils::get(it.second);
 
 #define setscalarvaltype(ptype, base, range)                                                       \
   else if (par->type() == demangle(typeid(ptype).name()))                                          \
@@ -1357,6 +1357,7 @@ Parser::extractParams(const std::string & prefix, InputParameters & p)
       setscalar(MeshGeneratorName, string);
       setscalar(ExtraElementIDName, string);
       setscalar(PostprocessorName, PostprocessorName);
+      setscalar(ExecutorName, string);
 
       // Moose Compound Scalars
       setscalar(RealVectorValue, RealVectorValue);
@@ -1420,10 +1421,14 @@ Parser::extractParams(const std::string & prefix, InputParameters & p)
       setvector(ExtraElementIDName, string);
       setvector(ReporterName, string);
       setvector(ReporterValueName, string);
+      setvector(ExecutorName, string);
 
       // map types
       setmap(string, Real);
       setmap(string, string);
+      setmap(unsigned int, unsigned int);
+      setmap(unsigned long, unsigned int);
+      setmap(unsigned long long, unsigned int);
 
       // Double indexed types
       setvectorvector(Real);

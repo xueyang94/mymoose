@@ -24,8 +24,6 @@
 
 registerMooseObject("MooseApp", MultiAppInterpolationTransfer);
 
-defineLegacyParams(MultiAppInterpolationTransfer);
-
 InputParameters
 MultiAppInterpolationTransfer::validParams()
 {
@@ -410,18 +408,21 @@ MultiAppInterpolationTransfer::interpolateTargetPoints(
 void
 MultiAppInterpolationTransfer::execute()
 {
-  _console << "Beginning InterpolationTransfer " << name() << std::endl;
+  TIME_SECTION("MultiAppInterpolationTransfer::execute()",
+               5,
+               "Transferring variables based on node interpolation");
 
-  const FEProblemBase & fe_problem = _multi_app->problemBase();
+  const FEProblemBase & fe_problem =
+      hasFromMultiApp() ? getFromMultiApp()->problemBase() : getToMultiApp()->problemBase();
   std::unique_ptr<InverseDistanceInterpolation<LIBMESH_DIM>> idi;
   switch (_interp_type)
   {
     case 0:
-      idi = libmesh_make_unique<InverseDistanceInterpolation<LIBMESH_DIM>>(
+      idi = std::make_unique<InverseDistanceInterpolation<LIBMESH_DIM>>(
           fe_problem.comm(), _num_points, _power);
       break;
     case 1:
-      idi = libmesh_make_unique<RadialBasisInterpolation<LIBMESH_DIM>>(fe_problem.comm(), _radius);
+      idi = std::make_unique<RadialBasisInterpolation<LIBMESH_DIM>>(fe_problem.comm(), _radius);
       break;
     default:
       mooseError("Unknown interpolation type!");
@@ -433,7 +434,7 @@ MultiAppInterpolationTransfer::execute()
   {
     case TO_MULTIAPP:
     {
-      FEProblemBase & from_problem = _multi_app->problemBase();
+      FEProblemBase & from_problem = getToMultiApp()->problemBase();
       const auto & from_var = from_problem.getVariable(
           0, _from_var_name, Moose::VarKindType::VAR_ANY, Moose::VarFieldType::VAR_FIELD_STANDARD);
       const Point from_app_position(0);
@@ -443,19 +444,19 @@ MultiAppInterpolationTransfer::execute()
       // We have only set local values - prepare for use by gathering remote gata
       idi->prepare_for_use();
 
-      for (unsigned int i = 0; i < _multi_app->numGlobalApps(); i++)
+      for (unsigned int i = 0; i < getToMultiApp()->numGlobalApps(); i++)
       {
-        if (_multi_app->hasLocalApp(i))
+        if (getToMultiApp()->hasLocalApp(i))
         {
-          auto & to_problem = _multi_app->appProblemBase(i);
+          auto & to_problem = getToMultiApp()->appProblemBase(i);
           Moose::ScopedCommSwapper swapper(to_problem.comm().get());
-          const auto to_app_position = _multi_app->position(i);
+          const auto to_app_position = getToMultiApp()->position(i);
           auto & to_var = to_problem.getVariable(0,
                                                  _to_var_name,
                                                  Moose::VarKindType::VAR_ANY,
                                                  Moose::VarFieldType::VAR_FIELD_STANDARD);
 
-          auto & to_solution = _multi_app->appTransferVector(i, _to_var_name);
+          auto & to_solution = getToMultiApp()->appTransferVector(i, _to_var_name);
 
           interpolateTargetPoints(to_problem, to_var, to_solution, to_app_position, idi);
         }
@@ -466,13 +467,13 @@ MultiAppInterpolationTransfer::execute()
 
     case FROM_MULTIAPP:
     {
-      for (unsigned int i = 0; i < _multi_app->numGlobalApps(); i++)
+      for (unsigned int i = 0; i < getFromMultiApp()->numGlobalApps(); i++)
       {
-        if (_multi_app->hasLocalApp(i))
+        if (getFromMultiApp()->hasLocalApp(i))
         {
-          auto & from_problem = _multi_app->appProblemBase(i);
+          auto & from_problem = getFromMultiApp()->appProblemBase(i);
           Moose::ScopedCommSwapper swapper(from_problem.comm().get());
-          const auto from_app_position = _multi_app->position(i);
+          const auto from_app_position = getFromMultiApp()->position(i);
           const auto & from_var = from_problem.getVariable(0,
                                                            _from_var_name,
                                                            Moose::VarKindType::VAR_ANY,
@@ -484,7 +485,7 @@ MultiAppInterpolationTransfer::execute()
 
       idi->prepare_for_use();
 
-      FEProblemBase & to_problem = _multi_app->problemBase();
+      FEProblemBase & to_problem = getFromMultiApp()->problemBase();
       MooseVariableFieldBase & to_var = to_problem.getVariable(
           0, _to_var_name, Moose::VarKindType::VAR_ANY, Moose::VarFieldType::VAR_FIELD_STANDARD);
 
@@ -502,8 +503,6 @@ MultiAppInterpolationTransfer::execute()
       break;
     }
   }
-
-  _console << "End InterpolationTransfer " << name() << std::endl;
 }
 
 void

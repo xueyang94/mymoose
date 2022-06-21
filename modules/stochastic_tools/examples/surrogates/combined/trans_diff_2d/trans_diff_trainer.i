@@ -38,7 +38,7 @@
 
 [Controls]
   [cmdline]
-    type = MultiAppCommandLineControl
+    type = MultiAppSamplerControl
     multi_app = runner
     sampler = sample
     param_names = 'Materials/diff_coeff/constant_expressions Functions/src_func/vals Variables/T/initial_condition'
@@ -48,7 +48,7 @@
 [Transfers]
   [results]
     type = SamplerReporterTransfer
-    multi_app = runner
+    from_multi_app = runner
     sampler = sample
     stochastic_reporter = trainer_results
     from_reporter = 'time_max/value time_min/value'

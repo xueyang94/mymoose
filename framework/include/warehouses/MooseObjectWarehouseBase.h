@@ -94,6 +94,7 @@ public:
   bool hasActiveBlockObjects(SubdomainID id, THREAD_ID tid = 0) const;
   bool hasActiveBoundaryObjects(THREAD_ID tid = 0) const;
   bool hasActiveBoundaryObjects(BoundaryID id, THREAD_ID tid = 0) const;
+  bool hasBoundaryObjects(BoundaryID id, THREAD_ID tid = 0) const;
   ///@}
 
   /**
@@ -172,7 +173,7 @@ public:
   /**
    * Return the number of threads.
    */
-  THREAD_ID numThreads() { return _num_threads; }
+  THREAD_ID numThreads() const { return _num_threads; }
 
 protected:
   /// Convenience member storing the number of threads used for storage (1 or libMesh::n_threads)
@@ -343,6 +344,14 @@ MooseObjectWarehouseBase<T>::getBoundaryObjects(THREAD_ID tid /* = 0*/) const
 {
   checkThreadID(tid);
   return _all_boundary_objects[tid];
+}
+
+template <typename T>
+bool
+MooseObjectWarehouseBase<T>::hasBoundaryObjects(BoundaryID id, THREAD_ID tid /* = 0*/) const
+{
+  checkThreadID(tid);
+  return _all_boundary_objects[tid].find(id) != _all_boundary_objects[tid].end();
 }
 
 template <typename T>

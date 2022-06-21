@@ -25,14 +25,12 @@
 
 registerMooseObject("MooseApp", TransientMultiApp);
 
-defineLegacyParams(TransientMultiApp);
-
 InputParameters
 TransientMultiApp::validParams()
 {
   InputParameters params = MultiApp::validParams();
   params += TransientInterface::validParams();
-  params.addClassDescription("MultiApp for performing coupled simulations with the master and "
+  params.addClassDescription("MultiApp for performing coupled simulations with the parent and "
                              "sub-application both progressing in time.");
 
   params.addParam<bool>("sub_cycling",
@@ -40,7 +38,7 @@ TransientMultiApp::validParams()
                         "Set to true to allow this MultiApp to take smaller "
                         "timesteps than the rest of the simulation.  More "
                         "than one timestep will be performed for each "
-                        "'master' timestep");
+                        "parent application timestep");
 
   params.addParam<bool>("interpolate_transfers",
                         false,
@@ -67,6 +65,10 @@ TransientMultiApp::validParams()
 
   params.addParam<unsigned int>(
       "max_failures", 0, "Maximum number of solve failures tolerated while sub_cycling.");
+
+  params.addParamNamesToGroup("sub_cycling interpolate_transfers detect_steady_state "
+                              "steady_state_tol output_sub_cycles print_sub_cycles max_failures",
+                              "Sub cycling");
 
   params.addParam<bool>("tolerate_failure",
                         false,
@@ -178,11 +180,14 @@ TransientMultiApp::solveStep(Real dt, Real target_time, bool auto_advance)
   if (!_has_an_app)
     return true;
 
+  TIME_SECTION(_solve_step_timer);
+
   _auto_advance = auto_advance;
 
-  _console << COLOR_CYAN << "Solving MultiApp '" << name() << "' with target time " << target_time
-           << " and dt " << dt << " with auto-advance " << (auto_advance ? "on" : "off")
-           << COLOR_DEFAULT << std::endl;
+  if (_fe_problem.verboseMultiApps())
+    _console << COLOR_CYAN << "Solving MultiApp '" << name() << "' with target time " << target_time
+             << " and dt " << dt << " with auto-advance " << (auto_advance ? "on" : "off")
+             << COLOR_DEFAULT << std::endl;
 
   // "target_time" must always be in global time
   target_time += _app.getGlobalTimeOffset();
@@ -330,12 +335,13 @@ TransientMultiApp::solveStep(Real dt, Real target_time, bool auto_advance)
 
           Real solution_change_norm = ex->getSolutionChangeNorm();
 
-          if (_detect_steady_state)
+          if (_detect_steady_state && _fe_problem.verboseMultiApps())
             _console << "Solution change norm: " << solution_change_norm << std::endl;
 
           if (converged && _detect_steady_state && solution_change_norm < _steady_state_tol)
           {
-            _console << "Detected Steady State!  Fast-forwarding to " << target_time << std::endl;
+            if (_fe_problem.verboseMultiApps())
+              _console << "Detected Steady State! Fast-forwarding to " << target_time << std::endl;
 
             at_steady = true;
 
@@ -396,7 +402,8 @@ TransientMultiApp::solveStep(Real dt, Real target_time, bool auto_advance)
 
             if (_catch_up)
             {
-              _console << "Starting Catch Up!" << std::endl;
+              if (_fe_problem.verboseMultiApps())
+                _console << "Starting time step catch up!" << std::endl;
 
               bool caught_up = false;
 
@@ -406,7 +413,9 @@ TransientMultiApp::solveStep(Real dt, Real target_time, bool auto_advance)
 
               while (!caught_up && catch_up_step < _max_catch_up_steps)
               {
-                _console << "Solving " << name() << " catch up step " << catch_up_step << std::endl;
+                if (_fe_problem.verboseMultiApps())
+                  _console << "Solving " << name() << " catch up step " << catch_up_step
+                           << std::endl;
                 ex->incrementStepOrReject();
 
                 ex->computeDT();
@@ -444,7 +453,8 @@ TransientMultiApp::solveStep(Real dt, Real target_time, bool auto_advance)
             // possible
             if (_catch_up)
             {
-              _console << "Starting Catch Up!" << std::endl;
+              if (_fe_problem.verboseMultiApps())
+                _console << "Starting Catch Up!" << std::endl;
 
               bool caught_up = false;
 
@@ -455,7 +465,9 @@ TransientMultiApp::solveStep(Real dt, Real target_time, bool auto_advance)
               // Note: this loop will _break_ if target_time is satisfied
               while (catch_up_step < _max_catch_up_steps)
               {
-                _console << "Solving " << name() << " catch up step " << catch_up_step << std::endl;
+                if (_fe_problem.verboseMultiApps())
+                  _console << "Solving " << name() << " catch up step " << catch_up_step
+                           << std::endl;
                 ex->incrementStepOrReject();
 
                 ex->computeDT();
@@ -500,7 +512,8 @@ TransientMultiApp::solveStep(Real dt, Real target_time, bool auto_advance)
 
     _first = false;
 
-    _console << "Successfully Solved MultiApp " << name() << "." << std::endl;
+    if (_fe_problem.verboseMultiApps())
+      _console << "Successfully Solved MultiApp " << name() << "." << std::endl;
   }
   catch (MultiAppSolveFailure & e)
   {

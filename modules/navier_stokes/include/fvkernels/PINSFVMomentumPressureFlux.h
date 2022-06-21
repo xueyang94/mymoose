@@ -10,24 +10,27 @@
 #pragma once
 
 #include "FVFluxKernel.h"
+#include "INSFVMomentumResidualObject.h"
 
 /**
  * A flux kernel using the divergence theorem for the pressure gradient term in the momentum
  * equation
  */
-class PINSFVMomentumPressureFlux : public FVFluxKernel
+class PINSFVMomentumPressureFlux : public FVFluxKernel, public INSFVMomentumResidualObject
 {
 public:
   static InputParameters validParams();
   PINSFVMomentumPressureFlux(const InputParameters & params);
 
+  // Pressure term so no RC data involved
+  void gatherRCData(const Elem &) override final {}
+  void gatherRCData(const FaceInfo &) override final {}
+
 protected:
   ADReal computeQpResidual() override;
 
-  /// the current element porosity
-  const VariableValue & _eps;
-  /// the neighbor element porosity
-  const VariableValue & _eps_neighbor;
+  /// the porosity as a functor
+  const Moose::Functor<ADReal> & _eps;
   /// the current element pressure
   const ADVariableValue & _p_elem;
   /// the neighbor element pressure

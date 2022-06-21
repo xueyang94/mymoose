@@ -18,8 +18,6 @@
 #include "libmesh/id_types.h"
 #include "libmesh/string_to_enum.h"
 
-defineLegacyParams(MultiAppFieldTransfer);
-
 InputParameters
 MultiAppFieldTransfer::validParams()
 {
@@ -44,9 +42,16 @@ MultiAppFieldTransfer::initialSetup()
   if (_current_direction == TO_MULTIAPP)
     for (auto & to_var : getToVarNames())
       variableIntegrityCheck(to_var);
-  else
+  else if (_current_direction == FROM_MULTIAPP)
     for (auto & from_var : getFromVarNames())
       variableIntegrityCheck(from_var);
+  else
+  {
+    for (auto & to_var : getToVarNames())
+      variableIntegrityCheck(to_var);
+    for (auto & from_var : getFromVarNames())
+      variableIntegrityCheck(from_var);
+  }
 }
 
 void
@@ -105,8 +110,13 @@ MultiAppFieldTransfer::transfer(FEProblemBase & to_problem, FEProblemBase & from
 
     // Check integrity
     if (to_var.feType() != from_var.feType())
-      paramError("variable",
-                 "Corresponding 'variable' and 'source_variable' inputs must be the same type "
+      mooseError("MultiAppFieldTransfer '",
+                 name(),
+                 "'requires that the target variable '",
+                 to_var.name(),
+                 "' and the source variable'",
+                 from_var.name(),
+                 "' must be the same type "
                  "(order and family): ",
                  libMesh::Utility::enum_to_string<FEFamily>(to_var.feType().family),
                  moose::internal::incompatVarMsg(to_var, from_var));

@@ -61,7 +61,7 @@
 
 [VectorPostprocessors]
   [histo]
-    type = VolumeHistogram
+    type = VariableValueVolumeHistogram
     variable = u_aux
     min_value = 0
     max_value = 4
@@ -80,7 +80,6 @@
 []
 
 [Outputs]
-  exodus = true
   [initial]
     type = CSV
     execute_on = initial

@@ -14,7 +14,6 @@
 []
 
 [Problem]
-  kernel_coverage_check = false
   coord_type = 'RZ'
 []
 
@@ -42,7 +41,7 @@
 
 [Materials]
   [diff]
-    type = ADGenericConstantFunctorMaterial
+    type = ADGenericFunctorMaterial
     prop_names = 'coeff'
     prop_values = '1'
   []
@@ -67,7 +66,6 @@
 
 [Outputs]
   exodus = true
-  csv = true
 []
 
 [Postprocessors]
@@ -75,12 +73,10 @@
     type = ElementL2Error
     variable = v
     function = exact
-    outputs = 'console csv'
-    execute_on = 'timestep_end'
+    outputs = 'console'    execute_on = 'timestep_end'
   [../]
   [h]
     type = AverageElementSize
-    outputs = 'console csv'
-    execute_on = 'timestep_end'
+    outputs = 'console'    execute_on = 'timestep_end'
   []
 []

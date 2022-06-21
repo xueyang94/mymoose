@@ -12,12 +12,9 @@
 #include "SideUserObject.h"
 #include "Postprocessor.h"
 
-// Forward Declarations
-class SidePostprocessor;
-
-template <>
-InputParameters validParams<SidePostprocessor>();
-
+/**
+ * Base class for postprocessors executed on one or more sidesets
+ */
 class SidePostprocessor : public SideUserObject, public Postprocessor
 {
 public:
@@ -33,4 +30,3 @@ public:
    */
   virtual void finalize() override {}
 };
-

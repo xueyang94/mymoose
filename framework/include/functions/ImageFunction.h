@@ -13,12 +13,6 @@
 #include "Function.h"
 #include "ImageSampler.h"
 
-// Forward declarations
-class ImageFunction;
-
-template <>
-InputParameters validParams<ImageFunction>();
-
 /**
  * A function for extracting data from an image or stack of images
  */
@@ -43,6 +37,7 @@ public:
    */
   virtual void initialSetup() override;
 
+  using Function::value;
   /**
    * Return the pixel value for the given point
    * @param t Time (unused)

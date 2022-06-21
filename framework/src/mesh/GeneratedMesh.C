@@ -22,8 +22,6 @@
 
 registerMooseObject("MooseApp", GeneratedMesh);
 
-defineLegacyParams(GeneratedMesh);
-
 InputParameters
 GeneratedMesh::validParams()
 {
@@ -154,7 +152,7 @@ GeneratedMesh::getMaxInDimension(unsigned int component) const
 std::unique_ptr<MooseMesh>
 GeneratedMesh::safeClone() const
 {
-  return libmesh_make_unique<GeneratedMesh>(*this);
+  return std::make_unique<GeneratedMesh>(*this);
 }
 
 void

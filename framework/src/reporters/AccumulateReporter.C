@@ -15,8 +15,8 @@ InputParameters
 AccumulateReporter::validParams()
 {
   InputParameters params = GeneralReporter::validParams();
-  params.addClassDescription("Reporter the accumulates the value of a inputted reporter value over "
-                             "time into a vector reporter value of the same type.");
+  params.addClassDescription("Reporter which accumulates the value of a inputted reporter value "
+                             "over time into a vector reporter value of the same type.");
   params.addRequiredParam<std::vector<ReporterName>>("reporters", "The reporters to accumulate.");
 
   params.set<ExecFlagEnum>("execute_on") = {EXEC_INITIAL, EXEC_TIMESTEP_END};
@@ -39,10 +39,12 @@ AccumulateReporter::initialSetup()
       paramError("reporters", "Reporter ", rname, " does not exist.");
 
     if (!declareAccumulateHelper<int>(rname) && !declareAccumulateHelper<Real>(rname) &&
+        !declareAccumulateHelper<dof_id_type>(rname) &&
         !declareAccumulateHelper<std::string>(rname) &&
         !declareAccumulateHelper<std::vector<int>>(rname) &&
         !declareAccumulateHelper<std::vector<Real>>(rname) &&
-        !declareAccumulateHelper<std::vector<std::string>>(rname))
+        !declareAccumulateHelper<std::vector<std::string>>(rname) &&
+        !declareAccumulateHelper<std::vector<dof_id_type>>(rname))
       paramError("reporters",
                  "Reporter value ",
                  rname,

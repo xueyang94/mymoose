@@ -9,16 +9,18 @@
 
 #pragma once
 
-#include "FVTimeKernel.h"
+#include "INSFVTimeKernel.h"
 
-class INSFVMomentumTimeDerivative : public FVTimeKernel
+class INSFVMomentumTimeDerivative : public INSFVTimeKernel
 {
 public:
   static InputParameters validParams();
   INSFVMomentumTimeDerivative(const InputParameters & params);
 
-protected:
-  ADReal computeQpResidual() override;
+  using INSFVTimeKernel::gatherRCData;
+  void gatherRCData(const Elem &) override;
 
-  const Real & _rho;
+protected:
+  /// The density
+  const Moose::Functor<ADReal> & _rho;
 };

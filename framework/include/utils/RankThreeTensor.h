@@ -15,6 +15,7 @@
 #include "ADRankFourTensorForward.h"
 
 #include "libmesh/libmesh.h"
+#include "libmesh/int_range.h"
 
 #include "metaphysicl/raw_type.h"
 
@@ -55,6 +56,12 @@ template <typename T>
 class RankThreeTensorTempl
 {
 public:
+  ///@{ tensor dimension and powers of the dimension
+  static constexpr unsigned int N = Moose::dim;
+  static constexpr unsigned int N2 = N * N;
+  static constexpr unsigned int N3 = N * N * N;
+  ///@}
+
   /// Initialization method
   enum InitMethod
   {
@@ -198,11 +205,6 @@ public:
   VectorValue<T> doubleContraction(const RankTwoTensorTempl<T> & b) const;
 
 protected:
-  /// Dimensionality of rank-three tensor
-  static constexpr unsigned int N = LIBMESH_DIM;
-  static constexpr unsigned int N2 = N * N;
-  static constexpr unsigned int N3 = N * N * N;
-
   /// The values of the rank-three tensor stored by index=((i * LIBMESH_DIM + j) * LIBMESH_DIM + k)
   T _vals[N3];
 
@@ -234,9 +236,9 @@ struct RawType<RankThreeTensorTempl<T>>
   static value_type value(const RankThreeTensorTempl<T> & in)
   {
     value_type ret;
-    for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
-      for (unsigned int j = 0; j < LIBMESH_DIM; ++j)
-        for (unsigned int k = 0; k < LIBMESH_DIM; ++k)
+    for (const auto i : make_range(RankThreeTensorTempl<T>::N))
+      for (const auto j : make_range(RankThreeTensorTempl<T>::N))
+        for (const auto k : make_range(RankThreeTensorTempl<T>::N))
           ret(i, j, k) = raw_value(in(i, j, k));
 
     return ret;
@@ -248,7 +250,7 @@ template <typename T>
 template <typename T2>
 RankThreeTensorTempl<T>::RankThreeTensorTempl(const RankThreeTensorTempl<T2> & copy)
 {
-  for (unsigned int i = 0; i < N3; ++i)
+  for (const auto i : make_range(N3))
     _vals[i] = copy._vals[i];
 }
 
@@ -258,19 +260,19 @@ void
 RankThreeTensorTempl<T>::rotate(const T2 & R)
 {
   unsigned int index = 0;
-  for (unsigned int i = 0; i < N; ++i)
-    for (unsigned int j = 0; j < N; ++j)
-      for (unsigned int k = 0; k < N; ++k)
+  for (const auto i : make_range(N))
+    for (const auto j : make_range(N))
+      for (const auto k : make_range(N))
       {
         unsigned int index2 = 0;
         T sum = 0.0;
-        for (unsigned int m = 0; m < N; ++m)
+        for (const auto m : make_range(N))
         {
           T a = R(i, m);
-          for (unsigned int n = 0; n < N; ++n)
+          for (const auto n : make_range(N))
           {
             T ab = a * R(j, n);
-            for (unsigned int o = 0; o < N; ++o)
+            for (const auto o : make_range(N))
               sum += ab * R(k, o) * _vals[index2++];
           }
         }
@@ -279,20 +281,24 @@ RankThreeTensorTempl<T>::rotate(const T2 & R)
 }
 
 template <typename T>
-RankThreeTensorTempl<T> operator*(T a, const RankThreeTensorTempl<T> & b)
+RankThreeTensorTempl<T>
+operator*(T a, const RankThreeTensorTempl<T> & b)
 {
   return b * a;
 }
 
 ///r=v*A where r is rank 2, v is vector and A is rank 3
 template <typename T>
-RankTwoTensorTempl<T> operator*(const VectorValue<T> & p, const RankThreeTensorTempl<T> & b)
+RankTwoTensorTempl<T>
+operator*(const VectorValue<T> & p, const RankThreeTensorTempl<T> & b)
 {
+  static_assert(RankThreeTensorTempl<T>::N == RankTwoTensorTempl<T>::N,
+                "RankTwoTensor and RankThreeTensor have to have the same dimension N.");
   RankTwoTensorTempl<T> result;
 
-  for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
-    for (unsigned int j = 0; j < LIBMESH_DIM; ++j)
-      for (unsigned int k = 0; k < LIBMESH_DIM; ++k)
+  for (const auto i : make_range(RankThreeTensorTempl<T>::N))
+    for (const auto j : make_range(RankThreeTensorTempl<T>::N))
+      for (const auto k : make_range(RankThreeTensorTempl<T>::N))
         result(i, j) += p(k) * b(k, i, j);
 
   return result;
@@ -303,9 +309,9 @@ template <typename T2>
 RankThreeTensorTempl<T> &
 RankThreeTensorTempl<T>::operator=(const RankThreeTensorTempl<T2> & a)
 {
-  for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
-    for (unsigned int j = 0; j < LIBMESH_DIM; ++j)
-      for (unsigned int k = 0; k < LIBMESH_DIM; ++k)
+  for (const auto i : make_range(N))
+    for (const auto j : make_range(N))
+      for (const auto k : make_range(N))
         (*this)(i, j, k) = a(i, j, k);
 
   return *this;

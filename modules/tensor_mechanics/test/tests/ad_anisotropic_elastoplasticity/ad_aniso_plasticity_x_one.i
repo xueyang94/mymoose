@@ -154,7 +154,6 @@
       function = pull
     []
   []
-
 []
 
 [Executioner]
@@ -220,6 +219,5 @@
 
 [Outputs]
   csv = true
-  exodus = true
   perf_graph = true
 []

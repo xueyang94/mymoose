@@ -166,8 +166,14 @@ TEST(MooseUtils, convertStringInt)
   EXPECT_THROW(MooseUtils::convert<long long int>("42.1", true), std::invalid_argument);
 
   EXPECT_EQ(MooseUtils::convert<unsigned long long int>("42"), 42ull);
+  EXPECT_EQ(MooseUtils::convert<unsigned long long int>("18446744073709551615"),
+            18446744073709551615ull);
   EXPECT_EQ(MooseUtils::convert<unsigned long long int>("18446744073709551614"),
             18446744073709551614ull);
+  EXPECT_EQ(MooseUtils::convert<unsigned long long int>("18446744073709551613"),
+            18446744073709551613ull);
+  EXPECT_EQ(MooseUtils::convert<unsigned long long int>("17446744073709551600"),
+            17446744073709551600ull);
   EXPECT_THROW(MooseUtils::convert<unsigned long long int>("-42", true), std::invalid_argument);
   EXPECT_THROW(MooseUtils::convert<unsigned long long int>("", true), std::invalid_argument);
   EXPECT_THROW(MooseUtils::convert<unsigned long long int>("42 ", true), std::invalid_argument);
@@ -426,4 +432,64 @@ TEST(MooseUtils, globCompare)
   EXPECT_FALSE(MooseUtils::globCompare("Moose", "*ealII*"));
   EXPECT_FALSE(MooseUtils::globCompare("FEM", "?EN"));
   EXPECT_FALSE(MooseUtils::globCompare("Three", "????"));
+}
+
+TEST(MooseUtils, SemidynamicVector)
+{
+  // uninitialized storage
+  MooseUtils::SemidynamicVector<int, 10, false> test(4);
+  EXPECT_EQ(test.size(), 4);
+  EXPECT_EQ(test.max_size(), 10);
+
+  // test iterator
+  unsigned int count = 0;
+  for (auto & i : test)
+    i = ++count;
+  EXPECT_EQ(count, 4);
+
+  // test resize
+  test.resize(6);
+  count = 0;
+  for (auto & i : test)
+    i = ++count;
+  EXPECT_EQ(count, 6);
+
+  // test const_iterator
+  const auto & ctest = test;
+  count = 0;
+  for (auto & i : ctest)
+    count += i;
+  EXPECT_EQ(count, 1 + 2 + 3 + 4 + 5 + 6);
+
+  // test push back
+  test.push_back(100);
+  count = 0;
+  for (auto & i : ctest)
+    count += i;
+  EXPECT_EQ(count, 1 + 2 + 3 + 4 + 5 + 6 + 100);
+
+  // test emplace_back
+  test.emplace_back(200);
+  count = 0;
+  for (auto & i : ctest)
+    count += i;
+  EXPECT_EQ(count, 1 + 2 + 3 + 4 + 5 + 6 + 100 + 200);
+}
+
+struct Custom
+{
+  Custom() : _data(333) {}
+  int _data;
+};
+
+TEST(MooseUtils, SemidynamicVectorInit)
+{
+  // value initialized storage (default equivalent to ...<int, 1000>)
+  MooseUtils::SemidynamicVector<int, 1000, true> test(1000);
+  for (auto & i : test)
+    EXPECT_EQ(i, 0);
+
+  MooseUtils::SemidynamicVector<Custom, 100, true> test2(100);
+  for (auto & i : test2)
+    EXPECT_EQ(i._data, 333);
 }

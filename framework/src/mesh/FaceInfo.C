@@ -39,8 +39,6 @@ FaceInfo::FaceInfo(const Elem * elem, unsigned int side, const Elem * neighbor)
     _neighbor_centroid(_valid_neighbor ? neighbor->vertex_average()
                                        : 2 * (_face_centroid - _elem_centroid) + _elem_centroid),
     _neighbor_volume(_valid_neighbor ? neighbor->volume() : _elem_volume),
-    _gc((_neighbor_centroid - _face_centroid).norm() /
-        ((_neighbor_centroid - _face_centroid).norm() + (_elem_centroid - _face_centroid).norm())),
     _d_cf(_neighbor_centroid - _elem_centroid),
     _d_cf_mag(_d_cf.norm()),
     _e_cf(_d_cf / _d_cf_mag)
@@ -55,7 +53,10 @@ FaceInfo::FaceInfo(const Elem * elem, unsigned int side, const Elem * neighbor)
   mooseAssert(normals.size() == 1, "FaceInfo construction broken w.r.t. computing face normals");
   _normal = normals[0];
 
-  _vertices.resize(_face->n_vertices());
-  for (const auto vertex_num : make_range(_face->n_vertices()))
-    _vertices[vertex_num] = _face->node_ptr(vertex_num);
+  // Compute the position of the intersection of e_CF and the surface
+  _r_intersection =
+      _elem_centroid + (((_face_centroid - _elem_centroid) * _normal) / (_e_cf * _normal)) * _e_cf;
+
+  // For interpolation coefficients
+  _gc = (_neighbor_centroid - _r_intersection).norm() / _d_cf_mag;
 }

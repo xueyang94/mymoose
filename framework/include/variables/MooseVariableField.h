@@ -38,7 +38,7 @@
  */
 template <typename OutputType>
 class MooseVariableField : public MooseVariableFieldBase,
-                           public Moose::Functor<typename Moose::ADType<OutputType>::type>,
+                           public Moose::FunctorBase<typename Moose::ADType<OutputType>::type>,
                            public MeshChangedInterface
 
 {
@@ -339,28 +339,69 @@ public:
   void residualSetup() override;
   void jacobianSetup() override;
 
+  /*
+   * Returns whether a variable is defined on a block as a functor.
+   * This makes the link between functor block restriction and the
+   * BlockRestrictable interface.
+   * @param id subdomain id we want to know whether the variable is defined on
+   * @return whether the variable is defined on this domain
+   */
+  bool hasBlocks(const SubdomainID & id) const override { return BlockRestrictable::hasBlocks(id); }
+  // The five other definitions of hasBlocks should not be hidden
+  using BlockRestrictable::hasBlocks;
+
 protected:
   using FunctorArg = typename Moose::ADType<OutputType>::type;
-  using Moose::Functor<FunctorArg>::evaluate;
-  using typename Moose::Functor<FunctorArg>::ElemQpArg;
-  using typename Moose::Functor<FunctorArg>::ElemSideQpArg;
-  using typename Moose::Functor<FunctorArg>::ValueType;
+  using Moose::FunctorBase<FunctorArg>::evaluate;
+  using Moose::FunctorBase<FunctorArg>::evaluateGradient;
+  using Moose::FunctorBase<FunctorArg>::evaluateDot;
+  using typename Moose::FunctorBase<FunctorArg>::ValueType;
+  using typename Moose::FunctorBase<FunctorArg>::DotType;
+  using typename Moose::FunctorBase<FunctorArg>::GradientType;
+
+  using ElemQpArg = Moose::ElemQpArg;
+  using ElemSideQpArg = Moose::ElemSideQpArg;
+
   ValueType evaluate(const ElemQpArg & elem_qp, unsigned int state) const override final;
   ValueType evaluate(const ElemSideQpArg & elem_side_qp, unsigned int state) const override final;
-  ValueType evaluate(const std::tuple<Moose::ElementType, unsigned int, SubdomainID> & tqp,
-                     unsigned int state) const override final;
+
+  GradientType evaluateGradient(const ElemQpArg & elem_qp, unsigned int state) const override final;
+  GradientType evaluateGradient(const ElemSideQpArg & elem_side_qp,
+                                unsigned int state) const override final;
+
+  DotType evaluateDot(const ElemQpArg & elem_qp, unsigned int state) const override final;
+  DotType evaluateDot(const ElemSideQpArg & elem_side_qp, unsigned int state) const override final;
+
+  /// the time integrator used for computing time derivatives
+  const TimeIntegrator * const _time_integrator;
+
+  /// A dummy ADReal variable
+  mutable ADReal _ad_real_dummy = 0;
 
 private:
 #ifdef MOOSE_GLOBAL_AD_INDEXING
   /**
-   * Compute the solution with provided shape functions
+   * Compute the solution, gradient, and time derivative with provided shape functions
    */
-  template <typename Shapes, typename Solution>
+  template <typename Shapes, typename Solution, typename GradShapes, typename GradSolution>
   void computeSolution(const Elem * elem,
                        const QBase *,
                        unsigned int state,
                        const Shapes & phi,
-                       Solution & soln) const;
+                       Solution & local_soln,
+                       const GradShapes & grad_phi,
+                       GradSolution & grad_local_soln,
+                       Solution & dot_local_soln) const;
+
+  /**
+   * Evaluate solution and gradient for the \p elem_qp argument
+   */
+  void evaluateOnElement(const ElemQpArg & elem_qp, const unsigned int state) const;
+
+  /**
+   * Evaluate solution and gradient for the \p elem_side_qp argument
+   */
+  void evaluateOnElementSide(const ElemSideQpArg & elem_side_qp, const unsigned int state) const;
 #endif
 
   /// Keep track of the current elem-qp functor element in order to enable local caching (e.g. if we
@@ -369,7 +410,13 @@ private:
   mutable const Elem * _current_elem_qp_functor_elem = nullptr;
 
   /// The values of the solution for the \p _current_elem_qp_functor_elem
-  mutable std::vector<typename Moose::ADType<OutputType>::type> _current_elem_qp_functor_sln;
+  mutable std::vector<ValueType> _current_elem_qp_functor_sln;
+
+  /// The values of the gradient for the \p _current_elem_qp_functor_elem
+  mutable std::vector<GradientType> _current_elem_qp_functor_gradient;
+
+  /// The values of the time derivative for the \p _current_elem_qp_functor_elem
+  mutable std::vector<DotType> _current_elem_qp_functor_dot;
 
   /// Keep track of the current elem-side-qp functor element and side in order to enable local
   /// caching (e.g. if we call evaluate with the same element and side, but just with a different
@@ -378,5 +425,11 @@ private:
       nullptr, libMesh::invalid_uint};
 
   /// The values of the solution for the \p _current_elem_side_qp_functor_elem_side
-  mutable std::vector<typename Moose::ADType<OutputType>::type> _current_elem_side_qp_functor_sln;
+  mutable std::vector<ValueType> _current_elem_side_qp_functor_sln;
+
+  /// The values of the gradient for the \p _current_elem_side_qp_functor_elem_side
+  mutable std::vector<GradientType> _current_elem_side_qp_functor_gradient;
+
+  /// The values of the time derivative for the \p _current_elem_side_qp_functor_elem_side
+  mutable std::vector<DotType> _current_elem_side_qp_functor_dot;
 };

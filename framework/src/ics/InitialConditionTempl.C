@@ -16,10 +16,6 @@
 #include "libmesh/fe_interface.h"
 #include "libmesh/quadrature.h"
 
-defineLegacyParams(InitialConditionTempl<Real>);
-defineLegacyParams(InitialConditionTempl<RealVectorValue>);
-defineLegacyParams(InitialConditionTempl<RealEigenVector>);
-
 template <typename T>
 InitialConditionTempl<T>::InitialConditionTempl(const InputParameters & parameters)
   : InitialConditionBase(parameters),
@@ -167,6 +163,8 @@ InitialConditionTempl<T>::compute()
       setHermiteVertices();
     else if (_cont == C_ONE)
       setOtherCOneVertices();
+    else if (_cont == SIDE_DISCONTINUOUS)
+      continue;
     else
       libmesh_error();
   } // loop over nodes

@@ -23,23 +23,27 @@ public:
 
   virtual ~KDTree() = default;
 
-  void neighborSearch(Point & query_point,
+  void neighborSearch(const Point & query_point,
                       unsigned int patch_size,
                       std::vector<std::size_t> & return_index);
 
-  void neighborSearch(Point & query_point,
+  void neighborSearch(const Point & query_point,
                       unsigned int patch_size,
                       std::vector<std::size_t> & return_index,
                       std::vector<Real> & return_dist_sqr);
 
-  void radiusSearch(Point & query_point,
+  void radiusSearch(const Point & query_point,
                     Real radius,
                     std::vector<std::pair<std::size_t, Real>> & indices_dist);
 
   using KdTreeT = nanoflann::KDTreeSingleIndexAdaptor<
-      nanoflann::L2_Simple_Adaptor<Real, PointListAdaptor<Point>>,
+      nanoflann::L2_Simple_Adaptor<Real,
+                                   /* DataSource = */ PointListAdaptor<Point>,
+                                   /* DistanceType = */ Real,
+                                   /* AccessorType = */ std::size_t>,
       PointListAdaptor<Point>,
-      LIBMESH_DIM>;
+      LIBMESH_DIM,
+      std::size_t>;
 
 protected:
   PointListAdaptor<Point> _point_list_adaptor;

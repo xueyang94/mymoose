@@ -14,8 +14,6 @@
 
 registerMooseObject("MooseApp", MeshGeneratorMesh);
 
-defineLegacyParams(MeshGeneratorMesh);
-
 InputParameters
 MeshGeneratorMesh::validParams()
 {
@@ -24,7 +22,7 @@ MeshGeneratorMesh::validParams()
 
   params.addParam<std::string>("final_generator",
                                "The name of the mesh generator output to use for the final Mesh");
-  params.addClassDescription("Mesh generated from parameters");
+  params.addClassDescription("Mesh generated using mesh generators");
   return params;
 }
 
@@ -37,7 +35,7 @@ MeshGeneratorMesh::MeshGeneratorMesh(const InputParameters & parameters) : Moose
 std::unique_ptr<MooseMesh>
 MeshGeneratorMesh::safeClone() const
 {
-  return libmesh_make_unique<MeshGeneratorMesh>(*this);
+  return std::make_unique<MeshGeneratorMesh>(*this);
 }
 
 void

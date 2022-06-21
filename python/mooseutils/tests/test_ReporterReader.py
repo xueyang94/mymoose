@@ -25,6 +25,7 @@ class TestReporterReader(unittest.TestCase):
         self._basicfile = os.path.abspath('../../../test/tests/reporters/constant_reporter/gold/constant_reporter_out.json')
         self._timefile = os.path.abspath('../../../test/tests/reporters/accumulated_reporter/gold/accumulate_reporter_out.json')
         self._onepertimefile = os.path.abspath('../../../test/tests/outputs/json/one_file_per_timestep/gold/json_out_*.json')
+        self._partsfile = os.path.abspath('../../../test/tests/reporters/mesh_info/gold/mesh_info_out.json')
 
     def testBasic(self):
         """
@@ -54,17 +55,21 @@ class TestReporterReader(unittest.TestCase):
 
         # Test variables()
         vars = data.variables()
-        self.assertEqual(len(vars), 10)
-        self.assertEqual(vars[0], ('constant', 'int_1'))
-        self.assertEqual(vars[1], ('constant', 'int_2'))
-        self.assertEqual(vars[2], ('constant', 'int_3'))
-        self.assertEqual(vars[3], ('constant', 'int_vec'))
-        self.assertEqual(vars[4], ('constant', 'num_1'))
-        self.assertEqual(vars[5], ('constant', 'num_2'))
-        self.assertEqual(vars[6], ('constant', 'str'))
-        self.assertEqual(vars[7], ('constant', 'str_vec'))
-        self.assertEqual(vars[8], ('constant', 'vec_1'))
-        self.assertEqual(vars[9], ('constant', 'vec_2'))
+        self.assertEqual(len(vars), 14)
+        self.assertEqual(vars[0], ('constant', 'dofid_1'))
+        self.assertEqual(vars[1], ('constant', 'dofid_2'))
+        self.assertEqual(vars[2], ('constant', 'dofid_3'))
+        self.assertEqual(vars[3], ('constant', 'dofid_vec'))
+        self.assertEqual(vars[4], ('constant', 'int_1'))
+        self.assertEqual(vars[5], ('constant', 'int_2'))
+        self.assertEqual(vars[6], ('constant', 'int_3'))
+        self.assertEqual(vars[7], ('constant', 'int_vec'))
+        self.assertEqual(vars[8], ('constant', 'num_1'))
+        self.assertEqual(vars[9], ('constant', 'num_2'))
+        self.assertEqual(vars[10], ('constant', 'str'))
+        self.assertEqual(vars[11], ('constant', 'str_vec'))
+        self.assertEqual(vars[12], ('constant', 'vec_1'))
+        self.assertEqual(vars[13], ('constant', 'vec_2'))
 
         # Test repr()
         output, imports = data.repr()
@@ -106,6 +111,17 @@ class TestReporterReader(unittest.TestCase):
         data = mooseutils.ReporterReader(self._onepertimefile)
         self.assertEqual(data.times(), [0.0, 1.0, 2.0, 3.0])
 
+    def testParts(self):
+        """
+        Test functionality for reading different parts
+        """
+
+        data = mooseutils.ReporterReader(self._partsfile)
+        self.assertEqual(data._data['number_of_parts'], 2)
+        self.assertEqual(data._data['part'], 0)
+
+        data.update(part=1)
+        self.assertEqual(data._data['part'], 1)
 
 if __name__ == '__main__':
     unittest.main(module=__name__, verbosity=2, buffer=True)

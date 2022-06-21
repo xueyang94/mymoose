@@ -12,12 +12,6 @@
 #include "MeshGenerator.h"
 #include "libmesh/replicated_mesh.h"
 
-// Forward declarations
-class PatternedMeshGenerator;
-
-template <>
-InputParameters validParams<PatternedMeshGenerator>();
-
 /**
  * Reads one or more 2D mesh files and stitches them together based on
  * a provided two-dimensional pattern array.  Assigns new boundary
@@ -41,11 +35,11 @@ protected:
   /// The mesh generators to read
   const std::vector<MeshGeneratorName> & _input_names;
 
+  /// Holds pointers to the meshes before they are generated
+  const std::vector<std::unique_ptr<MeshBase> *> _mesh_ptrs;
+
   /// The pattern, starting with the upper left corner
   const std::vector<std::vector<unsigned int>> & _pattern;
-
-  /// Holds pointers to the meshes before they are generated
-  std::vector<std::unique_ptr<MeshBase> *> _mesh_ptrs;
 
   /// Holds the pointers to the input generated meshes
   std::vector<std::unique_ptr<ReplicatedMesh>> _meshes;

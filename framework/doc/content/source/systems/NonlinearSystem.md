@@ -16,7 +16,7 @@ and `NonlinearEigenSystem` in [NonlinearSystemBase.md].
 ## Solving Non-linear Systems id=newtons_method
 
 Application of the finite element method converts PDE(s) into a system of
-non-linear equations, $R_i(u_h)=0, \qquad i=1,\ldots, N$
+nonlinear equations, $R_i(u_h)=0, \qquad i=1,\ldots, N$
   to solve for the coefficients $u_j, j=1,\dots,N$.
 
 - Newton's method has good convergence properties, we use it to solve this system of nonlinear equations.
@@ -45,16 +45,16 @@ non-linear equations, $R_i(u_h)=0, \qquad i=1,\ldots, N$
 
 ## Jacobian Definition id=jacobian_definition
 
-An efficient Newton solve, e.g. one that requires few "non-linear" iterations,
+An efficient Newton solve, e.g. one that requires few "nonlinear" iterations,
 requires an accurate Jacobian matrix or an accurate approximation of its action
 on a vector. When no explicit matrix is formed for the Jacobian and only its
 action on a vector is computed, the algorithm is commonly referred to as
 matrix-free (PETSc jargon) or [Jacobian-free](#JFNK) (MOOSE jargon). The default
 solve algorithm in MOOSE is `PJFNK`, or Preconditioned Jacobian-Free
 Newton-Krylov. "Krylov" refers to the *linear* solution algorithm used to solve
-each non-linear iteration of the Newton algorithm. For more information on
+each nonlinear iteration of the Newton algorithm. For more information on
 solving linear systems, please see [#linear_methods]. Even if a Jacobian-free
-non-linear algorithm is chosen, typically a good preconditioning matrix is still
+nonlinear algorithm is chosen, typically a good preconditioning matrix is still
 needed. Building the matrix can be accomplished
 [automatically, using automatic differentiation](#AD) and/or [manually](#hand_coded_jac).
 
@@ -73,7 +73,7 @@ constructor, `adCoupledValue("v")` should be used. `adCoupledGradient` should
 replace `coupledGradient`, etc. An example of coupling in an AD variable can be found in
 [`ADCoupledConvection.C`](test/src/kernels/ADCoupledConvection.C) and
 [`ADCoupledConvection.h`](test/include/kernels/ADCoupledConvection.h). Moreover,
-material properties that may depend on the non-linear variables should be
+material properties that may depend on the nonlinear variables should be
 retrieved using `getADMaterialProperty` instead of `getMaterialProperty`. They
 should be declared in materials using `declareADProperty`. Example AD material
 source and header files can be found
@@ -339,3 +339,29 @@ information comes from [`NearestNodeLocators`](/NearestNodeLocator.md) held by
 displacements). In the future sparsity augmentation from constraints will occur
 through [`RelationshipManagers`](/RelationshipManager.md) instead of through the
 `augmentSparsity` method.
+
+## Computing Residual and Jacobian Together id=resid_and_jac_together
+
+The default behavior in MOOSE is to have separate functions compute the residual
+and Jacobian. However, with the advent of [NonlinearSystem.md#AD] it can make
+sense to use a single function to compute the residual and Jacobian
+simultaneously. At the local residual object level, automatic differentiation (AD)
+already computes the residual and Jacobian simultaneously, with the dual number
+at the core of AD holding value (residual) and derivatives
+(Jacobian). Simultaneous evaluation of residual and Jacobian using a single
+function can be triggered by setting
+[!param](/Executioner/Steady/residual_and_jacobian_together) to `true`. What this does in
+the background is funnels the (generally AD) computed local residuals and
+Jacobians into the global residual vector and Jacobian
+matrix respectively when PETSc calls the libMesh/MOOSE residual/function
+evaluation routine. Then when PETSc calls the libMesh/MOOSE Jacobian evaluation
+routine, we simply return because the global matrix has already been computed.
+
+Computing the residual and Jacobian together has shown 20% gains for
+Navier-Stokes finite volume simulations for which automatic differentiation is
+leveraged even during standard residual evaluations. Other areas where computing
+the residual and Jacobian together may be advantageous is in simulations in
+which there are quite a few nonlinear iterations per timestep, for which the
+cost of an additional Jacobian evaluation during the final residual evaluation
+is amortized. Also, simulations in which material property calculations are very
+expensive may be good candidates for computing the residual and Jacobian together.

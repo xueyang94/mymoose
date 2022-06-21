@@ -19,8 +19,6 @@ registerMooseObject("MooseApp", GridPartitioner);
 
 #include <memory>
 
-defineLegacyParams(GridPartitioner);
-
 InputParameters
 GridPartitioner::validParams()
 {
@@ -50,7 +48,7 @@ GridPartitioner::~GridPartitioner() {}
 std::unique_ptr<Partitioner>
 GridPartitioner::clone() const
 {
-  return libmesh_make_unique<GridPartitioner>(_pars);
+  return std::make_unique<GridPartitioner>(_pars);
 }
 
 void

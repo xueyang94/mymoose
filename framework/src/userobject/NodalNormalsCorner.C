@@ -13,14 +13,11 @@
 #include "AuxiliarySystem.h"
 #include "MooseMesh.h"
 #include "MooseVariableFE.h"
+#include "NodalNormalsPreprocessor.h"
 
 #include "libmesh/numeric_vector.h"
 
-Threads::spin_mutex nodal_normals_corner_mutex;
-
 registerMooseObject("MooseApp", NodalNormalsCorner);
-
-defineLegacyParams(NodalNormalsCorner);
 
 InputParameters
 NodalNormalsCorner::validParams()
@@ -42,7 +39,7 @@ NodalNormalsCorner::NodalNormalsCorner(const InputParameters & parameters)
 void
 NodalNormalsCorner::execute()
 {
-  Threads::spin_mutex::scoped_lock lock(nodal_normals_corner_mutex);
+  std::scoped_lock lock(NodalNormalsPreprocessor::_nodal_normals_mutex);
   NumericVector<Number> & sln = _aux.solution();
 
   // Get a reference to our BoundaryInfo object
@@ -85,7 +82,7 @@ NodalNormalsCorner::execute()
                                                .number(),
                                            0);
 
-      // substitute the normal form the face, we are going to have at least one normal every time
+      // substitute the normal from the face, we are going to have at least one normal every time
       sln.add(dof_x, _normals[0](0));
       sln.add(dof_y, _normals[0](1));
       sln.add(dof_z, _normals[0](2));

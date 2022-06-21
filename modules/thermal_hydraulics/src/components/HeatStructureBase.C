@@ -1,0 +1,199 @@
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
+#include "HeatStructureBase.h"
+#include "SolidMaterialProperties.h"
+#include "ConstantFunction.h"
+#include "THMEnums.h"
+#include "THMMesh.h"
+
+const std::map<std::string, HeatStructureSideType> HeatStructureBase::_side_type_to_enum{
+    {"INNER", HeatStructureSideType::INNER},
+    {"OUTER", HeatStructureSideType::OUTER},
+    {"START", HeatStructureSideType::START},
+    {"END", HeatStructureSideType::END}};
+
+MooseEnum
+HeatStructureBase::getSideType(const std::string & name)
+{
+  return THM::getMooseEnum<HeatStructureSideType>(name, _side_type_to_enum);
+}
+
+template <>
+HeatStructureSideType
+THM::stringToEnum(const std::string & s)
+{
+  return stringToEnum<HeatStructureSideType>(s, HeatStructureBase::_side_type_to_enum);
+}
+
+InputParameters
+HeatStructureBase::validParams()
+{
+  InputParameters params = Component2D::validParams();
+  params.addPrivateParam<std::string>("component_type", "heat_struct");
+  params.addParam<FunctionName>("initial_T", "Initial temperature [K]");
+  return params;
+}
+
+HeatStructureBase::HeatStructureBase(const InputParameters & params)
+  : Component2D(params), _connected_to_flow_channel(false)
+{
+}
+
+std::shared_ptr<HeatConductionModel>
+HeatStructureBase::buildModel()
+{
+  const std::string class_name = "HeatConductionModel";
+  InputParameters pars = _factory.getValidParams(class_name);
+  pars.set<THMProblem *>("_thm_problem") = &_sim;
+  pars.set<HeatStructureBase *>("_hs") = this;
+  return _factory.create<HeatConductionModel>(class_name, name(), pars, 0);
+}
+
+void
+HeatStructureBase::init()
+{
+  _hc_model = buildModel();
+}
+
+void
+HeatStructureBase::check() const
+{
+  Component2D::check();
+
+  bool ics_set = _sim.hasInitialConditionsFromFile() || isParamValid("initial_T");
+
+  if (!ics_set && !_app.isRestarting())
+    logError("Missing initial condition for temperature.");
+}
+
+const unsigned int &
+HeatStructureBase::getIndexFromName(const std::string & name) const
+{
+  return _name_index.at(name);
+}
+
+bool
+HeatStructureBase::usingSecondOrderMesh() const
+{
+  return HeatConductionModel::feType().order == SECOND;
+}
+
+void
+HeatStructureBase::addVariables()
+{
+  _hc_model->addVariables();
+  if (isParamValid("initial_T"))
+    _hc_model->addInitialConditions();
+}
+
+void
+HeatStructureBase::addMooseObjects()
+{
+  if (isParamValid("materials"))
+  {
+    _hc_model->addMaterials();
+
+    for (unsigned int i = 0; i < _number_of_hs; i++)
+    {
+      const SolidMaterialProperties & smp =
+          _sim.getUserObject<SolidMaterialProperties>(_material_names[i]);
+
+      Component * comp = (_parent != nullptr) ? _parent : this;
+      // if the values were given as constant, allow them to be controlled
+      const ConstantFunction * k_fn = dynamic_cast<const ConstantFunction *>(&smp.getKFunction());
+      if (k_fn != nullptr)
+        comp->connectObject(k_fn->parameters(), k_fn->name(), "k", "value");
+
+      const ConstantFunction * cp_fn = dynamic_cast<const ConstantFunction *>(&smp.getCpFunction());
+      if (cp_fn != nullptr)
+        comp->connectObject(cp_fn->parameters(), cp_fn->name(), "cp", "value");
+
+      const ConstantFunction * rho_fn =
+          dynamic_cast<const ConstantFunction *>(&smp.getRhoFunction());
+      if (rho_fn != nullptr)
+        comp->connectObject(rho_fn->parameters(), rho_fn->name(), "rho", "value");
+    }
+  }
+}
+
+FunctionName
+HeatStructureBase::getInitialT() const
+{
+  if (isParamValid("initial_T"))
+    return getParam<FunctionName>("initial_T");
+  else
+    mooseError(name(), ": The parameter 'initial_T' was requested but not supplied");
+}
+
+const std::vector<unsigned int> &
+HeatStructureBase::getSideNodeIds(const std::string & name) const
+{
+  checkSetupStatus(MESH_PREPARED);
+
+  return _side_heat_node_ids.at(name);
+}
+
+const std::vector<unsigned int> &
+HeatStructureBase::getOuterNodeIds() const
+{
+  checkSetupStatus(MESH_PREPARED);
+
+  return _outer_heat_node_ids;
+}
+
+const std::vector<BoundaryName> &
+HeatStructureBase::getOuterBoundaryNames() const
+{
+  checkSetupStatus(MESH_PREPARED);
+
+  return _boundary_names_outer;
+}
+
+const std::vector<BoundaryName> &
+HeatStructureBase::getInnerBoundaryNames() const
+{
+  checkSetupStatus(MESH_PREPARED);
+
+  return _boundary_names_inner;
+}
+
+const std::vector<BoundaryName> &
+HeatStructureBase::getStartBoundaryNames() const
+{
+  checkSetupStatus(MESH_PREPARED);
+
+  return _boundary_names_start;
+}
+
+const std::vector<BoundaryName> &
+HeatStructureBase::getEndBoundaryNames() const
+{
+  checkSetupStatus(MESH_PREPARED);
+
+  return _boundary_names_end;
+}
+
+const std::vector<std::tuple<dof_id_type, unsigned short int>> &
+HeatStructureBase::getBoundaryInfo(const HeatStructureSideType & side) const
+{
+  switch (side)
+  {
+    case HeatStructureSideType::INNER:
+      return getBoundaryInfo(_boundary_names_inner[0]);
+    case HeatStructureSideType::OUTER:
+      return getBoundaryInfo(_boundary_names_outer[0]);
+    case HeatStructureSideType::START:
+      return getBoundaryInfo(_boundary_names_start[0]);
+    case HeatStructureSideType::END:
+      return getBoundaryInfo(_boundary_names_end[0]);
+  }
+
+  mooseError(name(), ": Unknown value of 'side' parameter.");
+}

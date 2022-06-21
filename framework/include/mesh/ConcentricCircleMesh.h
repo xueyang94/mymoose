@@ -12,11 +12,6 @@
 #include "MooseMesh.h"
 #include "MooseEnum.h"
 
-class ConcentricCircleMesh;
-
-template <>
-InputParameters validParams<ConcentricCircleMesh>();
-
 /**
  * Mesh generated from parameters
  */
@@ -32,7 +27,7 @@ public:
   ConcentricCircleMesh & operator=(const ConcentricCircleMesh & other_mesh) = delete;
   virtual std::unique_ptr<MooseMesh> safeClone() const override
   {
-    return libmesh_make_unique<ConcentricCircleMesh>(*this);
+    return std::make_unique<ConcentricCircleMesh>(*this);
   }
 
   virtual void buildMesh() override;
@@ -54,4 +49,3 @@ protected:
   /// Control of which portion of mesh will be developed
   MooseEnum _portion;
 };
-

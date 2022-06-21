@@ -123,24 +123,21 @@
 [Transfers]
   [p_to_sub]
     type = MultiAppProjectionTransfer
-    direction = to_multiapp
     source_variable = power_density
     variable = power_density
-    multi_app = sub
+    to_multi_app = sub
     execute_on = 'timestep_end'
   []
   [t_from_sub]
     type = MultiAppInterpolationTransfer
-    direction = from_multiapp
     source_variable = temp
     variable = Tf
-    multi_app = sub
+    from_multi_app = sub
     execute_on = 'timestep_end'
   []
 []
 
 [Outputs]
   exodus = true
-  csv = true
   perf_graph = true
 []

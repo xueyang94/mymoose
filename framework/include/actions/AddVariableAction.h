@@ -13,12 +13,6 @@
 
 #include "libmesh/fe_type.h"
 
-// Forward declerations
-class AddVariableAction;
-
-template <>
-InputParameters validParams<AddVariableAction>();
-
 /**
  * Adds nonlinear variable
  */
@@ -52,10 +46,19 @@ public:
   static FEType feType(const InputParameters & params);
 
   /**
-   * determine the variable type given an FEType and number of components
+   * DEPRECATED: Use variableType instead
    */
   static std::string
   determineType(const FEType & fe_type, unsigned int components, bool is_fv = false);
+
+  /**
+   * Determines a variable type
+   * @param fe_type The FE type
+   * @param is_fv Whether or not the variable is use for finite volume
+   * @param is_array Whether or not the variable is an array variable
+   */
+  static std::string
+  variableType(const FEType & fe_type, const bool is_fv = false, const bool is_array = false);
 
 protected:
   /**

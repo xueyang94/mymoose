@@ -63,21 +63,17 @@
 
 [Materials]
   [left]
-    type = ADGenericConstantFunctorMaterial
+    type = ADGenericFunctorMaterial
     prop_names = 'diff'
     prop_values = '1'
     block = 0
   []
   [right]
-    type = ADGenericConstantFunctorMaterial
+    type = ADGenericFunctorMaterial
     prop_names = 'diff'
     prop_values = '2'
     block = 1
   []
-[]
-
-[Problem]
-  kernel_coverage_check = off
 []
 
 [Executioner]
@@ -90,8 +86,4 @@
 
 [Outputs]
   exodus = true
-  [dof]
-    type = DOFMap
-    execute_on = 'initial'
-  []
 []

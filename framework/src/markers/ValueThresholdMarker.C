@@ -13,8 +13,6 @@
 
 registerMooseObject("MooseApp", ValueThresholdMarker);
 
-defineLegacyParams(ValueThresholdMarker);
-
 InputParameters
 ValueThresholdMarker::validParams()
 {
@@ -27,7 +25,7 @@ ValueThresholdMarker::validParams()
                         "The threshold value for refinement.  Elements with variable "
                         "values beyond this will be marked for refinement.");
   params.addClassDescription(
-      "The the refinement state based on a threshold value compared to the specified variable.");
+      "The refinement state based on a threshold value compared to the specified variable.");
   return params;
 }
 

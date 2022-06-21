@@ -31,10 +31,17 @@ gradUDotNormal(const T &
 #ifdef MOOSE_GLOBAL_AD_INDEXING
                    fv_var
 #endif
+               ,
+               bool
+#ifdef MOOSE_GLOBAL_AD_INDEXING
+                   correct_skewness
+#endif
 )
+
 {
 #ifdef MOOSE_GLOBAL_AD_INDEXING
-  return fv_var.adGradSln(face_info) * face_info.normal();
+
+  return fv_var.adGradSln(face_info, correct_skewness) * face_info.normal();
 #else
 
   // Orthogonal contribution
@@ -44,9 +51,42 @@ gradUDotNormal(const T &
 #endif
 }
 
+bool
+onBoundary(const std::set<SubdomainID> & subs, const FaceInfo & fi)
+{
+  if (!fi.neighborPtr())
+    // We're on the exterior boundary
+    return true;
+
+  if (subs.empty())
+    // The face is internal and our functor lives on all subdomains
+    return false;
+
+  const auto sub_count =
+      subs.count(fi.elem().subdomain_id()) + subs.count(fi.neighbor().subdomain_id());
+
+  switch (sub_count)
+  {
+    case 0:
+      mooseError("We should not be calling isExtrapolatedBoundaryFace on a functor that doesn't "
+                 "live on either of the face information's neighboring elements");
+
+    case 1:
+      // We only live on one of the subs
+      return true;
+
+    case 2:
+      // We live on both of the subs
+      return false;
+
+    default:
+      mooseError("There should be no other sub_count options");
+  }
+}
+
+template ADReal gradUDotNormal(
+    const ADReal &, const ADReal &, const FaceInfo &, const MooseVariableFV<Real> &, bool);
 template ADReal
-gradUDotNormal(const ADReal &, const ADReal &, const FaceInfo &, const MooseVariableFV<Real> &);
-template ADReal
-gradUDotNormal(const ADReal &, const Real &, const FaceInfo &, const MooseVariableFV<Real> &);
+gradUDotNormal(const ADReal &, const Real &, const FaceInfo &, const MooseVariableFV<Real> &, bool);
 }
 }

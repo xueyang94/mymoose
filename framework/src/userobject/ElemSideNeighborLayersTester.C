@@ -30,7 +30,8 @@ ElemSideNeighborLayersTester::validParams()
       "ElementSideNeighborLayers",
       Moose::RelationshipManagerType::GEOMETRIC | Moose::RelationshipManagerType::ALGEBRAIC,
 
-      [](const InputParameters & obj_params, InputParameters & rm_params) {
+      [](const InputParameters & obj_params, InputParameters & rm_params)
+      {
         rm_params.set<unsigned short>("layers") =
             obj_params.get<unsigned short>("element_side_neighbor_layers");
       }
@@ -63,7 +64,7 @@ ElemSideNeighborLayersTester::execute()
 
   if (_rank == DofObject::invalid_processor_id || my_processor_id == _rank)
   {
-    for (const auto & current_elem : _fe_problem.getEvaluableElementRange())
+    for (const auto & current_elem : _fe_problem.getNonlinearEvaluableElementRange())
       _evaluable_data.emplace(current_elem->id());
 
     const auto & mesh = _subproblem.mesh().getMesh();

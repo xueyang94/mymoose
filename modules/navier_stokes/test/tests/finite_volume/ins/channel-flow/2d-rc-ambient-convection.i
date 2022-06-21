@@ -2,8 +2,22 @@ mu=1
 rho=1
 k=1e-3
 cp=1
+alpha = 1
 advected_interp_method='average'
 velocity_interp_method='rc'
+
+[GlobalParams]
+  rhie_chow_user_object = 'rc'
+[]
+
+[UserObjects]
+  [rc]
+    type = INSFVRhieChowInterpolator
+    u = vel_x
+    v = vel_y
+    pressure = pressure
+  []
+[]
 
 [Mesh]
   [gen]
@@ -23,18 +37,18 @@ velocity_interp_method='rc'
 []
 
 [Variables]
-  [u]
+  [vel_x]
     type = INSFVVelocityVariable
     initial_condition = 1
   []
-  [v]
+  [vel_y]
     type = INSFVVelocityVariable
     initial_condition = 1
   []
   [pressure]
     type = INSFVPressureVariable
   []
-  [temperature]
+  [T_fluid]
     type = INSFVEnergyVariable
   []
 []
@@ -45,84 +59,65 @@ velocity_interp_method='rc'
     variable = pressure
     advected_interp_method = ${advected_interp_method}
     velocity_interp_method = ${velocity_interp_method}
-    vel = 'velocity'
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
   []
 
   [u_advection]
     type = INSFVMomentumAdvection
-    variable = u
-    advected_quantity = 'rhou'
-    vel = 'velocity'
+    variable = vel_x
     advected_interp_method = ${advected_interp_method}
     velocity_interp_method = ${velocity_interp_method}
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
+    momentum_component = 'x'
   []
   [u_viscosity]
-    type = FVDiffusion
-    variable = u
-    coeff = ${mu}
+    type = INSFVMomentumDiffusion
+    variable = vel_x
+    mu = ${mu}
+    momentum_component = 'x'
   []
   [u_pressure]
     type = INSFVMomentumPressure
-    variable = u
+    variable = vel_x
     momentum_component = 'x'
     pressure = pressure
   []
 
   [v_advection]
     type = INSFVMomentumAdvection
-    variable = v
-    advected_quantity = 'rhov'
-    vel = 'velocity'
+    variable = vel_y
     advected_interp_method = ${advected_interp_method}
     velocity_interp_method = ${velocity_interp_method}
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
+    momentum_component = 'y'
   []
   [v_viscosity]
-    type = FVDiffusion
-    variable = v
-    coeff = ${mu}
+    type = INSFVMomentumDiffusion
+    variable = vel_y
+    mu = ${mu}
+    momentum_component = 'y'
   []
   [v_pressure]
     type = INSFVMomentumPressure
-    variable = v
+    variable = vel_y
     momentum_component = 'y'
     pressure = pressure
   []
 
   [energy_advection]
     type = INSFVEnergyAdvection
-    variable = temperature
-    vel = 'velocity'
+    variable = T_fluid
     velocity_interp_method = ${velocity_interp_method}
     advected_interp_method = ${advected_interp_method}
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
-    rho = ${rho}
   []
   [energy_diffusion]
     type = FVDiffusion
     coeff = ${k}
-    variable = temperature
+    variable = T_fluid
   []
   [ambient_convection]
     type = NSFVEnergyAmbientConvection
-    variable = temperature
+    variable = T_fluid
     T_ambient = 100
     alpha = 'alpha'
   []
@@ -132,25 +127,25 @@ velocity_interp_method='rc'
   [inlet-u]
     type = INSFVInletVelocityBC
     boundary = 'left'
-    variable = u
+    variable = vel_x
     function = '1'
   []
   [inlet-v]
     type = INSFVInletVelocityBC
     boundary = 'left'
-    variable = v
+    variable = vel_y
     function = 0
   []
   [walls-u]
     type = INSFVNoSlipWallBC
     boundary = 'top bottom'
-    variable = u
+    variable = vel_x
     function = 0
   []
   [walls-v]
     type = INSFVNoSlipWallBC
     boundary = 'top bottom'
-    variable = v
+    variable = vel_y
     function = 0
   []
   [outlet_p]
@@ -162,29 +157,28 @@ velocity_interp_method='rc'
   [inlet_t]
     type = FVDirichletBC
     boundary = 'left'
-    variable = temperature
+    variable = T_fluid
     value = 1
   []
 []
 
 [Materials]
-  [const]
-    type = ADGenericConstantMaterial
-    prop_names = 'alpha'
-    prop_values = '1'
-  []
   [const_functor]
-    type = ADGenericConstantFunctorMaterial
-    prop_names = 'cp'
-    prop_values = '${cp}'
+    type = ADGenericFunctorMaterial
+    prop_names = 'cp alpha'
+    prop_values = '${cp} ${alpha}'
   []
   [ins_fv]
-    type = INSFVMaterial
-    u = 'u'
-    v = 'v'
-    pressure = 'pressure'
+    type = INSFVEnthalpyMaterial
     rho = ${rho}
-    temperature = 'temperature'
+    temperature = 'T_fluid'
+  []
+[]
+
+[Postprocessors]
+  [temp]
+    type = ElementAverageValue
+    variable = T_fluid
   []
 []
 

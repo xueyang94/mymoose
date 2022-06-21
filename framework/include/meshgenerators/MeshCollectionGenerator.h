@@ -13,12 +13,6 @@
 #include "libmesh/replicated_mesh.h"
 #include "MooseEnum.h"
 
-// Forward declarations
-class MeshCollectionGenerator;
-
-template <>
-InputParameters validParams<MeshCollectionGenerator>();
-
 /**
  * Collects multiple meshes into a single (unconnected) mesh
  */
@@ -36,5 +30,5 @@ protected:
   const std::vector<MeshGeneratorName> & _input_names;
 
   // Holds pointers to the mesh smart pointers (to be populated later).
-  std::vector<std::unique_ptr<MeshBase> *> _meshes;
+  const std::vector<std::unique_ptr<MeshBase> *> _meshes;
 };

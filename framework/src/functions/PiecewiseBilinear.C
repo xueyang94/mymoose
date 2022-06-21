@@ -10,12 +10,11 @@
 #include "PiecewiseBilinear.h"
 #include "ColumnMajorMatrix.h"
 #include "BilinearInterpolation.h"
+#include "MooseUtils.h"
 
 #include <fstream>
 
 registerMooseObject("MooseApp", PiecewiseBilinear);
-
-defineLegacyParams(PiecewiseBilinear);
 
 InputParameters
 PiecewiseBilinear::validParams()
@@ -83,8 +82,8 @@ PiecewiseBilinear::PiecewiseBilinear(const InputParameters & parameters)
 
   else if (!(parameters.isParamValid("x") && parameters.isParamValid("y") &&
              parameters.isParamValid("z")))
-    mooseError(
-        "In PiecewiseBilinear: 'x' and 'y' and 'z' must be specified if any one is specified.");
+    mooseError("In PiecewiseBilinear: 'x' and 'y' and 'z' must be specified if any one is "
+               "specified or no 'data_file' is specified.");
 
   else
   {
@@ -107,7 +106,7 @@ PiecewiseBilinear::PiecewiseBilinear(const InputParameters & parameters)
       }
   }
 
-  _bilinear_interp = libmesh_make_unique<BilinearInterpolation>(x, y, z);
+  _bilinear_interp = std::make_unique<BilinearInterpolation>(x, y, z);
 }
 
 PiecewiseBilinear::~PiecewiseBilinear() {}
@@ -115,12 +114,25 @@ PiecewiseBilinear::~PiecewiseBilinear() {}
 Real
 PiecewiseBilinear::value(Real t, const Point & p) const
 {
-  Real retVal(0);
+  return valueInternal(t, p);
+}
+
+ADReal
+PiecewiseBilinear::value(const ADReal & t, const ADPoint & p) const
+{
+  return valueInternal(t, p);
+}
+
+template <typename T, typename P>
+T
+PiecewiseBilinear::valueInternal(T t, const P & p) const
+{
+  T retVal = 0.0;
   if (_yaxisValid && _xaxisValid && _radial)
   {
-    Real rx = p(_xaxis) * p(_xaxis);
-    Real ry = p(_yaxis) * p(_yaxis);
-    Real r = std::sqrt(rx + ry);
+    const auto rx = p(_xaxis) * p(_xaxis);
+    const auto ry = p(_yaxis) * p(_yaxis);
+    const auto r = std::sqrt(rx + ry);
     retVal = _bilinear_interp->sample(r, t);
   }
   else if (_axisValid)
@@ -143,70 +155,53 @@ PiecewiseBilinear::parse(std::vector<Real> & x, std::vector<Real> & y, ColumnMaj
 {
   std::ifstream file(_data_file_name.c_str());
   if (!file.good())
-    mooseError("In PiecewiseBilinear ", _name, ": Error opening file '" + _data_file_name + "'.");
-  std::string line;
-  unsigned int linenum = 0;
-  unsigned int itemnum = 0;
-  unsigned int num_cols = 0;
+    paramError("data_file", "Error opening file '", _data_file_name, "'.");
+
+  std::size_t num_lines = 0;
+  std::size_t num_cols = libMesh::invalid_uint;
   std::vector<Real> data;
 
-  while (getline(file, line))
+  std::string line;
+  std::vector<Real> line_data;
+  while (std::getline(file, line))
   {
-    linenum++;
-    std::istringstream linestream(line);
-    std::string item;
-    itemnum = 0;
+    num_lines++;
+    if (!MooseUtils::tokenizeAndConvert<double>(line, line_data, ", "))
+      paramError("data_file", "Error parsing file '", _data_file_name, "' on line ", num_lines);
 
-    while (getline(linestream, item, ','))
-    {
-      itemnum++;
-      std::istringstream i(item);
-      Real d;
-      i >> d;
-      data.push_back(d);
-    }
+    data.insert(data.end(), line_data.begin(), line_data.end());
 
-    if (linenum == 1)
-      num_cols = itemnum;
-    else if (num_cols + 1 != itemnum)
-      mooseError("In PiecewiseBilinear ",
-                 _name,
-                 ": Read ",
-                 itemnum,
+    if (num_cols == libMesh::invalid_uint)
+      num_cols = line_data.size();
+    else if (line_data.size() != num_cols + 1)
+      paramError("data_file",
+                 "Read ",
+                 line_data.size(),
                  " columns of data but expected ",
                  num_cols + 1,
-                 " columns while reading line ",
-                 linenum,
-                 " of '",
-                 _data_file_name,
-                 "'.");
+                 " columns in line ",
+                 num_lines);
   }
 
-  x.resize(itemnum - 1);
-  y.resize(linenum - 1);
-  z.reshape(linenum - 1, itemnum - 1);
-  unsigned int offset(0);
+  x.resize(num_cols);
+  y.resize(num_lines - 1);
+  z.reshape(num_lines - 1, num_cols);
+  std::size_t offset = 0;
+
   // Extract the first line's data (the x axis data)
-  for (unsigned int j = 0; j < itemnum - 1; ++j)
-  {
-    x[j] = data[offset];
-    ++offset;
-  }
-  for (unsigned int i = 0; i < linenum - 1; ++i)
+  for (unsigned int j = 0; j < num_cols; ++j)
+    x[j] = data[offset++];
+
+  for (unsigned int i = 0; i < num_lines - 1; ++i)
   {
     // Extract the y axis entry for this line
-    y[i] = data[offset];
-    ++offset;
+    y[i] = data[offset++];
 
     // Extract the function values for this row in the matrix
-    for (unsigned int j = 0; j < itemnum - 1; ++j)
-    {
-      z(i, j) = data[offset];
-      ++offset;
-    }
+    for (unsigned int j = 0; j < num_cols; ++j)
+      z(i, j) = data[offset++];
   }
 
   if (data.size() != offset)
-    mooseError("ERROR! Inconsistency in data read from '" + _data_file_name +
-               "' for PiecewiseBilinear function.");
+    paramError("data_file", "Inconsistency in data read from '", _data_file_name, "'.");
 }

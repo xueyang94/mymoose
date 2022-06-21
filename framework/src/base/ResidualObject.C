@@ -25,6 +25,7 @@ ResidualObject::validParams()
       "variable", "The name of the variable that this residual object operates on");
 
   params.declareControllable("enable");
+  params.set<bool>("_residual_object") = true;
   return params;
 }
 
@@ -61,4 +62,12 @@ void
 ResidualObject::prepareShapes(const unsigned int var_num)
 {
   _subproblem.prepareShapes(var_num, _tid);
+}
+
+void
+ResidualObject::computeResidualAndJacobian()
+{
+  mooseError(
+      "This object has not yet implemented 'computeResidualAndJacobian'. If you would like that "
+      "feature for this object, please contact a MOOSE developer.");
 }

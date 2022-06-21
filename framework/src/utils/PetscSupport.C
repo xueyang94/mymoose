@@ -45,15 +45,7 @@
 // For graph coloring
 #include <petscmat.h>
 #include <petscis.h>
-
-#if PETSC_VERSION_LESS_THAN(3, 3, 0)
-// PETSc 3.2.x and lower
-#include <private/kspimpl.h>
-#include <private/snesimpl.h>
-#else
-// PETSc 3.3.0+
 #include <petscdm.h>
-#endif
 
 // PetscDMMoose include
 #include "PetscDMMoose.h"
@@ -109,14 +101,6 @@ stringify(const LineSearchType & t)
       return "default";
     case LS_NONE:
       return "none";
-#if PETSC_VERSION_LESS_THAN(3, 3, 0)
-    case LS_CUBIC:
-      return "cubic";
-    case LS_QUADRATIC:
-      return "quadratic";
-    case LS_BASICNONORMS:
-      return "basicnonorms";
-#else
     case LS_SHELL:
       return "shell";
     case LS_L2:
@@ -129,7 +113,6 @@ stringify(const LineSearchType & t)
       return "contact";
     case LS_PROJECT:
       return "project";
-#endif
     case LS_INVALID:
       mooseError("Invalid LineSearchType");
   }
@@ -185,20 +168,12 @@ setSolverOptions(SolverParams & solver_params)
     ls_type = Moose::LS_BASIC;
 
   if (ls_type != Moose::LS_DEFAULT && ls_type != Moose::LS_CONTACT && ls_type != Moose::LS_PROJECT)
-  {
-#if PETSC_VERSION_LESS_THAN(3, 3, 0)
-    setSinglePetscOption("-snes_type", "ls");
-    setSinglePetscOption("-snes_ls", stringify(ls_type));
-#else
     setSinglePetscOption("-snes_linesearch_type", stringify(ls_type));
-#endif
-  }
 }
 
 void
 petscSetupDM(NonlinearSystemBase & nl)
 {
-#if !PETSC_VERSION_LESS_THAN(3, 3, 0)
   PetscErrorCode ierr;
   PetscBool ismoose;
   DM dm = PETSC_NULL;
@@ -231,15 +206,14 @@ petscSetupDM(NonlinearSystemBase & nl)
   CHKERRABORT(nl.comm().get(), ierr);
   ierr = DMDestroy(&dm);
   CHKERRABORT(nl.comm().get(), ierr);
-// We temporarily comment out this updating function because
-// we lack an approach to check if the problem
-// structure has been changed from the last iteration.
-// The indices will be rebuilt for every timestep.
-// TODO: figure out a way to check the structure changes of the
-// matrix
-// ierr = SNESSetUpdate(snes,SNESUpdateDMMoose);
-// CHKERRABORT(nl.comm().get(),ierr);
-#endif
+  // We temporarily comment out this updating function because
+  // we lack an approach to check if the problem
+  // structure has been changed from the last iteration.
+  // The indices will be rebuilt for every timestep.
+  // TODO: figure out a way to check the structure changes of the
+  // matrix
+  // ierr = SNESSetUpdate(snes,SNESUpdateDMMoose);
+  // CHKERRABORT(nl.comm().get(),ierr);
 }
 
 void
@@ -358,10 +332,9 @@ petscNonlinearConverged(SNES snes,
   }
 #endif
 
-// See if SNESSetFunctionDomainError() has been called.  Note:
-// SNESSetFunctionDomainError() and SNESGetFunctionDomainError()
-// were added in different releases of PETSc.
-#if !PETSC_VERSION_LESS_THAN(3, 3, 0)
+  // See if SNESSetFunctionDomainError() has been called.  Note:
+  // SNESSetFunctionDomainError() and SNESGetFunctionDomainError()
+  // were added in different releases of PETSc.
   PetscBool domainerror;
   ierr = SNESGetFunctionDomainError(snes, &domainerror);
   CHKERRABORT(problem.comm().get(), ierr);
@@ -370,7 +343,6 @@ petscNonlinearConverged(SNES snes,
     *reason = SNES_DIVERGED_FUNCTION_DOMAIN;
     return 0;
   }
-#endif
 
   // Error message that will be set by the FEProblemBase.
   std::string msg;
@@ -417,11 +389,7 @@ petscNonlinearConverged(SNES snes,
       break;
 
     case MooseNonlinearConvergenceReason::CONVERGED_SNORM_RELATIVE:
-#if PETSC_VERSION_LESS_THAN(3, 3, 0)
-      *reason = SNES_CONVERGED_PNORM_RELATIVE;
-#else
       *reason = SNES_CONVERGED_SNORM_RELATIVE;
-#endif
       break;
 
     case MooseNonlinearConvergenceReason::DIVERGED_FUNCTION_COUNT:
@@ -433,11 +401,7 @@ petscNonlinearConverged(SNES snes,
       break;
 
     case MooseNonlinearConvergenceReason::DIVERGED_LINE_SEARCH:
-#if PETSC_VERSION_LESS_THAN(3, 2, 0)
-      *reason = SNES_DIVERGED_LS_FAILURE;
-#else
       *reason = SNES_DIVERGED_LINE_SEARCH;
-#endif
       break;
 
     case MooseNonlinearConvergenceReason::DIVERGED_NL_RESIDUAL_PINGPONG:
@@ -499,16 +463,9 @@ petscSetDefaultPCSide(FEProblemBase & problem, KSP ksp)
 {
   NonlinearSystemBase & nl = problem.getNonlinearSystemBase();
 
-#if PETSC_VERSION_LESS_THAN(3, 2, 0)
-  // pc_side is NOT set, PETSc will make the decision
-  // PETSc 3.1.x-
-  if (nl.getPCSide() != Moose::PCS_DEFAULT)
-    KSPSetPreconditionerSide(ksp, getPetscPCSide(nl.getPCSide()));
-#else
   // PETSc 3.2.x+
   if (nl.getPCSide() != Moose::PCS_DEFAULT)
     KSPSetPCSide(ksp, getPetscPCSide(nl.getPCSide()));
-#endif
 }
 
 void
@@ -536,7 +493,7 @@ petscSetKSPDefaults(FEProblemBase & problem, KSP ksp)
 void
 petscSetDefaults(FEProblemBase & problem)
 {
-  // dig out Petsc solver
+  // dig out PETSc solver
   NonlinearSystemBase & nl = problem.getNonlinearSystemBase();
   PetscNonlinearSolver<Number> * petsc_solver =
       dynamic_cast<PetscNonlinearSolver<Number> *>(nl.nonlinearSolver());
@@ -545,12 +502,6 @@ petscSetDefaults(FEProblemBase & problem)
   SNESGetKSP(snes, &ksp);
 
   SNESSetMaxLinearSolveFailures(snes, 1000000);
-
-#if PETSC_VERSION_LESS_THAN(3, 0, 0)
-  // PETSc 2.3.3-
-  SNESSetConvergenceTest(snes, petscNonlinearConverged, &problem);
-#else
-  // PETSc 3.0.0+
 
   // In 3.0.0, the context pointer must actually be used, and the
   // final argument to KSPSetConvergenceTest() is a pointer to a
@@ -561,7 +512,6 @@ petscSetDefaults(FEProblemBase & problem)
     auto ierr = SNESSetConvergenceTest(snes, petscNonlinearConverged, &problem, PETSC_NULL);
     CHKERRABORT(nl.comm().get(), ierr);
   }
-#endif
 
   petscSetKSPDefaults(problem, ksp);
 }
@@ -598,7 +548,7 @@ storePetscOptions(FEProblemBase & fe_problem, const InputParameters & params)
           mooseError("Currently the MOOSE line searches all use Petsc, so you "
                      "must use Petsc as your non-linear solver.");
         petsc_nonlinear_solver->linesearch_object =
-            libmesh_make_unique<ComputeLineSearchObjectWrapper>(fe_problem);
+            std::make_unique<ComputeLineSearchObjectWrapper>(fe_problem);
       }
     }
   }
@@ -762,10 +712,11 @@ storePetscOptions(FEProblemBase & fe_problem, const InputParameters & params)
   for (const auto & reason_flag : reason_flags)
     // Was the option already found in PetscOptions::flags? Or does it exist in PetscOptions::pairs
     // as an iname already? If not, then we add our flag
-    if (!reason_flag.first &&
-        (std::find_if(po.pairs.begin(), po.pairs.end(), [&reason_flag](auto & pair) {
-           return pair.first == reason_flag.second;
-         }) == po.pairs.end()))
+    if (!reason_flag.first && (std::find_if(po.pairs.begin(),
+                                            po.pairs.end(),
+                                            [&reason_flag](auto & pair) {
+                                              return pair.first == reason_flag.second;
+                                            }) == po.pairs.end()))
       po.pairs.emplace_back(reason_flag.second, "::failed");
 #endif
 
@@ -826,11 +777,7 @@ storePetscOptions(FEProblemBase & fe_problem, const InputParameters & params)
 std::set<std::string>
 getPetscValidLineSearches()
 {
-#if PETSC_VERSION_LESS_THAN(3, 3, 0)
-  return {"default", "cubic", "quadratic", "none", "basic", "basicnonorms"};
-#else
   return {"default", "shell", "none", "basic", "l2", "bt", "cp"};
-#endif
 }
 
 InputParameters
@@ -861,6 +808,10 @@ getPetscValidParams()
   params.addParam<std::vector<std::string>>(
       "petsc_options_value",
       "Values of PETSc name/value pairs (must correspond with \"petsc_options_iname\"");
+  params.addParamNamesToGroup("solve_type petsc_options petsc_options_iname petsc_options_value "
+                              "mffd_type",
+                              "PETSc");
+
   return params;
 }
 
@@ -961,9 +912,6 @@ colorAdjacencyMatrix(PetscScalar * adjacency_matrix,
              &A);
 
   ISColoring iscoloring;
-#if PETSC_VERSION_LESS_THAN(3, 5, 0)
-  MatGetColoring(A, coloring_algorithm, &iscoloring);
-#else
   MatColoring mc;
   MatColoringCreate(A, &mc);
   MatColoringSetType(mc, coloring_algorithm);
@@ -973,7 +921,6 @@ colorAdjacencyMatrix(PetscScalar * adjacency_matrix,
   MatColoringSetDistance(mc, 1);
   MatColoringSetFromOptions(mc);
   MatColoringApply(mc, &iscoloring);
-#endif
 
   PetscInt nn;
   IS * is;
@@ -1001,9 +948,7 @@ colorAdjacencyMatrix(PetscScalar * adjacency_matrix,
   }
 
   MatDestroy(&A);
-#if !PETSC_VERSION_LESS_THAN(3, 5, 0)
   MatColoringDestroy(&mc);
-#endif
   ISColoringDestroy(&iscoloring);
 }
 

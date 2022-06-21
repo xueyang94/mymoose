@@ -10,8 +10,6 @@
 #include "AuxNodalScalarKernel.h"
 #include "SystemBase.h"
 
-defineLegacyParams(AuxNodalScalarKernel);
-
 InputParameters
 AuxNodalScalarKernel::validParams()
 {
@@ -23,7 +21,7 @@ AuxNodalScalarKernel::validParams()
 AuxNodalScalarKernel::AuxNodalScalarKernel(const InputParameters & parameters)
   : AuxScalarKernel(parameters),
     Coupleable(this, true),
-    MooseVariableDependencyInterface(),
+    MooseVariableDependencyInterface(this),
     _node_ids(getParam<std::vector<dof_id_type>>("nodes"))
 {
   // Fill in the MooseVariable dependencies

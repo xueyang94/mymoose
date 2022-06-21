@@ -22,7 +22,7 @@
 [Transfers]
   [data]
     type = SamplerPostprocessorTransfer
-    multi_app = sub
+    from_multi_app = sub
     sampler = cartesian
     to_vector_postprocessor = storage
     from_postprocessor = avg
@@ -40,7 +40,7 @@
 
 [Controls]
   [cmdline]
-    type = MultiAppCommandLineControl
+    type = MultiAppSamplerControl
     multi_app = sub
     sampler = cartesian
     param_names = 'Executioner/nl_rel_tol'

@@ -95,8 +95,8 @@ FixedPointSolve::validParams()
   params.addDeprecatedParam<std::vector<std::string>>(
       "relaxed_variables",
       std::vector<std::string>(),
-      "Relaxed variables is deprecated, use transformed_variables instead.",
-      "List of main app variables to relax during fixed point iterations");
+      "List of main app variables to relax during fixed point iterations",
+      "Relaxed variables is deprecated, use transformed_variables instead.");
 
   params.addParam<bool>("auto_advance",
                         "Whether to automatically advance sub-applications regardless of whether "
@@ -106,7 +106,8 @@ FixedPointSolve::validParams()
       "fixed_point_min_its fixed_point_max_its accept_on_max_fixed_point_iteration "
       "disable_fixed_point_residual_norm_check fixed_point_rel_tol fixed_point_abs_tol "
       "fixed_point_force_norms custom_pp fixed_point_rel_tol fixed_point_abs_tol direct_pp_value "
-      "relaxation_factor transformed_variables transformed_postprocessors auto_advance",
+      "relaxation_factor transformed_variables transformed_postprocessors auto_advance "
+      "custom_abs_tol custom_rel_tol",
       "Fixed point iterations");
 
   params.addParam<unsigned int>(
@@ -152,7 +153,6 @@ FixedPointSolve::FixedPointSolve(Executioner & ex)
     _xfem_update_count(0),
     _xfem_repeat_step(false),
     _old_entering_time(_problem.time() - 1),
-    _solve_message(_problem.shouldSolve() ? "Solve Converged!" : "Solve Skipped!"),
     _fail_step(false),
     _auto_advance_set_by_user(isParamValid("auto_advance")),
     _auto_advance_user_value(_auto_advance_set_by_user ? getParam<bool>("auto_advance") : true)
@@ -169,6 +169,13 @@ FixedPointSolve::FixedPointSolve(Executioner & ex)
     mooseWarning(
         "Both variable and postprocessor transformation are active. If the two share dofs, the "
         "transformation will not be correct.");
+
+  if (!_app.isUltimateMaster())
+  {
+    _secondary_relaxation_factor = _app.fixedPointConfig().sub_relaxation_factor;
+    _secondary_transformed_variables = _app.fixedPointConfig().sub_transformed_vars;
+    _secondary_transformed_pps = _app.fixedPointConfig().sub_transformed_pps;
+  }
 }
 
 bool
@@ -255,7 +262,8 @@ FixedPointSolve::solve()
       }
 
       _console << COLOR_MAGENTA << "Beginning fixed point iteration " << _fixed_point_it
-               << COLOR_DEFAULT << std::endl;
+               << COLOR_DEFAULT << std::endl
+               << std::endl;
     }
 
     // Save last postprocessor value as value before solve
@@ -386,15 +394,12 @@ FixedPointSolve::solveStep(Real & begin_norm,
   {
     _fixed_point_status = MooseFixedPointConvergenceReason::DIVERGED_NONLINEAR;
 
-    _console << COLOR_RED << " Solve Did NOT Converge!" << COLOR_DEFAULT << std::endl;
     // Perform the output of the current, failed time step (this only occurs if desired)
     _problem.outputStep(EXEC_FAILED);
     return false;
   }
   else
     _fixed_point_status = MooseFixedPointConvergenceReason::CONVERGED_NONLINEAR;
-
-  _console << COLOR_GREEN << ' ' << _solve_message << COLOR_DEFAULT << std::endl;
 
   // Use the fixed point algorithm if the conditions (availability of values, etc) are met
   if (_transformed_vars.size() > 0 && useFixedPointAlgorithmUpdateInsteadOfPicard(true))
@@ -480,11 +485,6 @@ FixedPointSolve::examineFixedPointConvergence(bool & converged)
       _fixed_point_status = MooseFixedPointConvergenceReason::CONVERGED_RELATIVE;
       return true;
     }
-  }
-  if (_executioner.augmentedFixedPointConvergenceCheck())
-  {
-    _fixed_point_status = MooseFixedPointConvergenceReason::CONVERGED_CUSTOM;
-    return true;
   }
   if (std::abs(_pp_new - _pp_old) < _custom_abs_tol)
   {

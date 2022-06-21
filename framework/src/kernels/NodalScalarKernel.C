@@ -15,8 +15,6 @@
 #include "MooseMesh.h"
 #include "SystemBase.h"
 
-defineLegacyParams(NodalScalarKernel);
-
 InputParameters
 NodalScalarKernel::validParams()
 {
@@ -31,7 +29,7 @@ NodalScalarKernel::validParams()
 NodalScalarKernel::NodalScalarKernel(const InputParameters & parameters)
   : ScalarKernel(parameters),
     Coupleable(this, true),
-    MooseVariableDependencyInterface(),
+    MooseVariableDependencyInterface(this),
     _node_ids(getParam<std::vector<dof_id_type>>("nodes")),
     _boundary_names(getParam<std::vector<BoundaryName>>("boundary"))
 {

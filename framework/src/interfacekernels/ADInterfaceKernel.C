@@ -158,8 +158,10 @@ ADInterfaceKernelTempl<T>::computeElemNeighJacobian(Moose::DGJacobianType type)
 
   auto local_functor = [&](const std::vector<ADReal> & input_residuals,
                            const std::vector<dof_id_type> &,
-                           const std::set<TagID> &) {
-    auto compute_jacobian_type = [&](const Moose::DGJacobianType nested_type) {
+                           const std::set<TagID> &)
+  {
+    auto compute_jacobian_type = [&](const Moose::DGJacobianType nested_type)
+    {
       const ADTemplateVariableTestValue<T> & loc_phi =
           (nested_type == Moose::ElementElement || nested_type == Moose::NeighborElement)
               ? _phi
@@ -193,12 +195,13 @@ ADInterfaceKernelTempl<T>::computeElemNeighJacobian(Moose::DGJacobianType type)
     }
   };
 
-  _assembly.processDerivatives(residuals,
-                               (type == Moose::ElementElement || type == Moose::ElementNeighbor)
-                                   ? _var.dofIndices()
-                                   : _neighbor_var.dofIndicesNeighbor(),
-                               _matrix_tags,
-                               local_functor);
+  const bool element_var_is_var = (type == Moose::ElementElement || type == Moose::ElementNeighbor);
+  _assembly.processJacobian(
+      residuals,
+      element_var_is_var ? _var.dofIndices() : _neighbor_var.dofIndicesNeighbor(),
+      _matrix_tags,
+      element_var_is_var ? _var.scalingFactor() : _neighbor_var.scalingFactor(),
+      local_functor);
 }
 
 template <typename T>
@@ -253,7 +256,8 @@ ADInterfaceKernelTempl<T>::computeOffDiagElemNeighJacobian(Moose::DGJacobianType
 
   auto local_functor = [&](const std::vector<ADReal> & input_residuals,
                            const std::vector<dof_id_type> &,
-                           const std::set<TagID> &) {
+                           const std::set<TagID> &)
+  {
     auto & ce = _assembly.couplingEntries();
     for (const auto & it : ce)
     {
@@ -266,7 +270,8 @@ ADInterfaceKernelTempl<T>::computeOffDiagElemNeighJacobian(Moose::DGJacobianType
       if (ivar != current_ivar)
         continue;
 
-      auto compute_jacobian_type = [&](const Moose::DGJacobianType nested_type) {
+      auto compute_jacobian_type = [&](const Moose::DGJacobianType nested_type)
+      {
         const ADTemplateVariableTestValue<T> & loc_phi =
             (nested_type == Moose::ElementElement || nested_type == Moose::NeighborElement)
                 ? _phi
@@ -309,11 +314,13 @@ ADInterfaceKernelTempl<T>::computeOffDiagElemNeighJacobian(Moose::DGJacobianType
     }
   };
 
-  _assembly.processDerivatives(residuals,
-                               type == Moose::ElementElement ? _var.dofIndices()
-                                                             : _neighbor_var.dofIndicesNeighbor(),
-                               _matrix_tags,
-                               local_functor);
+  // We assert earlier that the type cannot be Moose::ElementNeighbor (nor Moose::NeighborElement)
+  _assembly.processJacobian(
+      residuals,
+      type == Moose::ElementElement ? _var.dofIndices() : _neighbor_var.dofIndicesNeighbor(),
+      _matrix_tags,
+      type == Moose::ElementElement ? _var.scalingFactor() : _neighbor_var.scalingFactor(),
+      local_functor);
 }
 
 template <typename T>

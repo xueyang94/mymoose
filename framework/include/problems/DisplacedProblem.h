@@ -20,7 +20,6 @@
 // Forward declarations
 class MooseVariableFieldBase;
 class AssemblyData;
-class DisplacedProblem;
 class MooseMesh;
 class Assembly;
 class FEProblemBase;
@@ -32,9 +31,6 @@ namespace libMesh
 template <typename T>
 class NumericVector;
 }
-
-template <>
-InputParameters validParams<DisplacedProblem>();
 
 class DisplacedProblem : public SubProblem
 {
@@ -135,7 +131,6 @@ public:
   virtual unsigned int numMatrixTags() const override;
 
   virtual bool isTransient() const override;
-  virtual Moose::CoordinateSystemType getCoordSystem(SubdomainID sid) const override;
 
   // Variables /////
   virtual bool hasVariable(const std::string & var_name) const override;

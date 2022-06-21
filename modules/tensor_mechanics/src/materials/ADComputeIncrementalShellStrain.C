@@ -27,7 +27,7 @@ registerMooseObject("TensorMechanicsApp", ADComputeIncrementalShellStrain);
 InputParameters
 ADComputeIncrementalShellStrain::validParams()
 {
-  InputParameters params = ADMaterial::validParams();
+  InputParameters params = Material::validParams();
   params.addClassDescription("Compute a small strain increment for the shell.");
   params.addRequiredCoupledVar(
       "rotations", "The rotations appropriate for the simulation geometry and coordinate system");
@@ -45,7 +45,7 @@ ADComputeIncrementalShellStrain::validParams()
 }
 
 ADComputeIncrementalShellStrain::ADComputeIncrementalShellStrain(const InputParameters & parameters)
-  : ADMaterial(parameters),
+  : Material(parameters),
     _nrot(coupledComponents("rotations")),
     _ndisp(coupledComponents("displacements")),
     _rot_num(_nrot),
@@ -105,7 +105,7 @@ ADComputeIncrementalShellStrain::ADComputeIncrementalShellStrain(const InputPara
     }
   }
 
-  _t_qrule = libmesh_make_unique<QGauss>(
+  _t_qrule = std::make_unique<QGauss>(
       1, Utility::string_to_enum<Order>(getParam<std::string>("through_thickness_order")));
   _t_points = _t_qrule->get_points();
   _strain_increment.resize(_t_points.size());

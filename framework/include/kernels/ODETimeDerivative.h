@@ -11,12 +11,6 @@
 
 #include "ODETimeKernel.h"
 
-// Forward Declaration
-class ODETimeDerivative;
-
-template <>
-InputParameters validParams<ODETimeDerivative>();
-
 class ODETimeDerivative : public ODETimeKernel
 {
 public:
@@ -28,4 +22,3 @@ protected:
   virtual Real computeQpResidual() override;
   virtual Real computeQpJacobian() override;
 };
-

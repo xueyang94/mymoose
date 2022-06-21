@@ -15,7 +15,7 @@
 #include "ReporterState.h"
 #include "ReporterContext.h"
 #include "libmesh/parallel_object.h"
-#include "libmesh/auto_ptr.h"
+#include <memory>
 
 class MooseApp;
 class Receiver;
@@ -305,21 +305,22 @@ ReporterData::getReporterStateHelper(const ReporterName & reporter_name,
   if (hasReporterState(reporter_name))
   {
     const auto error_helper =
-        [this, &reporter_name, &moose_object, &declare](const std::string & suffix) {
-          std::stringstream oss;
-          oss << "While " << (declare ? "declaring" : "requesting") << " a "
-              << reporter_name.specialTypeToName() << " value with the name \""
-              << reporter_name.getValueName() << "\"";
-          if (!reporter_name.isPostprocessor() && !reporter_name.isVectorPostprocessor())
-            oss << " and type \"" << MooseUtils::prettyCppType<T>() << "\"";
-          oss << ",\na Reporter with the same name " << suffix << ".\n\n";
-          oss << getReporterInfo(reporter_name);
+        [this, &reporter_name, &moose_object, &declare](const std::string & suffix)
+    {
+      std::stringstream oss;
+      oss << "While " << (declare ? "declaring" : "requesting") << " a "
+          << reporter_name.specialTypeToName() << " value with the name \""
+          << reporter_name.getValueName() << "\"";
+      if (!reporter_name.isPostprocessor() && !reporter_name.isVectorPostprocessor())
+        oss << " and type \"" << MooseUtils::prettyCppType<T>() << "\"";
+      oss << ",\na Reporter with the same name " << suffix << ".\n\n";
+      oss << getReporterInfo(reporter_name);
 
-          if (moose_object)
-            moose_object->mooseError(oss.str());
-          else
-            mooseError(oss.str());
-        };
+      if (moose_object)
+        moose_object->mooseError(oss.str());
+      else
+        mooseError(oss.str());
+    };
 
     if (declare && hasReporterValue(reporter_name))
       error_helper("has already been declared");
@@ -339,7 +340,7 @@ ReporterData::getReporterStateHelper(const ReporterName & reporter_name,
   // is already registered as restartable data. Therefore, we create a state, and then
   // cast the restartable data received back to a state (which may be different than
   // the one we created, but that's okay)
-  auto state_unique_ptr = libmesh_make_unique<ReporterState<T>>(reporter_name);
+  auto state_unique_ptr = std::make_unique<ReporterState<T>>(reporter_name);
   auto & restartable_value = getRestartableDataHelper(std::move(state_unique_ptr), declare);
 
   auto * state = dynamic_cast<ReporterState<T> *>(&restartable_value);
@@ -403,7 +404,7 @@ ReporterData::declareReporterValue(const ReporterName & reporter_name,
   mooseAssert(!_context_ptrs.count(reporter_name), "Context already exists");
 
   // Create the ReporterContext
-  auto context_ptr = libmesh_make_unique<S>(_app, producer, state, args...);
+  auto context_ptr = std::make_unique<S>(_app, producer, state, args...);
   context_ptr->init(mode); // initialize the mode, see ContextReporter
   _context_ptrs.emplace(reporter_name, std::move(context_ptr));
 

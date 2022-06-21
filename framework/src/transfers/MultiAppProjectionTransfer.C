@@ -40,8 +40,6 @@ assemble_l2(EquationSystems & es, const std::string & system_name)
 
 registerMooseObject("MooseApp", MultiAppProjectionTransfer);
 
-defineLegacyParams(MultiAppProjectionTransfer);
-
 InputParameters
 MultiAppProjectionTransfer::validParams()
 {
@@ -193,7 +191,8 @@ MultiAppProjectionTransfer::assembleL2(EquationSystems & es, const std::string &
 void
 MultiAppProjectionTransfer::execute()
 {
-  _console << "Beginning projection transfer " << name() << std::endl;
+  TIME_SECTION(
+      "MultiAppProjectionTransfer::execute()", 5, "Transferring variables through projection");
 
   getAppInfo();
 
@@ -346,8 +345,8 @@ MultiAppProjectionTransfer::execute()
   std::map<processor_id_type, std::vector<Point>> incoming_qps;
   if (!_qps_cached)
   {
-    auto qps_action_functor = [&incoming_qps](processor_id_type pid,
-                                              const std::vector<Point> & qps) {
+    auto qps_action_functor = [&incoming_qps](processor_id_type pid, const std::vector<Point> & qps)
+    {
       // Quadrature points from processor 'pid'
       auto & incoming_qps_from_pid = incoming_qps[pid];
       // Store data for late use
@@ -382,7 +381,7 @@ MultiAppProjectionTransfer::execute()
           outgoing_evals_ids[pid][qp].first =
               (*local_meshfuns[i_from])(qpt - _from_positions[i_from]);
           if (_current_direction == FROM_MULTIAPP)
-            outgoing_evals_ids[pid][qp].second = _local2global_map[i_from];
+            outgoing_evals_ids[pid][qp].second = _from_local2global_map[i_from];
         }
       }
     }
@@ -397,13 +396,14 @@ MultiAppProjectionTransfer::execute()
 
   auto evals_action_functor =
       [&incoming_evals_ids](processor_id_type pid,
-                            const std::vector<std::pair<Real, unsigned int>> & evals) {
-        // evals for processor 'pid'
-        auto & incoming_evals_ids_for_pid = incoming_evals_ids[pid];
-        // Copy evals for late use
-        incoming_evals_ids_for_pid.reserve(incoming_evals_ids_for_pid.size() + evals.size());
-        std::copy(evals.begin(), evals.end(), std::back_inserter(incoming_evals_ids_for_pid));
-      };
+                            const std::vector<std::pair<Real, unsigned int>> & evals)
+  {
+    // evals for processor 'pid'
+    auto & incoming_evals_ids_for_pid = incoming_evals_ids[pid];
+    // Copy evals for late use
+    incoming_evals_ids_for_pid.reserve(incoming_evals_ids_for_pid.size() + evals.size());
+    std::copy(evals.begin(), evals.end(), std::back_inserter(incoming_evals_ids_for_pid));
+  };
 
   Parallel::push_parallel_vector_data(comm(), outgoing_evals_ids, evals_action_functor);
 
@@ -419,7 +419,6 @@ MultiAppProjectionTransfer::execute()
     std::unique_ptr<FEBase> fe(FEBase::build(to_mesh.mesh_dimension(), fe_type));
     QGauss qrule(to_mesh.mesh_dimension(), fe_type.default_quadrature_order());
     fe->attach_quadrature_rule(&qrule);
-    const std::vector<Point> & xyz = fe->get_xyz();
 
     for (const auto & elem : to_mesh.active_local_element_ptr_range())
     {
@@ -430,8 +429,6 @@ MultiAppProjectionTransfer::execute()
 
       for (unsigned int qp = 0; qp < qrule.n_points(); qp++)
       {
-        Point qpt = xyz[qp];
-
         unsigned int lowest_app_rank = libMesh::invalid_uint;
         for (auto & values_ids : incoming_evals_ids)
         {
@@ -497,7 +494,6 @@ MultiAppProjectionTransfer::execute()
   if (_fixed_meshes)
     _qps_cached = true;
 
-  _console << "Finished projection transfer " << name() << std::endl;
 
   postExecute();
 }

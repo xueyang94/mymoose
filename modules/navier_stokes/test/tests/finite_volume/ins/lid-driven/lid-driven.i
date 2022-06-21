@@ -2,9 +2,9 @@ mu=.01
 rho=1
 
 [GlobalParams]
-  vel = 'velocity'
   velocity_interp_method = 'rc'
   advected_interp_method = 'average'
+  rhie_chow_user_object = 'rc'
 []
 
 [Mesh]
@@ -21,10 +21,10 @@ rho=1
 []
 
 [Variables]
-  [u]
+  [vel_x]
     type = INSFVVelocityVariable
   []
-  [v]
+  [vel_y]
     type = INSFVVelocityVariable
   []
   [pressure]
@@ -48,8 +48,17 @@ rho=1
   [mag]
     type = VectorMagnitudeAux
     variable = U
-    x = u
-    y = v
+    x = vel_x
+    y = vel_y
+  []
+[]
+
+[UserObjects]
+  [rc]
+    type = INSFVRhieChowInterpolator
+    u = vel_x
+    v = vel_y
+    pressure = pressure
   []
 []
 
@@ -57,62 +66,53 @@ rho=1
   [mass]
     type = INSFVMassAdvection
     variable = pressure
-    pressure = pressure
-    u = u
-    v = v
-    mu = 'mu'
     rho = ${rho}
   []
   [mean_zero_pressure]
-    type = FVScalarLagrangeMultiplier
+    type = FVIntegralValueConstraint
     variable = pressure
     lambda = lambda
+    phi0 = 0.0
   []
 
   [u_advection]
     type = INSFVMomentumAdvection
-    variable = u
-    advected_quantity = 'rhou'
-    pressure = pressure
-    u = u
-    v = v
-    mu = 'mu'
+    variable = vel_x
     rho = ${rho}
+    momentum_component = 'x'
   []
 
   [u_viscosity]
-    type = FVDiffusion
-    variable = u
-    coeff = ${mu}
+    type = INSFVMomentumDiffusion
+    variable = vel_x
+    mu = 'mu'
+    momentum_component = 'x'
   []
 
   [u_pressure]
     type = INSFVMomentumPressure
-    variable = u
+    variable = vel_x
     momentum_component = 'x'
     pressure = pressure
   []
 
   [v_advection]
     type = INSFVMomentumAdvection
-    variable = v
-    advected_quantity = 'rhov'
-    pressure = pressure
-    u = u
-    v = v
-    mu = 'mu'
+    variable = vel_y
     rho = ${rho}
+    momentum_component = 'y'
   []
 
   [v_viscosity]
-    type = FVDiffusion
-    variable = v
-    coeff = ${mu}
+    type = INSFVMomentumDiffusion
+    variable = vel_y
+    mu = 'mu'
+    momentum_component = 'y'
   []
 
   [v_pressure]
     type = INSFVMomentumPressure
-    variable = v
+    variable = vel_y
     momentum_component = 'y'
     pressure = pressure
   []
@@ -121,36 +121,29 @@ rho=1
 [FVBCs]
   [top_x]
     type = INSFVNoSlipWallBC
-    variable = u
+    variable = vel_x
     boundary = 'top'
     function = 1
   []
 
   [no_slip_x]
     type = INSFVNoSlipWallBC
-    variable = u
+    variable = vel_x
     boundary = 'left right bottom'
     function = 0
   []
 
   [no_slip_y]
     type = INSFVNoSlipWallBC
-    variable = v
+    variable = vel_y
     boundary = 'left right top bottom'
     function = 0
   []
 []
 
 [Materials]
-  [ins_fv]
-    type = INSFVMaterial
-    u = 'u'
-    v = 'v'
-    pressure = 'pressure'
-    rho = ${rho}
-  []
   [mu]
-    type = ADGenericConstantFunctorMaterial
+    type = ADGenericFunctorMaterial
     prop_names = 'mu'
     prop_values = '${mu}'
   []
@@ -169,6 +162,7 @@ rho=1
   petsc_options_iname = '-pc_type -ksp_gmres_restart -sub_pc_type -sub_pc_factor_shift_type'
   petsc_options_value = 'asm      100                lu           NONZERO'
   nl_rel_tol = 1e-12
+  residual_and_jacobian_together = true
 []
 
 [Outputs]

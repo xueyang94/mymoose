@@ -83,7 +83,7 @@
     app_type = MooseTestApp
     positions = '0 0 0'
     input_files = 'transient_sub.i'
-    clone_master_mesh = true
+    clone_parent_mesh = true
     execute_on = 'timestep_begin'
   []
 []
@@ -91,16 +91,14 @@
 [Transfers]
   [left_from_sub]
     type = MultiAppPostprocessorTransfer
-    direction = from_multiapp
-    multi_app = sub
+    from_multi_app = sub
     from_postprocessor = 'to_main'
     to_postprocessor = 'from_sub'
     reduction_type = 'average'
   []
   [right_to_sub]
     type = MultiAppPostprocessorTransfer
-    direction = to_multiapp
-    multi_app = sub
+    to_multi_app = sub
     from_postprocessor = 'to_sub'
     to_postprocessor = 'from_main'
   []

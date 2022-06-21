@@ -14,7 +14,6 @@
     family = MONOMIAL
     fv = true
     type = MooseVariableFVReal
-    use_extended_stencil = true
   []
 []
 
@@ -51,7 +50,7 @@
 
 [Materials]
   [diff]
-    type = ADGenericConstantFunctorMaterial
+    type = ADGenericFunctorMaterial
     prop_names = 'coeff'
     prop_values = '1'
   []
@@ -62,10 +61,6 @@
   solve_type = 'NEWTON'
   petsc_options_iname = '-pc_type'
   petsc_options_value = 'hypre'
-[]
-
-[Problem]
-  kernel_coverage_check = false
 []
 
 [Adaptivity]

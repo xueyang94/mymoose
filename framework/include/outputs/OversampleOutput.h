@@ -12,8 +12,6 @@
 // MOOSE includes
 #include "AdvancedOutput.h"
 
-// Forward declerations
-class OversampleOutput;
 class MooseMesh;
 
 // libMesh forward declarations
@@ -23,9 +21,6 @@ template <typename T>
 class NumericVector;
 class MeshFunction;
 }
-
-template <>
-InputParameters validParams<OversampleOutput>();
 
 /**
  * Based class for providing re-positioning and oversampling support to output objects
@@ -107,4 +102,3 @@ private:
    * re-used, unless the mesh has changed due to adaptivity */
   std::unique_ptr<NumericVector<Number>> _serialized_solution;
 };
-

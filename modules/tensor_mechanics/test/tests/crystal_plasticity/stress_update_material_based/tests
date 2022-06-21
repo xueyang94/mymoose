@@ -4,7 +4,7 @@
     input = 'update_method_test.i'
     exodiff = 'update_method_test_out.e'
     issues = '#16064'
-    requirement = 'MOOSE shall provide a StressUpdate material-based extensible crystal plasticity '
+    requirement = 'The system shall provide a StressUpdate material-based extensible crystal plasticity '
                   'system'
     design = '/ComputeMultipleCrystalPlasticityStress.md /CrystalPlasticityKalidindiUpdate.md'
   []
@@ -25,7 +25,7 @@
     allow_warnings = true
     issues = '#16064'
     requirement = 'A constitutive failure shall trigger an exception leading to a cut time step '
-                  'rather than a failed solve'
+                  'rather than a failed solve using the stress-update based crystal plasticity implementation'
     design = '/ComputeMultipleCrystalPlasticityStress.md /CrystalPlasticityKalidindiUpdate.md'
   []
   [substep]
@@ -35,7 +35,7 @@
     allow_warnings = true
     issues = '#6097'
     requirement = 'The crystal plasticity system shall provide a substepping capability for improved '
-                  'convergence'
+                  'convergence using the stress-update based crystal plasticity implementation'
     design = '/ComputeMultipleCrystalPlasticityStress.md /CrystalPlasticityKalidindiUpdate.md'
   []
   [linesearch]
@@ -44,7 +44,7 @@
     exodiff = 'linesearch_out.e'
     issues = '#16064'
     requirement = 'The crystal plasticity system shall implement a line search capability for '
-                  'accellerated internal Newton solves'
+                  'accelerated internal Newton solves using the stress-update based crystal plasticity implementation'
     design = '/CrystalPlasticityKalidindiUpdate.md'
   []
   [orthotropic_rotation_Cijkl]
@@ -53,7 +53,7 @@
     csvdiff = 'orthotropic_rotation_Cijkl_out.csv'
     issues = '#10629'
     requirement = 'The crystal plasticity rotations shall correctly rotate the elasticity tensors at '
-                  'each material point'
+                  'each material point using the stress-update based crystal plasticity implementation'
     design = '/ComputeElasticityTensorConstantRotationCP.md'
   []
   [patch_recovery]
@@ -62,12 +62,11 @@
     exodiff = 'patch_recovery_out.e'
     abs_zero = 1e-8
     mesh_mode = replicated
-    max_parallel = 1 #This restriction will be removed once #12036 is resolved.
     requirement = "The Zienkiewicz-Zhu patch shall calculate the stress components at the nodes, "
-                  "with equivalent results in both serial and parallel simulations, in a crystal "
-                  "plasticity finite strain application."
-    design = 'auxkernels/RankTwoAux.md'
-    issues = '#12036'
+                  "with equivalent results in both serial and parallel simulations, in "
+                  "the stress-update based crystal plasticity implementation"
+    design = 'nodal_patch_recovery.md'
+    issues = '#18721'
   []
   [use_substep_dt]
     type = 'CSVDiff'
@@ -77,7 +76,7 @@
     valgrind = HEAVY
     issues = '#17340'
     requirement = 'The system shall apply correct boundary condition after timestep being cut during '
-                  'substepping'
+                  'substepping using the stress-update based crystal plasticity implementation'
     design = '/ComputeMultipleCrystalPlasticityStress.md'
   []
   [thermal_eigenstrain]
@@ -114,8 +113,63 @@
     allow_warnings = true
     issues = '#17734'
     requirement = 'The system shall produce correct thermal deformation gradient values with '
-                  'changing temperature'
+                  'changing temperature under a 011 loading orientation'
     design = '/ComputeCrystalPlasticityThermalEigenstrain.md '
              '/ComputeMultipleCrystalPlasticityStress.md'
+  []
+  [update_euler_angle_111_orientation]
+    type = 'CSVDiff'
+    input = 'update_euler_angle.i'
+    csvdiff = 'update_euler_angle_111_orientation_out.csv'
+    cli_args = 'Materials/elasticity_tensor/euler_angle_1=0 '
+               'Materials/elasticity_tensor/euler_angle_2=54.7 '
+               'Materials/elasticity_tensor/euler_angle_3=45 '
+               'Outputs/file_base=update_euler_angle_111_orientation_out'
+    allow_warnings = true
+    requirement = 'The system shall produce correct Euler angles during the crystal plastic '
+                  'simulation for single crystal oriented along (111).'
+    issues = '#19473'
+    design = '/ComputeUpdatedEulerAngle.md '
+             '/ComputeMultipleCrystalPlasticityStress.md'
+  []
+  [update_euler_angle_112_orientation]
+    type = 'CSVDiff'
+    input = 'update_euler_angle.i'
+    csvdiff = 'update_euler_angle_112_orientation_out.csv'
+    cli_args = 'Materials/elasticity_tensor/euler_angle_1=90 '
+               'Materials/elasticity_tensor/euler_angle_2=30 '
+               'Materials/elasticity_tensor/euler_angle_3=45 '
+               'Outputs/file_base=update_euler_angle_112_orientation_out'
+    allow_warnings = true
+    requirement = 'The system shall produce correct Euler angles during the crystal plastic '
+                  'simulation for single crystal oriented along (112).'
+    issues = '#19473'
+    design = '/ComputeUpdatedEulerAngle.md '
+             '/ComputeMultipleCrystalPlasticityStress.md'
+  []
+  [update_euler_angle_123_orientation]
+    type = 'CSVDiff'
+    input = 'update_euler_angle.i'
+    csvdiff = 'update_euler_angle_123_orientation_out.csv'
+    cli_args = 'Materials/elasticity_tensor/euler_angle_1=50 '
+               'Materials/elasticity_tensor/euler_angle_2=34 '
+               'Materials/elasticity_tensor/euler_angle_3=65 '
+               'Outputs/file_base=update_euler_angle_123_orientation_out'
+    allow_warnings = true
+    requirement = 'The system shall produce correct Euler angles during the crystal plastic '
+                  'simulation for single crystal oriented along (123). '
+    issues = '#19473'
+    design = '/ComputeUpdatedEulerAngle.md '
+             '/ComputeMultipleCrystalPlasticityStress.md'
+  []
+  [bicrystal_test]
+    type = 'CSVDiff'
+    input = 'bicrystal_test.i'
+    csvdiff = 'bicrystal_test_out.csv'
+    requirement = 'The system shall allow multiple crystal plasticity models to '
+                  'be used in a polycrystalline simulation through the use of '
+                  'the base_name input parameter.'
+    issues = '#21036'
+    design = '/ComputeMultipleCrystalPlasticityStress.md'
   []
 []

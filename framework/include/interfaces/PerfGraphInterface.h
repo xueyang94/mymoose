@@ -16,22 +16,22 @@
 #ifndef MOOSE_NO_PERF_GRAPH
 #define TIME_SECTION1(id)                                                                          \
   mooseAssert(!Threads::in_threads, "PerfGraph timing cannot be used within threaded sections");   \
-  PerfGuard time_guard(_perf_graph, id);
+  PerfGuard time_guard(this->_pg_moose_app.perfGraph(), id);
 #else
 #define TIME_SECTION1(id)
 #endif
 
 #define TIME_SECTION2(section_name, level)                                                         \
-  static const PerfID __perf_id = registerTimedSection(section_name, level);                       \
+  static const PerfID __perf_id = this->registerTimedSection(section_name, level);                 \
   TIME_SECTION1(__perf_id);
 
 #define TIME_SECTION3(section_name, level, live_message)                                           \
-  static const PerfID __perf_id = registerTimedSection(section_name, level, live_message);         \
+  static const PerfID __perf_id = this->registerTimedSection(section_name, level, live_message);   \
   TIME_SECTION1(__perf_id);
 
 #define TIME_SECTION4(section_name, level, live_message, print_dots)                               \
   static const PerfID __perf_id =                                                                  \
-      registerTimedSection(section_name, level, live_message, print_dots);                         \
+      this->registerTimedSection(section_name, level, live_message, print_dots);                   \
   TIME_SECTION1(__perf_id);
 
 // Overloading solution from https://stackoverflow.com/a/11763277
@@ -39,14 +39,10 @@
 #define TIME_SECTION(...)                                                                          \
   GET_MACRO(__VA_ARGS__, TIME_SECTION4, TIME_SECTION3, TIME_SECTION2, TIME_SECTION1, )(__VA_ARGS__)
 
-// Forward declarations
-class PerfGraphInterface;
-
-template <>
-InputParameters validParams<PerfGraphInterface>();
-
 /**
- * Interface for objects that needs transient capabilities
+ * Interface for objects interacting with the PerfGraph.
+ *
+ * Enables getting PerfGraph information and registering PerfGraph timed sections.
  */
 class PerfGraphInterface
 {
@@ -68,7 +64,18 @@ public:
    */
   PerfGraphInterface(PerfGraph & perf_graph, const std::string prefix = "");
 
+  /**
+   * For objects that construct the PerfGraphInterface _before_ the PerfGraph
+   * is initialized (see MooseApp and OutputWarehouse)
+   */
+  PerfGraphInterface(MooseApp & moose_app, const std::string prefix = "");
+
   virtual ~PerfGraphInterface() = default;
+
+  /**
+   * Get the PerfGraph
+   */
+  PerfGraph & perfGraph();
 
 protected:
   /**
@@ -94,12 +101,9 @@ protected:
                               const std::string & live_message,
                               const bool print_dots = true) const;
 
-  /// Params
-  const InputParameters * const _pg_params;
-
-  /// The performance graph to add to
-  PerfGraph & _perf_graph;
+  /// The MooseApp that owns the PerfGraph
+  MooseApp & _pg_moose_app;
 
   /// A prefix to use for all sections
-  std::string _prefix;
+  const std::string _prefix;
 };

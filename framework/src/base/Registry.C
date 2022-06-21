@@ -11,48 +11,36 @@
 #include "Registry.h"
 #include "Factory.h"
 #include "ActionFactory.h"
+#include "MooseUtils.h"
 
-#include "libmesh/auto_ptr.h"
 #include "libmesh/libmesh_common.h"
 
-static Registry &
-getRegistry()
-{
-  static std::unique_ptr<Registry> _singleton;
-  if (!_singleton)
-    _singleton = libmesh_make_unique<Registry>();
-  return *_singleton;
-}
+#include <memory>
 
-const std::map<std::string, std::vector<RegistryEntry>> &
-Registry::allObjects()
+Registry &
+Registry::getRegistry()
 {
-  return getRegistry()._per_label_objects;
-}
-const std::map<std::string, std::vector<RegistryEntry>> &
-Registry::allActions()
-{
-  return getRegistry()._per_label_actions;
+  static Registry registry_singleton;
+  return registry_singleton;
 }
 
 void
 Registry::addInner(const RegistryEntry & info)
 {
-  auto & r = getRegistry();
-  r._per_label_objects[info._label].push_back(info);
+  getRegistry()._per_label_objects[info._label].push_back(info);
 }
 
 void
 Registry::addActionInner(const RegistryEntry & info)
 {
-  auto & r = getRegistry();
-  r._per_label_actions[info._label].push_back(info);
+  getRegistry()._per_label_actions[info._label].push_back(info);
 }
 
 void
 Registry::registerObjectsTo(Factory & f, const std::set<std::string> & labels)
 {
   auto & r = getRegistry();
+
   for (const auto & label : labels)
   {
     r._known_labels.insert(label);
@@ -97,20 +85,11 @@ Registry::objData(const std::string & name)
     mooseError("Object ", name, " is not registered yet");
 }
 
-bool
-Registry::isRegisteredObj(const std::string & name)
-{
-  auto & r = getRegistry();
-
-  auto it = r._name_to_entry.find(name);
-
-  return it != r._name_to_entry.end();
-}
-
 void
 Registry::registerActionsTo(ActionFactory & f, const std::set<std::string> & labels)
 {
   auto & r = getRegistry();
+
   for (const auto & label : labels)
   {
     r._known_labels.insert(label);
@@ -123,33 +102,27 @@ Registry::registerActionsTo(ActionFactory & f, const std::set<std::string> & lab
   }
 }
 
-void
-Registry::checkLabels(const std::set<std::string> & known_labels)
-{
-  auto & r = getRegistry();
-  std::vector<RegistryEntry> orphs;
-
-  for (auto & entry : r._per_label_objects)
-    if (known_labels.count(entry.first) == 0 && r._known_labels.count(entry.first) == 0)
-      orphs.insert(orphs.end(), entry.second.begin(), entry.second.end());
-  for (auto & entry : r._per_label_actions)
-    if (known_labels.count(entry.first) == 0 && r._known_labels.count(entry.first) == 0)
-      orphs.insert(orphs.end(), entry.second.begin(), entry.second.end());
-
-  if (orphs.size() > 0)
-  {
-    std::stringstream lst;
-    for (auto & orph : orphs)
-      lst << "\n\t" << orph._classname << " (app='" << orph._label << "')";
-    mooseError("The following objects/actions have been registered to unknown applications/labels:",
-               lst.str());
-  }
-}
-
 char
 Registry::addKnownLabel(const std::string & label)
 {
-  auto & r = getRegistry();
-  r._known_labels.insert(label);
+  getRegistry()._known_labels.insert(label);
   return 0;
+}
+
+void
+Registry::addDataFilePath(const std::string & fullpath)
+{
+  auto & dfp = getRegistry()._data_file_paths;
+
+  // split the *App.C filename from its containing directory
+  const auto path = MooseUtils::splitFileName(fullpath).first;
+
+  // This works for both build/unity_src/ and src/base/ as the *App.C file location,
+  // in case __FILE__ doesn't get overriden in unity build
+  const auto data_dir = MooseUtils::pathjoin(path, "../../data");
+
+  // if the data directory exists and hasn't been added before, add it
+  if (MooseUtils::pathIsDirectory(data_dir) &&
+      std::find(dfp.begin(), dfp.end(), data_dir) == dfp.end())
+    dfp.push_back(data_dir);
 }

@@ -15,13 +15,8 @@
 #include <string>
 #include <fstream>
 
-// Forward Declarations
-class Transient;
 class TimeStepper;
 class FEProblemBase;
-
-template <>
-InputParameters validParams<Transient>();
 
 /**
  * Transient executioners usually loop through a number of timesteps... calling solve()
@@ -222,6 +217,12 @@ protected:
 
   /// Reference to nonlinear system base for faster access
   NonlinearSystemBase & _nl;
+
+  /// Reference to auxiliary system base for faster access
+  AuxiliarySystem & _aux;
+
+  /// Whether to use the auxiliary system solution to determine steady-states
+  const bool _check_aux;
 
   Moose::TimeIntegratorType _time_scheme;
   std::shared_ptr<TimeStepper> _time_stepper;

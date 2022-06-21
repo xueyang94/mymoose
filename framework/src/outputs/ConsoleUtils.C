@@ -147,6 +147,14 @@ outputSystemInformationHelper(std::stringstream & oss, System & system)
     oss << std::setw(console_field_width) << "  Num DOFs: " << system.n_dofs() << '\n'
         << std::setw(console_field_width) << "  Num Local DOFs: " << system.n_local_dofs() << '\n';
 
+    if (system.n_constrained_dofs())
+    {
+      oss << std::setw(console_field_width)
+          << "  Num Constrained DOFs: " << system.n_constrained_dofs() << '\n'
+          << std::setw(console_field_width)
+          << "  Local Constrained DOFs: " << system.n_local_constrained_dofs() << '\n';
+    }
+
     std::streampos begin_string_pos = oss.tellp();
     std::streampos curr_string_pos = begin_string_pos;
     oss << std::setw(console_field_width) << "  Variables: ";
@@ -322,8 +330,7 @@ outputExecutionInformation(const MooseApp & app, FEProblemBase & problem)
   if (time_stepper != "")
     oss << std::setw(console_field_width) << "  TimeStepper: " << time_stepper << '\n';
 
-  oss << std::setw(console_field_width)
-      << "  Solver Mode: " << Moose::stringify(problem.solverParams()._type) << '\n';
+  oss << std::setw(console_field_width) << "  Solver Mode: " << problem.solverTypeString() << '\n';
 
   const std::string & pc_desc = problem.getPetscOptions().pc_description;
   if (!pc_desc.empty())

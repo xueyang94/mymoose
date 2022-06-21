@@ -17,7 +17,7 @@
 
 [Kernels]
   [diff]
-    type = Diffusion
+    type = ADDiffusion
     variable = u
   []
 []
@@ -47,7 +47,7 @@
 
 [Materials]
   [diff]
-    type = ADGenericConstantFunctorMaterial
+    type = ADGenericFunctorMaterial
     prop_names = 'coeff'
     prop_values = '1'
   []
@@ -55,21 +55,17 @@
 
 [BCs]
   [left]
-    type = NeumannBC
+    type = ADNeumannBC
     variable = u
     boundary = left
     value = 5
   []
   [right]
-    type = DirichletBC
+    type = ADDirichletBC
     variable = u
     boundary = right
     value = 42
   []
-[]
-
-[Problem]
-  kernel_coverage_check = off
 []
 
 [Executioner]

@@ -14,8 +14,6 @@
 
 registerMooseObject("MooseApp", AnnularMesh);
 
-defineLegacyParams(AnnularMesh);
-
 InputParameters
 AnnularMesh::validParams()
 {
@@ -155,7 +153,7 @@ AnnularMesh::getMaxInDimension(unsigned int component) const
 std::unique_ptr<MooseMesh>
 AnnularMesh::safeClone() const
 {
-  return libmesh_make_unique<AnnularMesh>(*this);
+  return std::make_unique<AnnularMesh>(*this);
 }
 
 void

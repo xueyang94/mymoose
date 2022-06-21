@@ -12,8 +12,6 @@
 
 registerMooseObject("MooseApp", BoundingBoxIC);
 
-defineLegacyParams(BoundingBoxIC);
-
 InputParameters
 BoundingBoxIC::validParams()
 {
@@ -63,7 +61,7 @@ BoundingBoxIC::value(const Point & p)
 
   if (_int_width == 0.0)
   {
-    for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+    for (const auto i : make_range(Moose::dim))
       if (p(i) < _bottom_left(i) || p(i) > _top_right(i))
         return _outside;
 
@@ -72,7 +70,7 @@ BoundingBoxIC::value(const Point & p)
   else
   {
     Real f_in = 1.0;
-    for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+    for (const auto i : make_range(Moose::dim))
       if (_bottom_left(i) != _top_right(i))
         f_in *= 0.5 * (std::tanh(2.0 * (p(i) - _bottom_left(i)) / _int_width) -
                        std::tanh(2.0 * (p(i) - _top_right(i)) / _int_width));

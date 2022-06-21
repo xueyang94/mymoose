@@ -25,15 +25,23 @@ FVFluxKernel::validParams()
   params.registerSystemAttributeName("FVFluxKernel");
   params.addParam<bool>("force_boundary_execution",
                         false,
-                        "Whether to force execution of this object on the boundary.");
+                        "Whether to force execution of this object on all external boundaries.");
   params.addParam<std::vector<BoundaryName>>(
       "boundaries_to_force",
       std::vector<BoundaryName>(),
-      "The set of boundaries to force execution of this FVFluxKernel on.");
+      "The set of sidesets to force execution of this FVFluxKernel on. "
+      "Setting force_boundary_execution to true is equivalent to listing all external "
+      "mesh boundaries in this parameter.");
   params.addParam<std::vector<BoundaryName>>(
-      "boundaries_to_not_force",
+      "boundaries_to_avoid",
       std::vector<BoundaryName>(),
-      "The set of boundaries to not force execution of this FVFluxKernel on.");
+      "The set of sidesets to not execute this FVFluxKernel on. "
+      "This takes precedence over force_boundary_execution to restrict to less external boundaries."
+      " By default flux kernels are executed on all internal boundaries and Dirichlet boundary "
+      "conditions.");
+
+  params.addParamNamesToGroup("force_boundary_execution boundaries_to_force boundaries_to_avoid",
+                              "Boundary execution modification parameters");
   return params;
 }
 
@@ -51,33 +59,26 @@ FVFluxKernel::FVFluxKernel(const InputParameters & params)
 {
   addMooseVariableDependency(&_var);
 
-  if (_force_boundary_execution && params.isParamSetByUser("boundaries_to_force"))
-    paramError(
-        "force_boundary_execution",
-        "You cannot set force_boundary_execution to true and set a value for 'boundaries_to_force' "
-        "because the former param implies that all boundaries should be forced.");
-
-  if (!_force_boundary_execution && params.isParamSetByUser("boundaries_to_not_force"))
-    paramError("boundaries_to_not_force",
-               "You must set 'force_boundary_execution' to true in order to set a value for "
-               "'boundaries_to_not_force' "
-               "because without the former param, no boundaries are forced.");
-
   const auto & vec = getParam<std::vector<BoundaryName>>("boundaries_to_force");
   for (const auto & name : vec)
     _boundaries_to_force.insert(_mesh.getBoundaryID(name));
 
-  const auto & not_vec = getParam<std::vector<BoundaryName>>("boundaries_to_not_force");
-  for (const auto & name : not_vec)
-    _boundaries_to_not_force.insert(_mesh.getBoundaryID(name));
+  const auto & avoid_vec = getParam<std::vector<BoundaryName>>("boundaries_to_avoid");
+  for (const auto & name : avoid_vec)
+  {
+    const auto bid = _mesh.getBoundaryID(name);
+    _boundaries_to_avoid.insert(bid);
+    if (_boundaries_to_force.find(bid) != _boundaries_to_force.end())
+      paramError(
+          "boundaries_to_avoid",
+          "A boundary may not be specified in both boundaries_to_avoid and boundaries_to_force");
+  }
 }
 
 bool
 FVFluxKernel::onBoundary(const FaceInfo & fi) const
 {
-  const bool internal =
-      fi.neighborPtr() && hasBlocks(fi.elemSubdomainID()) && hasBlocks(fi.neighborSubdomainID());
-  return !internal;
+  return Moose::FV::onBoundary(*this, fi);
 }
 
 // Note the lack of quadrature point loops in the residual/jacobian compute
@@ -88,25 +89,21 @@ FVFluxKernel::onBoundary(const FaceInfo & fi) const
 bool
 FVFluxKernel::skipForBoundary(const FaceInfo & fi) const
 {
+  // Boundaries to avoid come first, since they are always obeyed
+  if (avoidBoundary(fi))
+    return true;
+
+  // We're not on a boundary, so in practice we're not 'skipping'
   if (!onBoundary(fi))
     return false;
 
+  // Blanket forcing on boundary
   if (_force_boundary_execution)
-  {
-    bool force = true;
-    for (const auto bnd_id : fi.boundaryIDs())
-      if (_boundaries_to_not_force.find(bnd_id) != _boundaries_to_not_force.end())
-      {
-        force = false;
-        break;
-      }
+    return false;
 
-    if (force)
-      return false;
-  }
-
+  // Selected boundaries to force
   for (const auto bnd_to_force : _boundaries_to_force)
-    if (fi.boundaryIDs().find(bnd_to_force) != fi.boundaryIDs().end())
+    if (fi.boundaryIDs().count(bnd_to_force))
       return false;
 
   // If we have flux bcs then we do skip
@@ -127,6 +124,7 @@ FVFluxKernel::computeResidual(const FaceInfo & fi)
 
   _face_info = &fi;
   _normal = fi.normal();
+  _face_type = fi.faceType(_var.name());
   auto r = MetaPhysicL::raw_value(fi.faceArea() * fi.faceCoord() * computeQpResidual());
 
   // residual contributions for a flux kernel go to both neighboring faces.
@@ -145,15 +143,16 @@ FVFluxKernel::computeResidual(const FaceInfo & fi)
   // defined on one side and there is NOT a dirichlet BC, then there is either
   // a flux BC or a natural BC - in either of those cases we don't want to add
   // any residual contributions from regular flux kernels.
-  auto ft = fi.faceType(_var.name());
-  if (ft == FaceInfo::VarFaceNeighbors::ELEM || ft == FaceInfo::VarFaceNeighbors::BOTH)
+  if (_face_type == FaceInfo::VarFaceNeighbors::ELEM ||
+      _face_type == FaceInfo::VarFaceNeighbors::BOTH)
   {
     // residual contribution of this kernel to the elem element
     prepareVectorTag(_assembly, _var.number());
     _local_re(0) = r;
     accumulateTaggedLocalResidual();
   }
-  if (ft == FaceInfo::VarFaceNeighbors::NEIGHBOR || ft == FaceInfo::VarFaceNeighbors::BOTH)
+  if (_face_type == FaceInfo::VarFaceNeighbors::NEIGHBOR ||
+      _face_type == FaceInfo::VarFaceNeighbors::BOTH)
   {
     // residual contribution of this kernel to the neighbor element
     prepareVectorTagNeighbor(_assembly, _var.number());
@@ -163,7 +162,7 @@ FVFluxKernel::computeResidual(const FaceInfo & fi)
 }
 
 void
-FVFluxKernel::computeJacobian(Moose::DGJacobianType type, const ADReal & residual)
+FVFluxKernel::computeJacobianType(Moose::DGJacobianType type, const ADReal & residual)
 {
   auto & ce = _assembly.couplingEntries();
   for (const auto & it : ce)
@@ -226,6 +225,7 @@ FVFluxKernel::computeJacobian(const FaceInfo & fi)
 
   _face_info = &fi;
   _normal = fi.normal();
+  _face_type = fi.faceType(_var.name());
   const ADReal r = fi.faceArea() * fi.faceCoord() * computeQpResidual();
 
   // The fancy face type if condition checks here are because we might
@@ -237,36 +237,43 @@ FVFluxKernel::computeJacobian(const FaceInfo & fi)
   // defined on one side and there is NOT a dirichlet BC, then there is either
   // a flux BC or a natural BC - in either of those cases we don't want to add
   // any jacobian contributions from regular flux kernels.
-  auto ft = fi.faceType(_var.name());
-  if (ft == FaceInfo::VarFaceNeighbors::ELEM || ft == FaceInfo::VarFaceNeighbors::BOTH)
+  if (_face_type == FaceInfo::VarFaceNeighbors::ELEM ||
+      _face_type == FaceInfo::VarFaceNeighbors::BOTH)
   {
     mooseAssert(_var.dofIndices().size() == 1, "We're currently built to use CONSTANT MONOMIALS");
 
-    auto element_functor = [&](const ADReal & residual, dof_id_type, const std::set<TagID> &) {
+#ifdef MOOSE_GLOBAL_AD_INDEXING
+    _assembly.processResidualAndJacobian(r, _var.dofIndices()[0], _vector_tags, _matrix_tags);
+#else
+    auto element_functor = [&](const ADReal & residual, dof_id_type, const std::set<TagID> &)
+    {
       // jacobian contribution of the residual for the elem element to the elem element's DOF:
       // d/d_elem (residual_elem)
-      computeJacobian(Moose::ElementElement, residual);
+      computeJacobianType(Moose::ElementElement, residual);
 
       mooseAssert(
-          (ft == FaceInfo::VarFaceNeighbors::ELEM) == (_var.dofIndicesNeighbor().size() == 0),
+          (_face_type == FaceInfo::VarFaceNeighbors::ELEM) ==
+              (_var.dofIndicesNeighbor().size() == 0),
           "If the variable is only defined on the elem hand side of the face, then that "
           "means it should have no dof indices on the neighbor/neighbor element. Conversely if "
           "the variable is defined on both sides of the face, then it should have a non-zero "
           "number of degrees of freedom on the neighbor/neighbor element");
 
       // only add residual to neighbor if the variable is defined there.
-      if (ft == FaceInfo::VarFaceNeighbors::BOTH)
+      if (_face_type == FaceInfo::VarFaceNeighbors::BOTH)
         // jacobian contribution of the residual for the elem element to the neighbor element's DOF:
         // d/d_neighbor (residual_elem)
-        computeJacobian(Moose::ElementNeighbor, residual);
+        computeJacobianType(Moose::ElementNeighbor, residual);
     };
-
-    _assembly.processDerivatives(r, _var.dofIndices()[0], _matrix_tags, element_functor);
+    _assembly.processJacobian(r, _var.dofIndices()[0], _matrix_tags, element_functor);
+#endif
   }
 
-  if (ft == FaceInfo::VarFaceNeighbors::NEIGHBOR || ft == FaceInfo::VarFaceNeighbors::BOTH)
+  if (_face_type == FaceInfo::VarFaceNeighbors::NEIGHBOR ||
+      _face_type == FaceInfo::VarFaceNeighbors::BOTH)
   {
-    mooseAssert((ft == FaceInfo::VarFaceNeighbors::NEIGHBOR) == (_var.dofIndices().size() == 0),
+    mooseAssert((_face_type == FaceInfo::VarFaceNeighbors::NEIGHBOR) ==
+                    (_var.dofIndices().size() == 0),
                 "If the variable is only defined on the neighbor hand side of the face, then that "
                 "means it should have no dof indices on the elem element. Conversely if "
                 "the variable is defined on both sides of the face, then it should have a non-zero "
@@ -278,62 +285,112 @@ FVFluxKernel::computeJacobian(const FaceInfo & fi)
     mooseAssert(_var.dofIndicesNeighbor().size() == 1,
                 "We're currently built to use CONSTANT MONOMIALS");
 
-    auto neighbor_functor = [&](const ADReal & residual, dof_id_type, const std::set<TagID> &) {
+#ifdef MOOSE_GLOBAL_AD_INDEXING
+    _assembly.processResidualAndJacobian(
+        neighbor_r, _var.dofIndicesNeighbor()[0], _vector_tags, _matrix_tags);
+#else
+    auto neighbor_functor = [&](const ADReal & residual, dof_id_type, const std::set<TagID> &)
+    {
       // only add residual to elem if the variable is defined there.
-      if (ft == FaceInfo::VarFaceNeighbors::BOTH)
+      if (_face_type == FaceInfo::VarFaceNeighbors::BOTH)
         // jacobian contribution of the residual for the neighbor element to the elem element's DOF:
         // d/d_elem (residual_neighbor)
-        computeJacobian(Moose::NeighborElement, residual);
+        computeJacobianType(Moose::NeighborElement, residual);
 
       // jacobian contribution of the residual for the neighbor element to the neighbor element's
       // DOF: d/d_neighbor (residual_neighbor)
-      computeJacobian(Moose::NeighborNeighbor, residual);
+      computeJacobianType(Moose::NeighborNeighbor, residual);
     };
 
-    _assembly.processDerivatives(
+    _assembly.processJacobian(
         neighbor_r, _var.dofIndicesNeighbor()[0], _matrix_tags, neighbor_functor);
+#endif
   }
+}
+
+void
+FVFluxKernel::computeResidualAndJacobian(const FaceInfo & fi)
+{
+#ifndef MOOSE_GLOBAL_AD_INDEXING
+  mooseError("computeResidualAndJacobian not supported for ", name());
+#endif
+  computeJacobian(fi);
 }
 
 ADReal
 FVFluxKernel::gradUDotNormal() const
 {
-  return Moose::FV::gradUDotNormal(_u_elem[_qp], _u_neighbor[_qp], *_face_info, _var);
+  mooseAssert(_face_info, "the face info should be non-null");
+
+  // Utlimately this will be a property of the kernel
+  const bool correct_skewness =
+      (_var.faceInterpolationMethod() == Moose::FV::InterpMethod::SkewCorrectedAverage);
+
+  return Moose::FV::gradUDotNormal(
+      _var(elemFromFace()), _var(neighborFromFace()), *_face_info, _var, correct_skewness);
 }
 
-std::tuple<const libMesh::Elem *, const FaceInfo *, SubdomainID>
-FVFluxKernel::makeSidedFace(const Elem * const elem, const FaceInfo * const face_info) const
+Moose::ElemFromFaceArg
+FVFluxKernel::elemFromFace(const bool correct_skewness) const
 {
-  if (elem && this->hasBlocks(elem->subdomain_id()))
-    return std::make_tuple(elem, face_info, elem->subdomain_id());
-  else
-  {
-    const Elem * const elem_across =
-        (elem == &face_info->elem()) ? face_info->neighborPtr() : &face_info->elem();
-    mooseAssert(elem_across && this->hasBlocks(elem_across->subdomain_id()),
-                "How are there no elements with subs on here!");
-    return std::make_tuple(elem, face_info, elem_across->subdomain_id());
-  }
+  mooseAssert(_face_info, "the face info should be non-null");
+  return Moose::FV::elemFromFace(*this, *_face_info, correct_skewness);
 }
 
-std::tuple<const libMesh::Elem *, const FaceInfo *, SubdomainID>
-FVFluxKernel::elemFromFace() const
+Moose::ElemFromFaceArg
+FVFluxKernel::neighborFromFace(const bool correct_skewness) const
 {
-  return makeSidedFace(&_face_info->elem(), _face_info);
-}
-
-std::tuple<const libMesh::Elem *, const FaceInfo *, SubdomainID>
-FVFluxKernel::neighborFromFace() const
-{
-  return makeSidedFace(_face_info->neighborPtr(), _face_info);
+  mooseAssert(_face_info, "the face info should be non-null");
+  return Moose::FV::neighborFromFace(*this, *_face_info, correct_skewness);
 }
 
 std::pair<SubdomainID, SubdomainID>
-FVFluxKernel::faceArgSubdomains(const FaceInfo * const face_info) const
+FVFluxKernel::faceArgSubdomains(const FaceInfo * face_info) const
 {
   if (!face_info)
-    return std::make_pair(std::get<2>(elemFromFace()), std::get<2>(neighborFromFace()));
-  else
-    return std::make_pair(std::get<2>(makeSidedFace(&face_info->elem(), face_info)),
-                          std::get<2>(makeSidedFace(face_info->neighborPtr(), face_info)));
+    face_info = _face_info;
+
+  mooseAssert(face_info, "the face info should be non-null");
+
+  return Moose::FV::faceArgSubdomains(*this, *face_info);
+}
+
+Moose::SingleSidedFaceArg
+FVFluxKernel::singleSidedFaceArg(const FaceInfo * fi,
+                                 const Moose::FV::LimiterType limiter_type,
+                                 const bool correct_skewness) const
+{
+  if (!fi)
+    fi = _face_info;
+  const bool use_elem = fi->faceType(_var.name()) == FaceInfo::VarFaceNeighbors::ELEM;
+  const auto sub_id = use_elem ? fi->elem().subdomain_id() : fi->neighborPtr()->subdomain_id();
+
+  return {fi, limiter_type, true, correct_skewness, sub_id};
+}
+
+bool
+FVFluxKernel::avoidBoundary(const FaceInfo & fi) const
+{
+  for (const auto bnd_id : fi.boundaryIDs())
+    if (_boundaries_to_avoid.count(bnd_id))
+      return true;
+  return false;
+}
+
+void
+FVFluxKernel::computeResidual()
+{
+  mooseError("FVFluxKernel residual/Jacobian evaluation requires a face information object");
+}
+
+void
+FVFluxKernel::computeJacobian()
+{
+  mooseError("FVFluxKernel residual/Jacobian evaluation requires a face information object");
+}
+
+void
+FVFluxKernel::computeResidualAndJacobian()
+{
+  mooseError("FVFluxKernel residual/Jacobian evaluation requires a face information object");
 }

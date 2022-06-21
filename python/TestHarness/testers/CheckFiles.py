@@ -32,8 +32,8 @@ class CheckFiles(FileTester):
         return self.specs['check_files'] + self.specs['check_not_exists']
 
     def processResults(self, moose_dir, options, output):
-        output = FileTester.testFileOutput(self, moose_dir, options, output)
-        output = FileTester.testExitCodes(self, moose_dir, options, output)
+        output += FileTester.processResults(self, moose_dir, options, output)
+
         specs = self.specs
 
         if self.isFail() or specs['skip_checks']:
@@ -41,17 +41,26 @@ class CheckFiles(FileTester):
         else:
             reason = ''
             # if still no errors, check other files (just for existence)
+            errors = []
             for file in self.specs['check_files']:
-                if not os.path.isfile(os.path.join(self.getTestDir(), file)):
+                full_path = os.path.abspath(os.path.join(self.getTestDir(), file))
+                if os.path.isfile(full_path):
+                    errors.append('File "' + full_path + '" exists.')
+                else:
+                    errors.append('File "' + full_path + '" does not exist but should.')
                     reason = 'MISSING FILES'
-                    break
             for file in self.specs['check_not_exists']:
-                if os.path.isfile(os.path.join(self.getTestDir(), file)):
+                full_path = os.path.abspath(os.path.join(self.getTestDir(), file))
+                if os.path.isfile(full_path):
+                    errors.append('File "' + full_path + '" exists but should not.')
                     reason = 'UNEXPECTED FILES'
-                    break
+                else:
+                    errors.append('File "' + full_path + '" does not exist - ok.')
 
-            # if still no errors, check that all the files contain the file_expect_out expression
-            if reason == '':
+            if reason != '':
+                output += '\n' + '\n'.join(errors)
+            else:
+                # if still no errors, check that all the files contain the file_expect_out expression
                 if self.specs.isValid('file_expect_out'):
                     for file in self.specs['check_files']:
                         fid = open(os.path.join(self.getTestDir(), file), 'r')

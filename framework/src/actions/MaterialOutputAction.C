@@ -34,6 +34,10 @@ std::vector<std::string> MaterialOutputAction::materialOutputHelper<RealVectorVa
     const std::string & material_name, const MaterialBase & material, bool get_names_only);
 
 template <>
+std::vector<std::string> MaterialOutputAction::materialOutputHelper<ADRealVectorValue>(
+    const std::string & material_name, const MaterialBase & material, bool get_names_only);
+
+template <>
 std::vector<std::string> MaterialOutputAction::materialOutputHelper<RealTensorValue>(
     const std::string & material_name, const MaterialBase & material, bool get_names_only);
 
@@ -52,8 +56,6 @@ std::vector<std::string> MaterialOutputAction::materialOutputHelper<RankFourTens
 registerMooseAction("MooseApp", MaterialOutputAction, "add_output_aux_variables");
 
 registerMooseAction("MooseApp", MaterialOutputAction, "add_aux_kernel");
-
-defineLegacyParams(MaterialOutputAction);
 
 InputParameters
 MaterialOutputAction::validParams()
@@ -165,8 +167,8 @@ MaterialOutputAction::act()
           material_names.insert(curr_material_names.begin(), curr_material_names.end());
         }
 
-        // If the material object as limited outputs, store the variables associated with the output
-        // objects
+        // If the material object has limited outputs, store the variables associated with the
+        // output objects
         if (!outputs.empty())
           for (const auto & output_name : outputs)
             _material_variable_names_map[output_name].insert(_material_variable_names.begin(),
@@ -191,7 +193,7 @@ MaterialOutputAction::act()
   if (_current_task == "add_output_aux_variables")
   {
     auto params = _factory.getValidParams("MooseVariableConstMonomial");
-    // currently only elemental variables are support for material property output
+    // currently only elemental variables are supported for material property output
     params.set<MooseEnum>("order") = "CONSTANT";
     params.set<MooseEnum>("family") = "MONOMIAL";
 
@@ -200,6 +202,11 @@ MaterialOutputAction::act()
     for (const auto & var_name : material_names)
     {
       oss << "\n  " << var_name;
+      if (_problem->hasVariable(var_name))
+        mooseError("The material property output " + var_name +
+                   " has the same name as an existing variable, either use the material"
+                   " declare_suffix parameter to disambiguate or the output_properties parameter"
+                   " to restrict the material properties to output");
       _problem->addAuxVariable("MooseVariableConstMonomial", var_name, params);
     }
     if (material_names.size() > 0)
@@ -240,6 +247,9 @@ MaterialOutputAction::materialOutput(const std::string & property_name,
 
   else if (hasProperty<RealVectorValue>(property_name))
     names = materialOutputHelper<RealVectorValue>(property_name, material, get_names_only);
+
+  else if (hasADProperty<RealVectorValue>(property_name))
+    names = materialOutputHelper<ADRealVectorValue>(property_name, material, get_names_only);
 
   else if (hasProperty<RealTensorValue>(property_name))
     names = materialOutputHelper<RealTensorValue>(property_name, material, get_names_only);
@@ -323,7 +333,7 @@ MaterialOutputAction::materialOutputHelper<RealVectorValue>(const std::string & 
 {
   std::array<char, 3> suffix = {{'x', 'y', 'z'}};
   std::vector<std::string> names(3);
-  for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+  for (const auto i : make_range(Moose::dim))
   {
     std::ostringstream oss;
     oss << property_name << "_" << suffix[i];
@@ -342,18 +352,43 @@ MaterialOutputAction::materialOutputHelper<RealVectorValue>(const std::string & 
 
 template <>
 std::vector<std::string>
+MaterialOutputAction::materialOutputHelper<ADRealVectorValue>(const std::string & property_name,
+                                                              const MaterialBase & material,
+                                                              bool get_names_only)
+{
+  std::array<char, 3> suffix = {{'x', 'y', 'z'}};
+  std::vector<std::string> names(3);
+  for (const auto i : make_range(Moose::dim))
+  {
+    std::ostringstream oss;
+    oss << property_name << "_" << suffix[i];
+    names[i] = oss.str();
+
+    if (!get_names_only)
+    {
+      auto params = getParams("ADMaterialRealVectorValueAux", property_name, oss.str(), material);
+      params.set<unsigned int>("component") = i;
+      _problem->addAuxKernel("ADMaterialRealVectorValueAux", material.name() + oss.str(), params);
+    }
+  }
+
+  return names;
+}
+
+template <>
+std::vector<std::string>
 MaterialOutputAction::materialOutputHelper<RealTensorValue>(const std::string & property_name,
                                                             const MaterialBase & material,
                                                             bool get_names_only)
 {
-  std::vector<std::string> names(LIBMESH_DIM * LIBMESH_DIM);
+  std::vector<std::string> names(Moose::dim * Moose::dim);
 
-  for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
-    for (unsigned int j = 0; j < LIBMESH_DIM; ++j)
+  for (const auto i : make_range(Moose::dim))
+    for (const auto j : make_range(Moose::dim))
     {
       std::ostringstream oss;
       oss << property_name << "_" << i << j;
-      names[i * LIBMESH_DIM + j] = oss.str();
+      names[i * Moose::dim + j] = oss.str();
 
       if (!get_names_only)
       {
@@ -373,14 +408,14 @@ MaterialOutputAction::materialOutputHelper<RankTwoTensor>(const std::string & pr
                                                           const MaterialBase & material,
                                                           bool get_names_only)
 {
-  std::vector<std::string> names(LIBMESH_DIM * LIBMESH_DIM);
+  std::vector<std::string> names(Moose::dim * Moose::dim);
 
-  for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
-    for (unsigned int j = 0; j < LIBMESH_DIM; ++j)
+  for (const auto i : make_range(Moose::dim))
+    for (const auto j : make_range(Moose::dim))
     {
       std::ostringstream oss;
       oss << property_name << "_" << i << j;
-      names[i * LIBMESH_DIM + j] = oss.str();
+      names[i * Moose::dim + j] = oss.str();
 
       if (!get_names_only)
       {
@@ -400,14 +435,14 @@ MaterialOutputAction::materialOutputHelper<ADRankTwoTensor>(const std::string & 
                                                             const MaterialBase & material,
                                                             bool get_names_only)
 {
-  std::vector<std::string> names(LIBMESH_DIM * LIBMESH_DIM);
+  std::vector<std::string> names(Moose::dim * Moose::dim);
 
-  for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
-    for (unsigned int j = 0; j < LIBMESH_DIM; ++j)
+  for (const auto i : make_range(Moose::dim))
+    for (const auto j : make_range(Moose::dim))
     {
       std::ostringstream oss;
       oss << property_name << "_" << i << j;
-      names[i * LIBMESH_DIM + j] = oss.str();
+      names[i * Moose::dim + j] = oss.str();
 
       if (!get_names_only)
       {
@@ -427,13 +462,13 @@ MaterialOutputAction::materialOutputHelper<RankFourTensor>(const std::string & p
                                                            const MaterialBase & material,
                                                            bool get_names_only)
 {
-  std::vector<std::string> names(Utility::pow<4>(LIBMESH_DIM));
+  std::vector<std::string> names(Utility::pow<4>(Moose::dim));
 
   unsigned int counter = 0;
-  for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
-    for (unsigned int j = 0; j < LIBMESH_DIM; ++j)
-      for (unsigned int k = 0; k < LIBMESH_DIM; ++k)
-        for (unsigned int l = 0; l < LIBMESH_DIM; ++l)
+  for (const auto i : make_range(Moose::dim))
+    for (const auto j : make_range(Moose::dim))
+      for (const auto k : make_range(Moose::dim))
+        for (const auto l : make_range(Moose::dim))
         {
           std::ostringstream oss;
           oss << property_name << "_" << i << j << k << l;

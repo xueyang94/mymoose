@@ -11,15 +11,9 @@
 
 #include "SidePostprocessor.h"
 
-// Forward Declarations
-class SideIntegralPostprocessor;
-
-template <>
-InputParameters validParams<SideIntegralPostprocessor>();
-
 /**
- * This postprocessor computes a volume integral of the specified variable.
- *
+ * This postprocessor computes a surface integral of the specified variable on
+ * a sideset on the boundary of the mesh.
  * Note that specializations of this integral are possible by deriving from this
  * class and overriding computeQpIntegral().
  */
@@ -37,9 +31,18 @@ public:
 
 protected:
   virtual Real computeQpIntegral() = 0;
+  virtual Real computeFaceInfoIntegral(const FaceInfo * /* fi */)
+  {
+    mooseError("Integral over faces have not been implemented for this postprocessor");
+  };
   virtual Real computeIntegral();
 
+  /// The local quadrature point index when computing an integral over quadrature points
   unsigned int _qp;
 
+  /// Holds the postprocessor result, the integral
   Real _integral_value;
+
+  /// Whether to integrate over quadrature points or FaceInfos
+  bool _qp_integration;
 };

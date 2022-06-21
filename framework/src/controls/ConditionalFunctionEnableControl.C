@@ -12,8 +12,6 @@
 
 registerMooseObject("MooseApp", ConditionalFunctionEnableControl);
 
-defineLegacyParams(ConditionalFunctionEnableControl);
-
 InputParameters
 ConditionalFunctionEnableControl::validParams()
 {
@@ -37,5 +35,5 @@ ConditionalFunctionEnableControl::ConditionalFunctionEnableControl(
 bool
 ConditionalFunctionEnableControl::conditionMet(const unsigned int & /*i*/)
 {
-  return _function.value(_t, Point());
+  return _function.value(_t);
 }

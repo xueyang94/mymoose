@@ -22,7 +22,7 @@ registerMooseObject("TensorMechanicsApp", ADComputeIsotropicElasticityTensorShel
 InputParameters
 ADComputeIsotropicElasticityTensorShell::validParams()
 {
-  InputParameters params = ADMaterial::validParams();
+  InputParameters params = Material::validParams();
   params.addClassDescription("Compute a plane stress isotropic elasticity tensor.");
   params.addRequiredRangeCheckedParam<Real>("poissons_ratio",
                                             "poissons_ratio >= -1.0 & poissons_ratio < 0.5",
@@ -36,7 +36,7 @@ ADComputeIsotropicElasticityTensorShell::validParams()
 
 ADComputeIsotropicElasticityTensorShell::ADComputeIsotropicElasticityTensorShell(
     const InputParameters & parameters)
-  : ADMaterial(parameters),
+  : Material(parameters),
     _poissons_ratio(getParam<Real>("poissons_ratio")),
     _youngs_modulus(getParam<Real>("youngs_modulus"))
 {
@@ -54,7 +54,7 @@ ADComputeIsotropicElasticityTensorShell::ADComputeIsotropicElasticityTensorShell
   _Cijkl(2, 2, 1, 1) = 0.0;
 
   // get number of quadrature points along thickness based on order
-  std::unique_ptr<QGauss> t_qrule = libmesh_make_unique<QGauss>(
+  std::unique_ptr<QGauss> t_qrule = std::make_unique<QGauss>(
       1, Utility::string_to_enum<Order>(getParam<std::string>("through_thickness_order")));
   _t_points = t_qrule->get_points();
   _elasticity_tensor.resize(_t_points.size());

@@ -13,20 +13,25 @@
 #include "NeighborCoupleableMooseVariableDependencyIntermediateInterface.h"
 #include "TwoMaterialPropertyInterface.h"
 #include "MathFVUtils.h"
+#include "FVFaceResidualObject.h"
 
-// Provides an interface for computing residual contributions from finite
-// volume numerical fluxes computed on faces to neighboring elements.
+/**
+ * Provides an interface for computing residual contributions from finite
+ * volume numerical fluxes computed on faces to neighboring elements.
+ */
 class FVFluxBC : public FVBoundaryCondition,
                  public NeighborCoupleableMooseVariableDependencyIntermediateInterface,
-                 public TwoMaterialPropertyInterface
+                 public TwoMaterialPropertyInterface,
+                 public FVFaceResidualObject
 {
 public:
   FVFluxBC(const InputParameters & parameters);
 
   static InputParameters validParams();
 
-  virtual void computeResidual(const FaceInfo & fi);
-  virtual void computeJacobian(const FaceInfo & fi);
+  void computeResidual(const FaceInfo & fi) override;
+  void computeJacobian(const FaceInfo & fi) override;
+  void computeResidualAndJacobian(const FaceInfo & fi) override;
 
 protected:
   virtual ADReal computeQpResidual() = 0;
@@ -38,7 +43,6 @@ protected:
   const ADVariableValue & _u_neighbor;
   // TODO: add gradients once we have reconstruction.
   ADRealVectorValue _normal;
-  const FaceInfo * _face_info = nullptr;
 
   /**
    * @return the value of u at the cell centroid on the subdomain on which u is defined. E.g. u is
@@ -54,12 +58,12 @@ protected:
   /**
    * @return the value of \p makeSidedFace with \p fi_elem = true
    */
-  std::tuple<const libMesh::Elem *, const FaceInfo *, SubdomainID> elemFromFace() const;
+  Moose::ElemFromFaceArg elemFromFace(bool correct_skewness = false) const;
 
   /**
    * @return the value of \p makeSidedFace with \p fi_elem = false
    */
-  std::tuple<const libMesh::Elem *, const FaceInfo *, SubdomainID> neighborFromFace() const;
+  Moose::ElemFromFaceArg neighborFromFace(bool correct_skewness = false) const;
 
   /**
    * Determine the subdomain ID pair that should be used when creating a face argument for a
@@ -70,6 +74,9 @@ protected:
    * the block restriction of the variable this object is acting upon
    */
   std::pair<SubdomainID, SubdomainID> faceArgSubdomains() const;
+
+  /// The variable face type
+  FaceInfo::VarFaceNeighbors _face_type;
 
 private:
   /**
@@ -84,8 +91,7 @@ private:
    * equivalent to \p _face_info->neighborPtr()->subdomain_id(). We currently error in flux bcs if
    * the variable is defined on both sides of the face
    */
-  std::tuple<const libMesh::Elem *, const FaceInfo *, SubdomainID>
-  makeSidedFace(bool fi_elem) const;
+  Moose::ElemFromFaceArg makeSidedFace(bool fi_elem, bool correct_skewness = false) const;
 
   /// Computes the Jacobian contribution for every coupled variable.
   ///

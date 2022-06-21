@@ -63,7 +63,8 @@ FVInterfaceKernel::validParams()
       "ElementSideNeighborLayers",
       Moose::RelationshipManagerType::GEOMETRIC | Moose::RelationshipManagerType::ALGEBRAIC |
           Moose::RelationshipManagerType::COUPLING,
-      [](const InputParameters & obj_params, InputParameters & rm_params) {
+      [](const InputParameters & obj_params, InputParameters & rm_params)
+      {
         rm_params.set<unsigned short>("layers") = obj_params.get<unsigned short>("ghost_layers");
         rm_params.set<bool>("use_point_neighbors") = obj_params.get<bool>("use_point_neighbors");
       });
@@ -73,6 +74,7 @@ FVInterfaceKernel::validParams()
   params.declareControllable("enable");
   params.registerBase("FVInterfaceKernel");
   params.registerSystemAttributeName("FVInterfaceKernel");
+  params.set<bool>("_residual_object") = true;
   return params;
 }
 
@@ -169,11 +171,13 @@ FVInterfaceKernel::processResidual(const Real resid,
   accumulateTaggedLocalResidual();
 }
 
+#ifdef MOOSE_GLOBAL_AD_INDEXING
 void
-FVInterfaceKernel::processDerivatives(const ADReal & resid, const dof_id_type dof_index)
+FVInterfaceKernel::processJacobian(const ADReal & resid, const dof_id_type dof_index)
 {
-  _assembly.processDerivatives(resid, dof_index, _matrix_tags);
+  _assembly.processJacobian(resid, dof_index, _matrix_tags);
 }
+#endif
 
 void
 FVInterfaceKernel::computeResidual(const FaceInfo & fi)
@@ -190,6 +194,13 @@ FVInterfaceKernel::computeResidual(const FaceInfo & fi)
 }
 
 void
+FVInterfaceKernel::computeResidualAndJacobian(const FaceInfo & fi)
+{
+  computeJacobian(fi);
+}
+
+#ifdef MOOSE_GLOBAL_AD_INDEXING
+void
 FVInterfaceKernel::computeJacobian(const FaceInfo & fi)
 {
   setupData(fi);
@@ -202,19 +213,43 @@ FVInterfaceKernel::computeJacobian(const FaceInfo & fi)
 
   const auto r = fi.faceArea() * fi.faceCoord() * computeQpResidual();
 
-  processDerivatives(r, elem_dof_indices[0]);
-  processDerivatives(-r, neigh_dof_indices[0]);
+  _assembly.processResidualAndJacobian(r, elem_dof_indices[0], _vector_tags, _matrix_tags);
+  _assembly.processResidualAndJacobian(-r, neigh_dof_indices[0], _vector_tags, _matrix_tags);
+}
+#else
+void
+FVInterfaceKernel::computeJacobian(const FaceInfo &)
+{
+}
+#endif
+
+Moose::ElemFromFaceArg
+FVInterfaceKernel::elemFromFace(const bool correct_skewness) const
+{
+  return {&_face_info->elem(), _face_info, correct_skewness, _face_info->elem().subdomain_id()};
 }
 
-std::tuple<const libMesh::Elem *, const FaceInfo *, SubdomainID>
-FVInterfaceKernel::elemFromFace() const
+Moose::ElemFromFaceArg
+FVInterfaceKernel::neighborFromFace(const bool correct_skewness) const
 {
-  return std::make_tuple(&_face_info->elem(), _face_info, _face_info->elem().subdomain_id());
+  return {_face_info->neighborPtr(),
+          _face_info,
+          correct_skewness,
+          _face_info->neighborPtr()->subdomain_id()};
 }
 
-std::tuple<const libMesh::Elem *, const FaceInfo *, SubdomainID>
-FVInterfaceKernel::neighborFromFace() const
+Moose::SingleSidedFaceArg
+FVInterfaceKernel::singleSidedFaceArg(const MooseVariableFV<Real> & variable,
+                                      const FaceInfo * fi,
+                                      const Moose::FV::LimiterType limiter_type,
+                                      const bool correct_skewness) const
 {
-  return std::make_tuple(
-      _face_info->neighborPtr(), _face_info, _face_info->neighborPtr()->subdomain_id());
+  if (!fi)
+    fi = _face_info;
+  const bool use_elem = fi->faceType(variable.name()) == FaceInfo::VarFaceNeighbors::ELEM;
+
+  if (use_elem)
+    return {fi, limiter_type, true, correct_skewness, fi->elem().subdomain_id()};
+  else
+    return {fi, limiter_type, true, correct_skewness, fi->neighborPtr()->subdomain_id()};
 }

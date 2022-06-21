@@ -18,6 +18,7 @@
 #include "INSFVAttributes.h"
 #include "SystemBase.h"
 #include "FVDirichletBCBase.h"
+#include "Assembly.h"
 
 #include "libmesh/elem.h"
 #include "libmesh/vector_value.h"
@@ -28,6 +29,28 @@
 
 #include <vector>
 #include <utility>
+
+namespace Moose
+{
+namespace FV
+{
+template <typename ActionFunctor>
+void
+loopOverElemFaceInfo(const Elem & elem,
+                     const MooseMesh & mesh,
+                     const SubProblem & subproblem,
+                     ActionFunctor & act)
+{
+  const auto coord_type = subproblem.getCoordSystem(elem.subdomain_id());
+  loopOverElemFaceInfo(elem,
+                       mesh,
+                       act,
+                       coord_type,
+                       coord_type == Moose::COORD_RZ ? subproblem.getAxisymmetricRadialCoord()
+                                                     : libMesh::invalid_uint);
+}
+}
+}
 
 registerMooseObject("NavierStokesApp", INSFVVelocityVariable);
 
@@ -43,13 +66,19 @@ INSFVVelocityVariable::INSFVVelocityVariable(const InputParameters & params) : I
 
 #ifdef MOOSE_GLOBAL_AD_INDEXING
 const VectorValue<ADReal> &
-INSFVVelocityVariable::adGradSln(const Elem * const elem) const
+INSFVVelocityVariable::adGradSln(const Elem * const elem, bool correct_skewness) const
 {
-  const auto it = _elem_to_grad.find(elem);
+  VectorValue<ADReal> * value_pointer = &_temp_cell_gradient;
 
-  if (it != _elem_to_grad.end())
-    // we already have a gradient ready to go
-    return it->second;
+  // We ensure that no caching takes place when we compute skewness-corrected
+  // quantities.
+  if (_cache_cell_gradients && !correct_skewness)
+  {
+    auto it = _elem_to_grad.find(elem);
+
+    if (it != _elem_to_grad.end())
+      return it->second;
+  }
 
   ADReal elem_value = getElemValue(elem);
 
@@ -60,7 +89,7 @@ INSFVVelocityVariable::adGradSln(const Elem * const elem) const
 
   try
   {
-    VectorValue<ADReal> grad = 0;
+    VectorValue<ADReal> & grad = *value_pointer;
 
     bool volume_set = false;
     Real volume = 0;
@@ -122,17 +151,19 @@ INSFVVelocityVariable::adGradSln(const Elem * const elem) const
                            &grad_ebf_coeffs,
                            &grad_b,
                            &fdf_grad_centroid_coeffs,
+                           correct_skewness,
                            this](const Elem & functor_elem,
                                  const Elem * const neighbor,
                                  const FaceInfo * const fi,
                                  const Point & surface_vector,
                                  Real coord,
-                                 const bool elem_has_info) {
+                                 const bool elem_has_info)
+    {
       mooseAssert(fi, "We need a FaceInfo for this action_functor");
       mooseAssert(elem == &functor_elem,
                   "Just a sanity check that the element being passed in is the one we passed out.");
 
-      if (isExtrapolatedBoundaryFace(*fi))
+      if (isExtrapolatedBoundaryFace(*fi).first)
       {
         if (_two_term_boundary_expansion)
         {
@@ -173,7 +204,7 @@ INSFVVelocityVariable::adGradSln(const Elem * const elem) const
           grad_b += surface_vector * elem_value;
       }
       else if (isInternalFace(*fi))
-        grad_b += surface_vector * getInternalFaceValue(neighbor, *fi, elem_value);
+        grad_b += surface_vector * getInternalFaceValue(*fi, correct_skewness);
       else
       {
         mooseAssert(isDirichletBoundaryFace(*fi), "We've run out of face types");
@@ -301,29 +332,39 @@ INSFVVelocityVariable::adGradSln(const Elem * const elem) const
       for (const auto ebf_index : make_range(num_ebfs))
         _face_to_value.emplace(ebf_faces[ebf_index].first, x(lm_dim + ebf_index));
 
-      // Cache the extrapolated face gradient information
-      auto it = ebf_faces.begin();
-      for (const auto fdf_index : make_range(num_fdf_faces))
+      if (_cache_face_gradients && !correct_skewness)
       {
-        it = std::find_if(it, ebf_faces.end(), [](const std::pair<const FaceInfo *, bool> & in) {
-          return in.second;
-        });
-        mooseAssert(it != ebf_faces.end(), "We should have found a fully developed flow face");
-        const auto starting_index =
-            static_cast<unsigned int>(lm_dim + num_ebfs + lm_dim * fdf_index);
-        auto pr = _face_to_unc_grad.emplace(it->first, VectorValue<ADReal>());
-        mooseAssert(pr.second, "We should have inserted a new face gradient");
-        for (const auto lm_index : make_range(lm_dim))
-          pr.first->second(lm_index) = x(starting_index + lm_index);
+        // Cache the extrapolated face gradient information
+        auto it = ebf_faces.begin();
+        for (const auto fdf_index : make_range(num_fdf_faces))
+        {
+          it = std::find_if(it,
+                            ebf_faces.end(),
+                            [](const std::pair<const FaceInfo *, bool> & in) { return in.second; });
+          mooseAssert(it != ebf_faces.end(), "We should have found a fully developed flow face");
 
-        // increment the iterator so we don't find the same element again
-        ++it;
+          const auto starting_index =
+              static_cast<unsigned int>(lm_dim + num_ebfs + lm_dim * fdf_index);
+
+          auto pr = _face_to_unc_grad.emplace(it->first, VectorValue<ADReal>());
+          mooseAssert(pr.second, "We should have inserted a new face gradient");
+          for (const auto lm_index : make_range(lm_dim))
+            pr.first->second(lm_index) = x(starting_index + lm_index);
+
+          // increment the iterator so we don't find the same element again
+          ++it;
+        }
       }
     }
 
-    auto pr = _elem_to_grad.emplace(elem, std::move(grad));
-    mooseAssert(pr.second, "Insertion should have just happened.");
-    return pr.first->second;
+    if (_cache_cell_gradients && !correct_skewness)
+    {
+      auto pr = _elem_to_grad.emplace(elem, std::move(grad));
+      mooseAssert(pr.second, "Insertion should have just happened.");
+      return pr.first->second;
+    }
+    else
+      return grad;
   }
   catch (libMesh::LogicError &)
   {
@@ -332,7 +373,7 @@ INSFVVelocityVariable::adGradSln(const Elem * const elem) const
                 "I believe we should only get singular systems when two-term boundary expansion is "
                 "being used");
     const_cast<INSFVVelocityVariable *>(this)->_two_term_boundary_expansion = false;
-    const auto & grad = adGradSln(elem);
+    const auto & grad = adGradSln(elem, correct_skewness);
 
     // We failed to compute the extrapolated boundary faces with two-term expansion and callers of
     // this method may be relying on those values (e.g. if the caller is

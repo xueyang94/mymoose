@@ -13,6 +13,7 @@
 #include "libmesh/libmesh_common.h"
 #include "XTermConstants.h"
 
+#include <memory>
 #include <set>
 #include <string>
 
@@ -22,6 +23,13 @@ template <typename>
 class NumericVector;
 template <typename>
 class SparseMatrix;
+
+// This was deprecated in libMesh a year ago!  It was obsolete 5 years
+// ago!  How are 6 apps in CI still using it!?
+#ifdef LIBMESH_ENABLE_DEPRECATED
+template <typename T>
+using UniquePtr = std::unique_ptr<T>;
+#endif
 }
 
 using namespace libMesh;
@@ -38,12 +46,21 @@ void MooseMatView(SparseMatrix<Number> & mat);
 void MooseMatView(const SparseMatrix<Number> & mat);
 
 /**
- * MOOSE now contains C++11 code, so give a reasonable error message
- * stating the minimum required compiler versions.
+ * MOOSE now contains C++17 code, so give a reasonable error message
+ * stating what the user can do to address this in their environment if C++17
+ * compatibility isn't found.
  */
-#ifndef LIBMESH_HAVE_CXX11
-#error MOOSE requires a C++11 compatible compiler (GCC >= 4.8.4, Clang >= 3.5.1). Please update your compiler and try again.
-#endif
+namespace Moose
+{
+static_assert(__cplusplus >= 201703L,
+              "MOOSE requires a C++17 compatible compiler (GCC >= 7.5.0, Clang >= 5.0.2). Please "
+              "update your compiler or, if compatible, add '-std=c++17' to your compiler flags "
+              "and try again. If using the MOOSE conda package, please attempt a MOOSE environment "
+              "update (using `mamba update --all`). If this update is not successful, please "
+              "create a new MOOSE environment (see "
+              "https://mooseframework.inl.gov/getting_started/installation/"
+              "conda.html#uninstall-conda-moose-environment).");
+}
 
 /**
  * Testing a condition on a local CPU that need to be propagated across all processes.
@@ -112,8 +129,20 @@ extern const ExecFlagType EXEC_PRE_MULTIAPP_SETUP;
 extern const ExecFlagType EXEC_TRANSFER;
 extern const ExecFlagType EXEC_PRE_KERNELS;
 extern const ExecFlagType EXEC_ALWAYS;
+
 namespace Moose
 {
+// MOOSE is not tested with LIBMESH_DIM != 3
+static_assert(LIBMESH_DIM == 3,
+              "MOOSE must be built with a libmesh library compiled without --enable-1D-only "
+              "or --enable-2D-only");
+
+/**
+ * This is the dimension of all vector and tensor datastructures used in MOOSE.
+ * We enforce LIBMESH_DIM == 3 through a static assertion above.
+ * Note that lower dimensional simulations embedded in 3D space can always be requested at runtime.
+ */
+static constexpr std::size_t dim = LIBMESH_DIM;
 
 /**
  * Set to true (the default) to print the stack trace with error and warning

@@ -11,12 +11,6 @@
 
 #include "GeneralPostprocessor.h"
 
-// Forward Declarations
-class NumLinearIterations;
-
-template <>
-InputParameters validParams<NumLinearIterations>();
-
 class NumLinearIterations : public GeneralPostprocessor
 {
 public:
@@ -29,4 +23,3 @@ public:
 
   virtual Real getValue() override;
 };
-

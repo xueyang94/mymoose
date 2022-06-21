@@ -4,25 +4,38 @@ advected_interp_method='average'
 velocity_interp_method='rc'
 
 [Mesh]
-  [gen]
-    type = GeneratedMeshGenerator
+  [mesh]
+    type = CartesianMeshGenerator
     dim = 2
-    xmin = 0
-    xmax = 5
-    ymin = 0
-    ymax = 1
-    nx = 40
-    ny = 20
+    dx = '2.5 2.5'
+    dy = '1.0'
+    ix = '20 20'
+    iy = '20'
+    subdomain_id = '1 2'
+  []
+[]
+
+[GlobalParams]
+  rhie_chow_user_object = 'rc'
+[]
+
+[UserObjects]
+  [rc]
+    type = PINSFVRhieChowInterpolator
+    u = superficial_vel_x
+    v = superficial_vel_y
+    pressure = pressure
+    porosity = porosity
   []
 []
 
 [Variables]
   inactive = 'lambda'
-  [u]
+  [superficial_vel_x]
     type = PINSFVSuperficialVelocityVariable
     initial_condition = 1
   []
-  [v]
+  [superficial_vel_y]
     type = PINSFVSuperficialVelocityVariable
     initial_condition = 1e-6
   []
@@ -51,45 +64,35 @@ velocity_interp_method='rc'
     variable = pressure
     advected_interp_method = ${advected_interp_method}
     velocity_interp_method = ${velocity_interp_method}
-    vel = 'velocity'
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
-    porosity = porosity
   []
 
   [u_advection]
     type = PINSFVMomentumAdvection
-    variable = u
-    advected_quantity = 'rhou'
-    vel = 'velocity'
+    variable = superficial_vel_x
     advected_interp_method = ${advected_interp_method}
     velocity_interp_method = ${velocity_interp_method}
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
     porosity = porosity
+    momentum_component = 'x'
   []
   [u_viscosity]
     type = PINSFVMomentumDiffusion
-    variable = u
+    variable = superficial_vel_x
     mu = ${mu}
     porosity = porosity
+    momentum_component = 'x'
   []
   [u_pressure]
     type = PINSFVMomentumPressure
-    variable = u
+    variable = superficial_vel_x
     momentum_component = 'x'
     pressure = pressure
     porosity = porosity
   []
   [u_friction]
     type = PINSFVMomentumFriction
-    variable = u
+    variable = superficial_vel_x
     momentum_component = 'x'
     porosity = porosity
     Darcy_name = 'Darcy_coefficient'
@@ -99,34 +102,30 @@ velocity_interp_method='rc'
 
   [v_advection]
     type = PINSFVMomentumAdvection
-    variable = v
-    advected_quantity = 'rhov'
-    vel = 'velocity'
+    variable = superficial_vel_y
     advected_interp_method = ${advected_interp_method}
     velocity_interp_method = ${velocity_interp_method}
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
     porosity = porosity
+    momentum_component = 'y'
   []
   [v_viscosity]
     type = PINSFVMomentumDiffusion
-    variable = v
+    variable = superficial_vel_y
     mu = ${mu}
     porosity = porosity
+    momentum_component = 'y'
   []
   [v_pressure]
     type = PINSFVMomentumPressure
-    variable = v
+    variable = superficial_vel_y
     momentum_component = 'y'
     pressure = pressure
     porosity = porosity
   []
   [v_friction]
     type = PINSFVMomentumFriction
-    variable = v
+    variable = superficial_vel_y
     momentum_component = 'y'
     porosity = porosity
     Darcy_name = 'Darcy_coefficient'
@@ -135,7 +134,7 @@ velocity_interp_method='rc'
   []
 
   [mean-pressure]
-    type = FVScalarLagrangeMultiplier
+    type = FVIntegralValueConstraint
     variable = pressure
     lambda = lambda
     phi0 = 0.01
@@ -147,57 +146,57 @@ velocity_interp_method='rc'
   [inlet-u]
     type = INSFVInletVelocityBC
     boundary = 'left'
-    variable = u
+    variable = superficial_vel_x
     function = '1'
   []
   [inlet-v]
     type = INSFVInletVelocityBC
     boundary = 'left'
-    variable = v
+    variable = superficial_vel_y
     function = 0
   []
 
   [no-slip-u]
     type = INSFVNoSlipWallBC
     boundary = 'top'
-    variable = u
+    variable = superficial_vel_x
     function = 0
   []
   [no-slip-v]
     type = INSFVNoSlipWallBC
     boundary = 'top'
-    variable = v
+    variable = superficial_vel_y
     function = 0
   []
   [free-slip-u]
     type = INSFVNaturalFreeSlipBC
     boundary = 'top'
-    variable = u
+    variable = superficial_vel_x
+    momentum_component = 'x'
   []
   [free-slip-v]
     type = INSFVNaturalFreeSlipBC
     boundary = 'top'
-    variable = v
+    variable = superficial_vel_y
+    momentum_component = 'y'
   []
   [symmetry-u]
     type = PINSFVSymmetryVelocityBC
     boundary = 'bottom'
-    variable = u
-    u = u
-    v = v
+    variable = superficial_vel_x
+    u = superficial_vel_x
+    v = superficial_vel_y
     mu = ${mu}
     momentum_component = 'x'
-    porosity = porosity
   []
   [symmetry-v]
     type = PINSFVSymmetryVelocityBC
     boundary = 'bottom'
-    variable = v
-    u = u
-    v = v
+    variable = superficial_vel_y
+    u = superficial_vel_x
+    v = superficial_vel_y
     mu = ${mu}
     momentum_component = 'y'
-    porosity = porosity
   []
   [symmetry-p]
     type = INSFVSymmetryPressureBC
@@ -214,15 +213,8 @@ velocity_interp_method='rc'
 []
 
 [Materials]
-  [ins_fv]
-    type = INSFVMaterial
-    u = 'u'
-    v = 'v'
-    pressure = 'pressure'
-    rho = ${rho}
-  []
   [darcy]
-    type = ADGenericConstantVectorFunctorMaterial
+    type = ADGenericVectorFunctorMaterial
     prop_names = 'Darcy_coefficient Forchheimer_coefficient'
     prop_values = '0.1 0.1 0.1 0.1 0.1 0.1'
   []
@@ -247,7 +239,7 @@ velocity_interp_method='rc'
   []
   [outlet-u]
     type = SideIntegralVariablePostprocessor
-    variable = u
+    variable = superficial_vel_x
     boundary = 'right'
   []
 []

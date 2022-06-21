@@ -15,6 +15,7 @@
 #include "libmesh/replicated_mesh.h"
 #include "libmesh/mesh_base.h"
 #include "libmesh/parallel.h"
+#include "libmesh/parallel_algebra.h"
 
 namespace MooseMeshUtils
 {
@@ -133,13 +134,7 @@ getSubdomainIDs(const libMesh::MeshBase & mesh, const std::vector<SubdomainName>
       break;
     }
 
-    subdomain_id_type id = Moose::INVALID_BLOCK_ID;
-    std::istringstream ss(subdomain_name[i]);
-
-    if (!(ss >> id) || !ss.eof())
-      id = mesh.get_id_by_name(subdomain_name[i]);
-
-    ids[i] = id;
+    ids[i] = MooseMeshUtils::getSubdomainID(subdomain_name[i], mesh);
   }
 
   return ids;
@@ -155,5 +150,145 @@ getBoundaryID(const BoundaryName & boundary_name, const MeshBase & mesh)
     id = mesh.get_boundary_info().get_id_by_name(boundary_name);
 
   return id;
+}
+
+SubdomainID
+getSubdomainID(const SubdomainName & subdomain_name, const MeshBase & mesh)
+{
+  if (subdomain_name == "ANY_BLOCK_ID")
+    mooseError("getSubdomainID() does not work with \"ANY_BLOCK_ID\"");
+
+  SubdomainID id = Moose::INVALID_BLOCK_ID;
+  std::istringstream ss(subdomain_name);
+
+  if (!(ss >> id) || !ss.eof())
+    id = mesh.get_id_by_name(subdomain_name);
+
+  return id;
+}
+
+Point
+meshCentroidCalculator(const MeshBase & mesh)
+{
+  Point centroid_pt = Point(0.0, 0.0, 0.0);
+  Real vol_tmp = 0.0;
+  for (const auto & elem :
+       as_range(mesh.active_local_elements_begin(), mesh.active_local_elements_end()))
+  {
+    Real elem_vol = elem->volume();
+    centroid_pt += (elem->true_centroid()) * elem_vol;
+    vol_tmp += elem_vol;
+  }
+  mesh.comm().sum(centroid_pt);
+  mesh.comm().sum(vol_tmp);
+  centroid_pt /= vol_tmp;
+  return centroid_pt;
+}
+
+std::map<dof_id_type, dof_id_type>
+getExtraIDUniqueCombinationMap(const MeshBase & mesh,
+                               const std::set<SubdomainID> & block_ids,
+                               std::vector<ExtraElementIDName> extra_ids)
+{
+  // check block restriction
+  const bool block_restricted = block_ids.find(Moose::ANY_BLOCK_ID) == block_ids.end();
+  // get element id name of interest in recursive parsing algorithm
+  ExtraElementIDName id_name = extra_ids.back();
+  extra_ids.pop_back();
+  const auto id_index = mesh.get_elem_integer_index(id_name);
+  // create base parsed id set
+  if (extra_ids.empty())
+  {
+    // get set of extra id values;
+    std::set<dof_id_type> ids;
+    for (const auto & elem : mesh.active_local_element_ptr_range())
+    {
+      if (block_restricted && block_ids.find(elem->subdomain_id()) == block_ids.end())
+        continue;
+      auto id = elem->get_extra_integer(id_index);
+      ids.insert(id);
+    }
+    mesh.comm().set_union(ids);
+    // determine new extra id values;
+    std::map<dof_id_type, dof_id_type> parsed_ids;
+    for (auto & elem : mesh.active_local_element_ptr_range())
+    {
+      if (block_restricted && block_ids.find(elem->subdomain_id()) == block_ids.end())
+        continue;
+      parsed_ids[elem->id()] = std::distance(
+          ids.begin(), std::find(ids.begin(), ids.end(), elem->get_extra_integer(id_index)));
+    }
+    return parsed_ids;
+  }
+  // if extra_ids is not empty, recursively call getExtraIDUniqueCombinationMap
+  std::map<dof_id_type, dof_id_type> base_parsed_ids =
+      MooseMeshUtils::getExtraIDUniqueCombinationMap(mesh, block_ids, extra_ids);
+  // parsing extra ids based on ref_parsed_ids
+  std::set<std::pair<dof_id_type, dof_id_type>> unique_ids;
+  for (const auto & elem : mesh.active_local_element_ptr_range())
+  {
+    if (block_restricted && block_ids.find(elem->subdomain_id()) == block_ids.end())
+      continue;
+    const dof_id_type id1 = base_parsed_ids[elem->id()];
+    const dof_id_type id2 = elem->get_extra_integer(id_index);
+    if (!unique_ids.count(std::pair<dof_id_type, dof_id_type>(id1, id2)))
+      unique_ids.insert(std::pair<dof_id_type, dof_id_type>(id1, id2));
+  }
+  mesh.comm().set_union(unique_ids);
+  std::map<dof_id_type, dof_id_type> parsed_ids;
+  for (const auto & elem : mesh.active_local_element_ptr_range())
+  {
+    if (block_restricted && block_ids.find(elem->subdomain_id()) == block_ids.end())
+      continue;
+    const dof_id_type id1 = base_parsed_ids[elem->id()];
+    const dof_id_type id2 = elem->get_extra_integer(id_index);
+    parsed_ids[elem->id()] = std::distance(
+        unique_ids.begin(),
+        std::find(
+            unique_ids.begin(), unique_ids.end(), std::pair<dof_id_type, dof_id_type>(id1, id2)));
+  }
+  return parsed_ids;
+}
+
+bool
+isCoPlanar(const std::vector<Point> vec_pts, const Point plane_nvec, const Point fixed_pt)
+{
+  for (const auto & pt : vec_pts)
+    if (!MooseUtils::absoluteFuzzyEqual((pt - fixed_pt) * plane_nvec, 0.0))
+      return false;
+  return true;
+}
+
+bool
+isCoPlanar(const std::vector<Point> vec_pts, const Point plane_nvec)
+{
+  return isCoPlanar(vec_pts, plane_nvec, vec_pts.front());
+}
+
+bool
+isCoPlanar(const std::vector<Point> vec_pts)
+{
+  // Assuming that overlapped Points are allowed, the Points that are overlapped with vec_pts[0] are
+  // removed before further calculation.
+  std::vector<Point> vec_pts_nonzero{vec_pts[0]};
+  for (unsigned int i = 1; i < vec_pts.size(); i++)
+    if (!MooseUtils::absoluteFuzzyEqual((vec_pts[i] - vec_pts[0]).norm(), 0.0))
+      vec_pts_nonzero.push_back(vec_pts[i]);
+  // 3 or fewer points are always coplanar
+  if (vec_pts_nonzero.size() <= 3)
+    return true;
+  else
+  {
+    for (unsigned int i = 1; i < vec_pts_nonzero.size() - 1; i++)
+    {
+      const Point tmp_pt = (vec_pts_nonzero[i] - vec_pts_nonzero[0])
+                               .cross(vec_pts_nonzero[i + 1] - vec_pts_nonzero[0]);
+      // if the three points are not collinear, use cross product as the normal vector of the plane
+      if (!MooseUtils::absoluteFuzzyEqual(tmp_pt.norm(), 0.0))
+        return isCoPlanar(vec_pts_nonzero, tmp_pt.unit());
+    }
+  }
+  // If all the points are collinear, they are also coplanar
+  return true;
 }
 }

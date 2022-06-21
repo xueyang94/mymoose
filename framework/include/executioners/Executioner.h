@@ -24,11 +24,6 @@
 #include <string>
 
 class Problem;
-class Executioner;
-
-template <>
-InputParameters validParams<Executioner>();
-
 /**
  * Executioners are objects that do the actual work of solving your problem.
  */
@@ -47,6 +42,10 @@ public:
    * @param parameters The parameters object holding data for the class to use.
    */
   Executioner(const InputParameters & parameters);
+
+  /// executor-style constructor that skips the fixed point solve object
+  /// allocation.
+  Executioner(const InputParameters & parameters, bool);
 
   virtual ~Executioner() {}
 
@@ -135,9 +134,6 @@ public:
         "augmentedPicardConvergenceCheck() is deprecated. Use augmentedCouplingConvergenceCheck.");
     return false;
   }
-
-  /// Augmented fixed point iteration convergence check that to be called by PicardSolve and can be overridden by derived executioners
-  virtual bool augmentedFixedPointConvergenceCheck() const { return false; }
 
   /**
    * Get the verbose output flag

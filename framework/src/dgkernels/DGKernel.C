@@ -23,8 +23,6 @@
 #include "libmesh/libmesh_common.h"
 #include "libmesh/quadrature.h"
 
-defineLegacyParams(DGKernel);
-
 InputParameters
 DGKernel::validParams()
 {
@@ -200,6 +198,9 @@ DGKernel::computeOffDiagElemNeighJacobian(Moose::DGJacobianType type,
     prepareMatrixTag(_assembly, _var.number(), jvar.number());
   else
     prepareMatrixTagNeighbor(_assembly, _var.number(), jvar.number(), type);
+
+  if (_local_ke.n() == 0 || _local_ke.m() == 0)
+    return;
 
   for (_qp = 0; _qp < _qrule->n_points(); _qp++)
   {

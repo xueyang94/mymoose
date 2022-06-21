@@ -49,9 +49,10 @@ BiasCorrectedAccelerated<InType, OutType>::compute(const InType & data, const bo
 
   // Compute bias-correction, Efron and Tibshirani (2003), Eq. 14.14, p. 186
   const OutType value = this->_calc.compute(data, is_distributed);
-  const Real count = std::count_if(values.begin(), values.end(), [&value](Real v) {
-    return v < value;
-  }); // use Real for non-integer division below
+  const Real count = std::count_if(
+      values.begin(),
+      values.end(),
+      [&value](Real v) { return v < value; }); // use Real for non-integer division below
   const Real bias = NormalDistribution::quantile(count / this->_replicates, 0, 1);
 
   // Compute Acceleration, Efron and Tibshirani (2003), Eq. 14.15, p. 186
@@ -131,10 +132,10 @@ BootstrapCalculatorBuilder<InType, OutType>::build(
 {
   std::unique_ptr<BootstrapCalculator<InType, OutType>> ptr = nullptr;
   if (item == "percentile")
-    ptr = libmesh_make_unique<Percentile<InType, OutType>>(
-        other, item, levels, replicates, seed, calc);
+    ptr =
+        std::make_unique<Percentile<InType, OutType>>(other, item, levels, replicates, seed, calc);
   else if (item == "bca")
-    ptr = libmesh_make_unique<BiasCorrectedAccelerated<InType, OutType>>(
+    ptr = std::make_unique<BiasCorrectedAccelerated<InType, OutType>>(
         other, item, levels, replicates, seed, calc);
 
   if (!ptr)

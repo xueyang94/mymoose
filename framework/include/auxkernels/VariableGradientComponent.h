@@ -12,12 +12,6 @@
 // MOOSE includes
 #include "AuxKernel.h"
 
-// Forward declarations
-class VariableGradientComponent;
-
-template <>
-InputParameters validParams<VariableGradientComponent>();
-
 /**
  * Extract a component from the gradient of a variable
  */
@@ -42,4 +36,3 @@ private:
   /// Desired component
   int _component;
 };
-

@@ -16,6 +16,10 @@
   dim = 2
   nx = 1
   ny = 1
+  xmin = 1
+  xmax = 1.75
+  ymin = 0
+  ymax = 1.5
 []
 
 [GlobalParams]
@@ -23,66 +27,56 @@
 []
 
 [Variables]
-  [./disp_x]
+  [disp_x]
     order = FIRST
     family = LAGRANGE
-  [../]
+  []
 
-  [./disp_y]
+  [disp_y]
     order = FIRST
     family = LAGRANGE
-  [../]
+  []
 []
 
 [Modules/TensorMechanics/Master]
-  [./all]
-  [../]
+  [all]
+  []
 []
 
 [BCs]
-  [./left]
+  [left]
     type = DirichletBC
     variable = disp_x
     preset = false
     boundary = left
     value = 1.0
-  [../]
-
-  [./right]
-    type = DirichletBC
-    variable = disp_x
-    preset = false
-    boundary = right
-    value = 0.0
-  [../]
-
+  []
 []
 
 [Materials]
-  [./elasticity_tensor]
+  [elasticity_tensor]
     type = ComputeIsotropicElasticityTensor
     youngs_modulus = 1e6
     poissons_ratio = 0.3
     block = 0
-  [../]
-  [./stress]
+  []
+  [stress]
     block = 0
-  [../]
+  []
 []
 
 [Preconditioning]
-  active = 'smp'
-  [./smp]
+  [smp]
     type = SMP
     full = true
-  [../]
+  []
 []
 
 [Executioner]
   type = Transient #Transient
 
   solve_type = NEWTON
-  petsc_options = '-snes_check_jacobian -snes_check_jacobian_view'
+  petsc_options = '-snes_test_jacobian -snes_test_jacobian_view'
 
   l_max_its = 1
   nl_abs_tol = 1e-4
@@ -93,8 +87,4 @@
   dt = 0.005
   dtmin = 0.005
   end_time = 0.005
-[]
-
-[Outputs]
-  exodus = true
 []

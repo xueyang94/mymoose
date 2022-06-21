@@ -18,7 +18,7 @@ InputParameterWarehouse::InputParameterWarehouse()
 
 InputParameters &
 InputParameterWarehouse::addInputParameters(const std::string & name,
-                                            InputParameters & parameters,
+                                            const InputParameters & parameters,
                                             THREAD_ID tid /* =0 */)
 {
   // Error if the name contains "::"
@@ -74,7 +74,7 @@ InputParameterWarehouse::addInputParameters(const std::string & name,
   for (libMesh::Parameters::iterator map_iter = ptr->begin(); map_iter != ptr->end(); ++map_iter)
   {
     const std::string & name = map_iter->first;
-    libMesh::Parameters::Value * value = map_iter->second;
+    libMesh::Parameters::Value * value = MooseUtils::get(map_iter->second);
 
     if (ptr->isControllable(name))
       for (const auto & object_name : object_names)
@@ -216,7 +216,7 @@ InputParameterWarehouse::addControllableParameterAlias(const MooseObjectParamete
 
     for (auto secondary_ptr : secondaries)
       _controllable_items[tid].emplace_back(
-          libmesh_make_unique<ControllableAlias>(alias, secondary_ptr));
+          std::make_unique<ControllableAlias>(alias, secondary_ptr));
   }
 }
 

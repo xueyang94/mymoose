@@ -142,7 +142,7 @@ CNSAction::act()
 
     // FIXME: need to check boundaries are non-overlapping and enclose the blocks
 
-    auto var_type = AddVariableAction::determineType(_fe_type, 1);
+    auto var_type = AddVariableAction::variableType(_fe_type);
     auto base_params = _factory.getValidParams(var_type);
     base_params.set<MooseEnum>("order") = _fe_type.order.get_order();
     base_params.set<MooseEnum>("family") = Moose::stringify(_fe_type.family);
@@ -288,7 +288,8 @@ CNSAction::act()
       params.set<Real>("initial_temperature") = _initial_temperature;
       params.set<RealVectorValue>("initial_velocity") = _initial_velocity;
       params.set<UserObjectName>("fluid_properties") = _fp_name;
-      params.set<std::string>("pressure_variable_name") = _pressure_variable_name;
+      if (name == _pressure_variable_name)
+        params.set<MooseEnum>("variable_type") = NS::pressure;
       _problem->addInitialCondition("NSInitialCondition", name + std::string("_ic"), params);
     }
   }

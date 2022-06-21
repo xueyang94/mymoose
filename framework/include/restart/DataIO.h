@@ -20,7 +20,6 @@
 #include "RankFourTensor.h"
 #include "ColumnMajorMatrix.h"
 
-#include "libmesh/auto_ptr.h" // libmesh_make_unique
 #include "libmesh/parallel.h"
 #include "libmesh/parameters.h"
 
@@ -372,6 +371,14 @@ void dataStore(std::ostream & stream, libMesh::Parameters & p, void * context);
 
 template <std::size_t N>
 inline void
+dataStore(std::ostream & stream, std::array<DualReal, N> & dn, void * context)
+{
+  for (std::size_t i = 0; i < N; ++i)
+    dataStore(stream, dn[i], context);
+}
+
+template <std::size_t N>
+inline void
 dataStore(std::ostream & stream, DualReal (&dn)[N], void * context)
 {
   for (std::size_t i = 0; i < N; ++i)
@@ -437,6 +444,20 @@ void
 dataStore(std::ostream & stream, RankFourTensorTempl<T> & rft, void * context)
 {
   dataStore(stream, rft._vals, context);
+}
+
+template <typename T>
+void
+dataStore(std::ostream & stream, SymmetricRankTwoTensorTempl<T> & srtt, void * context)
+{
+  dataStore(stream, srtt._vals, context);
+}
+
+template <typename T>
+void
+dataStore(std::ostream & stream, SymmetricRankFourTensorTempl<T> & srft, void * context)
+{
+  dataStore(stream, srft._vals, context);
 }
 
 template <typename T>
@@ -644,6 +665,14 @@ void dataLoad(std::istream & stream, libMesh::Parameters & p, void * context);
 
 template <std::size_t N>
 inline void
+dataLoad(std::istream & stream, std::array<DualReal, N> & dn, void * context)
+{
+  for (std::size_t i = 0; i < N; ++i)
+    dataLoad(stream, dn[i], context);
+}
+
+template <std::size_t N>
+inline void
 dataLoad(std::istream & stream, DualReal (&dn)[N], void * context)
 {
   for (std::size_t i = 0; i < N; ++i)
@@ -708,6 +737,20 @@ dataLoad(std::istream & stream, RankThreeTensorTempl<T> & rtt, void * context)
 template <typename T>
 void
 dataLoad(std::istream & stream, RankFourTensorTempl<T> & rft, void * context)
+{
+  dataLoad(stream, rft._vals, context);
+}
+
+template <typename T>
+void
+dataLoad(std::istream & stream, SymmetricRankTwoTensorTempl<T> & rtt, void * context)
+{
+  dataLoad(stream, rtt._vals, context);
+}
+
+template <typename T>
+void
+dataLoad(std::istream & stream, SymmetricRankFourTensorTempl<T> & rft, void * context)
 {
   dataLoad(stream, rft._vals, context);
 }

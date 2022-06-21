@@ -40,9 +40,8 @@ PolycrystalUserObjectBase::validParams()
       "ElementSideNeighborLayers",
       Moose::RelationshipManagerType::GEOMETRIC,
 
-      [](const InputParameters & /*obj_params*/, InputParameters & rm_params) {
-        rm_params.set<unsigned short>("layers") = 2;
-      }
+      [](const InputParameters & /*obj_params*/, InputParameters & rm_params)
+      { rm_params.set<unsigned short>("layers") = 2; }
 
   );
 
@@ -136,7 +135,7 @@ PolycrystalUserObjectBase::execute()
    *    the flood routine on the same entity as long as new discoveries are being made. We know
    *    this information from the return value of flood.
    */
-  for (const auto & current_elem : _fe_problem.getEvaluableElementRange())
+  for (const auto & current_elem : _fe_problem.getNonlinearEvaluableElementRange())
   {
     // Loop over elements or nodes
     if (_is_elemental)
@@ -404,7 +403,7 @@ PolycrystalUserObjectBase::buildGrainAdjacencyMatrix()
 {
   mooseAssert(_is_primary, "This routine should only be called on the primary rank");
 
-  _adjacency_matrix = libmesh_make_unique<DenseMatrix<Real>>(_feature_count, _feature_count);
+  _adjacency_matrix = std::make_unique<DenseMatrix<Real>>(_feature_count, _feature_count);
   for (MooseIndex(_feature_sets) i = 0; i < _feature_sets.size(); ++i)
   {
     for (MooseIndex(_feature_sets) j = i + 1; j < _feature_sets.size(); ++j)

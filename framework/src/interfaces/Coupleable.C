@@ -296,10 +296,10 @@ Coupleable::getDefaultValue(const std::string & var_name, unsigned int comp) con
   auto default_value_it = _default_value.find(var_name);
   if (default_value_it == _default_value.end())
   {
-    _default_value[var_name].emplace_back(libmesh_make_unique<VariableValue>(
+    _default_value[var_name].emplace_back(std::make_unique<VariableValue>(
         _coupleable_max_qps, _c_parameters.defaultCoupledValue(var_name, 0)));
     for (unsigned int j = 1; j < _c_parameters.numberDefaultCoupledValues(var_name); ++j)
-      _default_value[var_name].emplace_back(libmesh_make_unique<VariableValue>(
+      _default_value[var_name].emplace_back(std::make_unique<VariableValue>(
           _coupleable_max_qps, _c_parameters.defaultCoupledValue(var_name, j)));
     default_value_it = _default_value.find(var_name);
   }
@@ -313,10 +313,10 @@ Coupleable::getDefaultVectorValue(const std::string & var_name) const
   auto default_value_it = _default_vector_value.find(var_name);
   if (default_value_it == _default_vector_value.end())
   {
-    auto value = libmesh_make_unique<VectorVariableValue>(_coupleable_max_qps, 0);
+    auto value = std::make_unique<VectorVariableValue>(_coupleable_max_qps, 0);
     bool already_warned = false;
     for (unsigned int qp = 0; qp < _coupleable_max_qps; ++qp)
-      for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+      for (const auto i : make_range(Moose::dim))
       {
         try
         {
@@ -348,7 +348,7 @@ Coupleable::getDefaultArrayValue(const std::string & var_name) const
   auto default_value_it = _default_array_value.find(var_name);
   if (default_value_it == _default_array_value.end())
   {
-    auto value = libmesh_make_unique<ArrayVariableValue>(_coupleable_max_qps);
+    auto value = std::make_unique<ArrayVariableValue>(_coupleable_max_qps);
     for (unsigned int qp = 0; qp < _coupleable_max_qps; ++qp)
     {
       auto n = _c_parameters.numberDefaultCoupledValues(var_name);
@@ -651,6 +651,13 @@ Coupleable::coupledArrayValue(const std::string & var_name, unsigned int comp) c
       return (_c_is_implicit) ? var->dofValuesNeighbor() : var->dofValuesOldNeighbor();
     return (_c_is_implicit) ? var->slnNeighbor() : var->slnOldNeighbor();
   }
+}
+
+std::vector<const ArrayVariableValue *>
+Coupleable::coupledArrayValues(const std::string & var_name) const
+{
+  auto func = [this, &var_name](unsigned int comp) { return &coupledArrayValue(var_name, comp); };
+  return coupledVectorHelper<const ArrayVariableValue *>(var_name, func);
 }
 
 VariableValue &
@@ -1622,9 +1629,8 @@ Coupleable::coupledDofValuesOlder(const std::string & var_name, unsigned int com
 std::vector<const VariableValue *>
 Coupleable::coupledAllDofValuesOlder(const std::string & var_name) const
 {
-  auto func = [this, &var_name](unsigned int comp) {
-    return &coupledDofValuesOlder(var_name, comp);
-  };
+  auto func = [this, &var_name](unsigned int comp)
+  { return &coupledDofValuesOlder(var_name, comp); };
   return coupledVectorHelper<const VariableValue *>(var_name, func);
 }
 
@@ -1864,8 +1870,8 @@ Coupleable::getADDefaultValue(const std::string & var_name) const
   auto default_value_it = _ad_default_value.find(var_name);
   if (default_value_it == _ad_default_value.end())
   {
-    auto value = libmesh_make_unique<ADVariableValue>(_coupleable_max_qps,
-                                                      _c_parameters.defaultCoupledValue(var_name));
+    auto value = std::make_unique<ADVariableValue>(_coupleable_max_qps,
+                                                   _c_parameters.defaultCoupledValue(var_name));
     default_value_it = _ad_default_value.insert(std::make_pair(var_name, std::move(value))).first;
   }
 
@@ -1881,7 +1887,7 @@ Coupleable::getADDefaultVectorValue(const std::string & var_name) const
     RealVectorValue default_vec;
     for (unsigned int i = 0; i < _c_parameters.numberDefaultCoupledValues(var_name); ++i)
       default_vec(i) = _c_parameters.defaultCoupledValue(var_name, i);
-    auto value = libmesh_make_unique<ADVectorVariableValue>(_coupleable_max_qps, default_vec);
+    auto value = std::make_unique<ADVectorVariableValue>(_coupleable_max_qps, default_vec);
     default_value_it =
         _ad_default_vector_value.insert(std::make_pair(var_name, std::move(value))).first;
   }
@@ -2032,18 +2038,16 @@ Coupleable::adCoupledValues(const std::string & var_name) const
 std::vector<const ADVectorVariableValue *>
 Coupleable::adCoupledVectorValues(const std::string & var_name) const
 {
-  auto func = [this, &var_name](unsigned int comp) {
-    return &adCoupledVectorValue(var_name, comp);
-  };
+  auto func = [this, &var_name](unsigned int comp)
+  { return &adCoupledVectorValue(var_name, comp); };
   return coupledVectorHelper<const ADVectorVariableValue *>(var_name, func);
 }
 
 std::vector<const VariableValue *>
 Coupleable::coupledVectorTagValues(const std::string & var_name, TagID tag) const
 {
-  auto func = [this, &var_name, &tag](unsigned int comp) {
-    return &coupledVectorTagValue(var_name, tag, comp);
-  };
+  auto func = [this, &var_name, &tag](unsigned int comp)
+  { return &coupledVectorTagValue(var_name, tag, comp); };
   return coupledVectorHelper<const VariableValue *>(var_name, func);
 }
 
@@ -2064,9 +2068,8 @@ Coupleable::coupledVectorTagValues(const std::string & var_name, const std::stri
 std::vector<const VariableGradient *>
 Coupleable::coupledVectorTagGradients(const std::string & var_name, TagID tag) const
 {
-  auto func = [this, &var_name, &tag](unsigned int comp) {
-    return &coupledVectorTagGradient(var_name, tag, comp);
-  };
+  auto func = [this, &var_name, &tag](unsigned int comp)
+  { return &coupledVectorTagGradient(var_name, tag, comp); };
   return coupledVectorHelper<const VariableGradient *>(var_name, func);
 }
 
@@ -2088,9 +2091,8 @@ Coupleable::coupledVectorTagGradients(const std::string & var_name,
 std::vector<const VariableValue *>
 Coupleable::coupledVectorTagDofValues(const std::string & var_name, TagID tag) const
 {
-  auto func = [this, &var_name, &tag](unsigned int comp) {
-    return &coupledVectorTagDofValue(var_name, tag, comp);
-  };
+  auto func = [this, &var_name, &tag](unsigned int comp)
+  { return &coupledVectorTagDofValue(var_name, tag, comp); };
   return coupledVectorHelper<const VariableValue *>(var_name, func);
 }
 
@@ -2112,9 +2114,8 @@ Coupleable::coupledVectorTagDofValues(const std::string & var_name,
 std::vector<const VariableValue *>
 Coupleable::coupledMatrixTagValues(const std::string & var_name, TagID tag) const
 {
-  auto func = [this, &var_name, &tag](unsigned int comp) {
-    return &coupledMatrixTagValue(var_name, tag, comp);
-  };
+  auto func = [this, &var_name, &tag](unsigned int comp)
+  { return &coupledMatrixTagValue(var_name, tag, comp); };
   return coupledVectorHelper<const VariableValue *>(var_name, func);
 }
 

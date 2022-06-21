@@ -113,9 +113,9 @@ RayTracingAngularQuadrature::gaussLegendre(const unsigned int order,
   // Sort based on the points
   std::vector<std::size_t> sorted_indices(x.size());
   std::iota(sorted_indices.begin(), sorted_indices.end(), 0);
-  std::stable_sort(sorted_indices.begin(), sorted_indices.end(), [&x](size_t i1, size_t i2) {
-    return x[i1] < x[i2];
-  });
+  std::stable_sort(sorted_indices.begin(),
+                   sorted_indices.end(),
+                   [&x](size_t i1, size_t i2) { return x[i1] < x[i2]; });
   const auto x_copy = x;
   const auto w_copy = w;
   for (std::size_t i = 0; i < x.size(); ++i)
@@ -202,43 +202,45 @@ RayTracingAngularQuadrature::rotate(const libMesh::Point & rotation_direction)
 const libMesh::Point &
 RayTracingAngularQuadrature::getDirection(const unsigned int l) const
 {
-  if (!hasDirection(l))
-    mooseError("RayTracingAngularQuadrature does not have direction ", l);
+  checkDirection(l);
   return _current_directions[l];
 }
 
 const std::vector<Real> &
 RayTracingAngularQuadrature::getWeights(const unsigned int l) const
 {
-  if (!hasDirection(l))
-    mooseError("RayTracingAngularQuadrature does not have direction ", l);
+  checkDirection(l);
   return _current_weights[l];
 }
 
 Real
 RayTracingAngularQuadrature::getTotalWeight(const unsigned int l) const
 {
-  if (!hasDirection(l))
-    mooseError("RayTracingAngularQuadrature does not have direction ", l);
+  checkDirection(l);
   return std::accumulate(_current_weights[l].begin(), _current_weights[l].end(), (Real)0);
 }
 
 const std::vector<Real> &
 RayTracingAngularQuadrature::getPolarSins(const unsigned int l) const
 {
-  if (!hasDirection(l))
-    mooseError("RayTracingAngularQuadrature does not have direction ", l);
+  checkDirection(l);
   return _current_polar_sins[l];
 }
 
 std::size_t
 RayTracingAngularQuadrature::numPolar(const unsigned int l) const
 {
-  if (!hasDirection(l))
-    mooseError("RayTracingAngularQuadrature does not have direction ", l);
+  checkDirection(l);
   if (_dim == 3)
     mooseAssert(_current_weights[l].size() == 1, "Should be 1 polar in 3D");
   return _current_polar_sins[l].size();
+}
+
+void
+RayTracingAngularQuadrature::checkDirection(const unsigned int l) const
+{
+  if (!hasDirection(l))
+    mooseError("RayTracingAngularQuadrature does not have direction ", l);
 }
 
 void

@@ -10,18 +10,13 @@
 #pragma once
 
 #include "AuxScalarKernel.h"
-
-// Forward Declarations
-class ScalarTagVectorAux;
-
-template <>
-InputParameters validParams<AuxScalarKernel>();
+#include "TagAuxBase.h"
 
 /**
  * The value of a tagged vector for a given node and a given variable is coupled to
  * the current AuxVariable. ScalarTagVectorAux returns the coupled value.
  */
-class ScalarTagVectorAux : public AuxScalarKernel
+class ScalarTagVectorAux : public TagAuxBase<AuxScalarKernel>
 {
 public:
   static InputParameters validParams();
@@ -33,5 +28,5 @@ protected:
 
   TagID _tag_id;
   const VariableValue & _v;
+  const MooseVariableScalar & _v_var;
 };
-

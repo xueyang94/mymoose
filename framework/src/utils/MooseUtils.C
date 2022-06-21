@@ -15,6 +15,10 @@
 #include "InputParameters.h"
 #include "ExecFlagEnum.h"
 #include "InfixIterator.h"
+#include "MaterialBase.h"
+#include "Registry.h"
+#include "MortarConstraintBase.h"
+#include "MortarNodalAuxKernel.h"
 
 #include "libmesh/utility.h"
 #include "libmesh/elem.h"
@@ -64,6 +68,7 @@ runTestsExecutable()
   // TODO: maybe no path prefix - just moose_test_runner here?
   return pathjoin(Moose::getExecutablePath(), "moose_test_runner");
 }
+
 std::string
 findTestRoot()
 {
@@ -78,22 +83,47 @@ findTestRoot()
   return "";
 }
 
-std::string
-installedTestsDir(const std::string & app_name)
+bool
+parsesToReal(const std::string & input)
 {
-  std::string installed_path = pathjoin(Moose::getExecutablePath(), "../share", app_name, "test");
+  std::istringstream ss(input);
+  Real real_value;
+  if (ss >> real_value && ss.eof())
+    return true;
+  return false;
+}
 
-  auto testroot = pathjoin(installed_path, "testroot");
-  if (pathExists(testroot) && checkFileReadable(testroot))
-    return installed_path;
-  return "";
+std::string
+installedInputsDir(const std::string & app_name,
+                   const std::string & dir_name,
+                   const std::string & extra_error_msg)
+{
+  // See moose.mk for a detailed explanation of the assumed installed application
+  // layout. Installed inputs are expected to be installed in "share/<app_name>/<folder>".
+  // The binary, which has a defined location will be in "bin", a peer directory to "share".
+  std::string installed_path =
+      pathjoin(Moose::getExecutablePath(), "..", "share", app_name, dir_name);
+
+  auto test_root = pathjoin(installed_path, "testroot");
+  if (!pathExists(installed_path))
+    mooseError("Couldn't locate any installed inputs to copy in path: ",
+               installed_path,
+               '\n',
+               extra_error_msg);
+
+  checkFileReadable(test_root);
+  return installed_path;
 }
 
 std::string
 docsDir(const std::string & app_name)
 {
-  std::string installed_path = pathjoin(Moose::getExecutablePath(), "../share", app_name, "doc");
-  auto docfile = pathjoin(installed_path, "css/moose.css");
+  // See moose.mk for a detailed explanation of the assumed installed application
+  // layout. Installed docs are expected to be installed in "share/<app_name>/doc".
+  // The binary, which has a defined location will be in "bin", a peer directory to "share".
+  std::string installed_path = pathjoin(Moose::getExecutablePath(), "..", "share", app_name, "doc");
+
+  auto docfile = pathjoin(installed_path, "css", "moose.css");
   if (pathExists(docfile) && checkFileReadable(docfile))
     return installed_path;
   return "";
@@ -210,6 +240,16 @@ pathExists(const std::string & path)
 {
   struct stat buffer;
   return (stat(path.c_str(), &buffer) == 0);
+}
+
+bool
+pathIsDirectory(const std::string & path)
+{
+  struct stat buffer;
+  // stat call fails?
+  if (stat(path.c_str(), &buffer))
+    return false;
+  return S_IFDIR & buffer.st_mode;
 }
 
 bool
@@ -406,6 +446,19 @@ splitFileName(std::string full_file)
 
   // Return the path and file as a pair
   return std::pair<std::string, std::string>(path, file);
+}
+
+std::string
+getCurrentWorkingDir()
+{
+  // Note: At the time of creating this method, our minimum compiler still
+  // does not support <filesystem>. Additionally, the inclusion of that header
+  // requires an additional library to be linked so for now, we'll just
+  // use the Unix standard library to get us the cwd().
+  constexpr unsigned int BUF_SIZE = 1024;
+  char buffer[BUF_SIZE];
+
+  return getcwd(buffer, BUF_SIZE) != nullptr ? buffer : "";
 }
 
 void
@@ -815,8 +868,15 @@ convertStringToInt(const std::string & str, bool throw_on_failure)
   // This would be the case for scientific notation
   long double double_val;
   std::stringstream double_ss(str);
+  double_ss >> double_val;
 
-  if ((double_ss >> double_val).fail() || !double_ss.eof())
+  // on arm64 the long double does not have sufficient precission
+  bool use_int = false;
+  std::stringstream int_ss(str);
+  if (!(int_ss >> val).fail() && int_ss.eof())
+    use_int = true;
+
+  if (double_ss.fail() || !double_ss.eof())
   {
     std::string msg =
         std::string("Unable to convert '") + str + "' to type " + demangle(typeid(T).name());
@@ -827,21 +887,18 @@ convertStringToInt(const std::string & str, bool throw_on_failure)
       mooseError(msg);
   }
 
-  // Check to see if it's an integer (and within range of an integer
+  // Check to see if it's an integer (and within range of an integer)
   if (double_val == static_cast<T>(double_val))
-    val = double_val;
-  else // Still failure
-  {
-    std::string msg =
-        std::string("Unable to convert '") + str + "' to type " + demangle(typeid(T).name());
+    return use_int ? val : static_cast<T>(double_val);
 
-    if (throw_on_failure)
-      throw std::invalid_argument(msg);
-    else
-      mooseError(msg);
-  }
+  // Still failure
+  std::string msg =
+      std::string("Unable to convert '") + str + "' to type " + demangle(typeid(T).name());
 
-  return val;
+  if (throw_on_failure)
+    throw std::invalid_argument(msg);
+  else
+    mooseError(msg);
 }
 
 template <>
@@ -1112,20 +1169,8 @@ std::string
 realpath(const std::string & path)
 {
   char dummy[PETSC_MAX_PATH_LEN];
-#if defined(PETSC_HAVE_REALPATH)
-  // If "realpath" is adopted by PETSc and
-  // "path" does not exist, then PETSc will print a misleading message.
-  // [0]PETSC ERROR: Error in external library
-  // [0]PETSC ERROR: realpath()
-  // [0]PETSC ERROR: See https://www.mcs.anl.gov/petsc/documentation/faq.html for trouble shooting.
-  // [0]PETSC ERROR: Petsc Release Version 3.13.3, unknown
-  // We here override the misleading message with a better one.
-  if (!::realpath(path.c_str(), dummy))
+  if (PetscGetFullPath(path.c_str(), dummy, sizeof(dummy)))
     mooseError("Failed to get real path for ", path);
-#endif
-  if (PetscGetRealPath(path.c_str(), dummy))
-    mooseError("Failed to get real path for ", path);
-
   return dummy;
 }
 
@@ -1194,6 +1239,72 @@ prettyCppType(const std::string & cpp_type)
   return s;
 }
 
+template <typename Consumers>
+std::deque<MaterialBase *>
+buildRequiredMaterials(const Consumers & mat_consumers,
+                       const std::vector<std::shared_ptr<MaterialBase>> & mats,
+                       const bool allow_stateful)
+{
+  std::deque<MaterialBase *> required_mats;
+
+  std::unordered_set<unsigned int> needed_mat_props;
+  for (const auto & consumer : mat_consumers)
+  {
+    const auto & mp_deps = consumer->getMatPropDependencies();
+    needed_mat_props.insert(mp_deps.begin(), mp_deps.end());
+  }
+
+  // A predicate of calling this function is that these materials come in already sorted by
+  // dependency with the front of the container having no other material dependencies and following
+  // materials potentially depending on the ones in front of them. So we can start at the back and
+  // iterate forward checking whether the current material supplies anything that is needed, and if
+  // not we discard it
+  for (auto it = mats.rbegin(); it != mats.rend(); ++it)
+  {
+    auto * const mat = it->get();
+    bool supplies_needed = false;
+
+    const auto & supplied_props = mat->getSuppliedPropIDs();
+
+    // Do O(N) with the small container
+    for (const auto supplied_prop : supplied_props)
+    {
+      if (needed_mat_props.count(supplied_prop))
+      {
+        supplies_needed = true;
+        break;
+      }
+    }
+
+    if (!supplies_needed)
+      continue;
+
+    if (!allow_stateful && mat->hasStatefulProperties())
+      mooseError("Someone called buildRequiredMaterials with allow_stateful = false but a material "
+                 "dependency ",
+                 mat->name(),
+                 " computes stateful properties.");
+
+    const auto & mp_deps = mat->getMatPropDependencies();
+    needed_mat_props.insert(mp_deps.begin(), mp_deps.end());
+    required_mats.push_front(mat);
+  }
+
+  return required_mats;
+}
+
+template std::deque<MaterialBase *>
+buildRequiredMaterials(const std::vector<MortarConstraintBase *> &,
+                       const std::vector<std::shared_ptr<MaterialBase>> &,
+                       bool);
+template std::deque<MaterialBase *>
+buildRequiredMaterials(const std::array<const MortarNodalAuxKernelTempl<Real> *, 1> &,
+                       const std::vector<std::shared_ptr<MaterialBase>> &,
+                       bool);
+template std::deque<MaterialBase *>
+buildRequiredMaterials(const std::array<const MortarNodalAuxKernelTempl<RealVectorValue> *, 1> &,
+                       const std::vector<std::shared_ptr<MaterialBase>> &,
+                       bool);
 } // MooseUtils namespace
 
 std::string
@@ -1210,9 +1321,10 @@ getLatestCheckpointFileHelper(const std::list<std::string> & checkpoint_files,
   // Loop through all possible files and store the newest
   for (const auto & cp_file : checkpoint_files)
   {
-    if (find_if(extensions.begin(), extensions.end(), [cp_file](const std::string & ext) {
-          return MooseUtils::hasExtension(cp_file, ext);
-        }) != extensions.end())
+    if (find_if(extensions.begin(),
+                extensions.end(),
+                [cp_file](const std::string & ext)
+                { return MooseUtils::hasExtension(cp_file, ext); }) != extensions.end())
     {
       struct stat stats;
       stat(cp_file.c_str(), &stats);
@@ -1269,4 +1381,15 @@ removeSubstring(std::string & main, const std::string & sub)
   std::string::size_type n = sub.length();
   for (std::string::size_type i = main.find(sub); i != std::string::npos; i = main.find(sub))
     main.erase(i, n);
+}
+
+std::string
+removeSubstring(const std::string & main, const std::string & sub)
+{
+  std::string copy_main = main;
+  std::string::size_type n = sub.length();
+  for (std::string::size_type i = copy_main.find(sub); i != std::string::npos;
+       i = copy_main.find(sub))
+    copy_main.erase(i, n);
+  return copy_main;
 }

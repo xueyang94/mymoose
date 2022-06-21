@@ -11,12 +11,6 @@
 
 #include "SideAverageValue.h"
 
-// Forward Declarations
-class AxisymmetricCenterlineAverageValue;
-
-template <>
-InputParameters validParams<AxisymmetricCenterlineAverageValue>();
-
 /**
  * This postprocessor computes a line integral of the specified variable
  * along the centerline of an axisymmetric domain.
@@ -33,4 +27,3 @@ protected:
   virtual Real volume() override;
   Real _volume;
 };
-

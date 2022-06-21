@@ -12,12 +12,6 @@
 // MOOSE includes
 #include "MaterialStdVectorAuxBase.h"
 
-// Forward declarations
-class MaterialStdVectorRealGradientAux;
-
-template <>
-InputParameters validParams<MaterialStdVectorRealGradientAux>();
-
 /**
  * AuxKernel for outputting a std::vector material-property component to an AuxVariable
  */
@@ -34,4 +28,3 @@ protected:
   /// component of the real gradient to be extracted
   unsigned int _component;
 };
-

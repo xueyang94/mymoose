@@ -12,12 +12,6 @@
 // Moose Includes
 #include "ElementDamper.h"
 
-// Forward Declarations
-class BoundingValueElementDamper;
-
-template <>
-InputParameters validParams<BoundingValueElementDamper>();
-
 /**
  * This class implements a damper that limits the value of a variable to be within
  * user-specified bounds.
@@ -37,4 +31,3 @@ protected:
   /// Compute the damping for the current qp
   virtual Real computeQpDamping() override;
 };
-

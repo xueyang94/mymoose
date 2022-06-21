@@ -12,11 +12,6 @@
 #include "Function.h"
 #include "SplineInterpolation.h"
 
-class SplineFunction;
-
-template <>
-InputParameters validParams<SplineFunction>();
-
 /**
  * Function that uses spline interpolation
  */
@@ -27,7 +22,10 @@ public:
 
   SplineFunction(const InputParameters & parameters);
 
+  using Function::value;
   virtual Real value(Real t, const Point & p) const override;
+  virtual ADReal value(const ADReal & t, const ADPoint & p) const override;
+
   virtual RealGradient gradient(Real t, const Point & p) const override;
 
   virtual Real derivative(const Point & p) const;

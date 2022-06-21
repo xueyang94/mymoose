@@ -126,7 +126,7 @@
   l_max_its = 20
   l_tol = 1e-8
   nl_max_its = 15
-  nl_rel_tol = 1e-12
+  nl_rel_tol = 2e-12
   nl_abs_tol = 1e-50
 
   start_time = 0.0
@@ -139,7 +139,6 @@
 [Outputs]
   exodus = true
   execute_on = timestep_end
-  csv = true
   file_base = moving_diffusion_out
   perf_graph = true
   [./console]

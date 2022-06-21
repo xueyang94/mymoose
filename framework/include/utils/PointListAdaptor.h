@@ -69,21 +69,18 @@ public:
 
     coord_t dist = 0.0;
 
-    for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+    for (const auto i : make_range(Moose::dim))
       dist += Utility::pow<2>(p1[i] - p2(i));
 
     return dist;
   }
 
   /**
-   * Returns the dim'th component of the idx'th point in the class:
-   * Since this is inlined and the "dim" argument is typically an immediate
-   * value, the
-   *  "if's" are actually solved at compile time.
+   * Returns the dim'th component of the idx'th point in the class
    */
   inline coord_t kdtree_get_pt(const size_t idx, int dim) const
   {
-    mooseAssert(dim < (int)LIBMESH_DIM,
+    mooseAssert(dim < (int)Moose::dim,
                 "The required component number should be less than the LIBMESH_DIM.");
     mooseAssert(idx < _size,
                 "The index of the point should be less"
@@ -116,4 +113,3 @@ PointListAdaptor<Point>::getPoint(const Point & item) const
 {
   return item;
 }
-

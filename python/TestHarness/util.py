@@ -43,7 +43,18 @@ MOOSE_OPTIONS = {
                     { 'TRUE'    : '1',
                       'FALSE'   : '0'
                     }
-                  }
+    },
+
+    'libtorch' :    { 're_option' : r'#define\s+MOOSE_LIBTORCH_ENABLED\s+(\d+)',
+                    'default'   : 'FALSE',
+                    'options'   :
+                    { 'TRUE'    : '1',
+                      'FALSE'   : '0'
+                    }
+    },
+
+    'libtorch_dir' : { 're_option' : r'#define\s+MOOSE_LIBTORCH_DIR\s+(.*)',
+                       'default'  : '/framework/contrib/libtorch'}
 }
 
 
@@ -118,6 +129,21 @@ LIBMESH_OPTIONS = {
   'slepc_subminor' :  { 're_option' : r'#define\s+LIBMESH_DETECTED_SLEPC_VERSION_SUBMINOR\s+(\d+)',
                      'default'   : '1'
                    },
+  'exodus_major' :  { 're_option' : r'#define\s+LIBMESH_DETECTED_EXODUS_VERSION_MAJOR\s+(\d+)',
+                     'default'   : '1'
+                   },
+  'exodus_minor' :  { 're_option' : r'#define\s+LIBMESH_DETECTED_EXODUS_VERSION_MINOR\s+(\d+)',
+                     'default'   : '1'
+                   },
+  'vtk_major' :  { 're_option' : r'#define\s+LIBMESH_DETECTED_VTK_VERSION_MAJOR\s+(\d+)',
+                   'default'   : '1'
+                 },
+  'vtk_minor' :  { 're_option' : r'#define\s+LIBMESH_DETECTED_VTK_VERSION_MINOR\s+(\d+)',
+                   'default'   : '1'
+                 },
+  'vtk_subminor' :  { 're_option' : r'#define\s+LIBMESH_DETECTED_VTK_VERSION_SUBMINOR\s+(\d+)',
+                      'default'   : '1'
+                    },
   'dof_id_bytes' : { 're_option' : r'#define\s+LIBMESH_DOF_ID_BYTES\s+(\d+)',
                      'default'   : '4'
                    },
@@ -185,6 +211,16 @@ LIBMESH_OPTIONS = {
                      'default'   : 'FALSE',
                      'options'   : {'TRUE' : '1', 'FALSE' : '0'}
                    },
+}
+
+LIBTORCH_OPTIONS = {
+      'libtorch_major' :  { 're_option' : r'#define\s+TORCH_VERSION_MAJOR\s+(\d+)',
+                   'default'   : '1'
+                 },
+      'libtorch_minor' :  { 're_option' : r'#define\s+TORCH_VERSION_MINOR\s+(\d+)',
+                   'default'   : '10'
+                 }
+
 }
 
 
@@ -449,6 +485,38 @@ def getSlepcVersion(libmesh_dir):
 
     return major_version.pop() + '.' + minor_version.pop() + '.' + subminor_version.pop()
 
+def getExodusVersion(libmesh_dir):
+    major_version = getLibMeshConfigOption(libmesh_dir, 'exodus_major')
+    minor_version = getLibMeshConfigOption(libmesh_dir, 'exodus_minor')
+    if len(major_version) != 1 or len(minor_version) != 1:
+      return None
+
+    return major_version.pop() + '.' + minor_version.pop()
+
+def getVTKVersion(libmesh_dir):
+    major_version = getLibMeshConfigOption(libmesh_dir, 'vtk_major')
+    minor_version = getLibMeshConfigOption(libmesh_dir, 'vtk_minor')
+    subminor_version = getLibMeshConfigOption(libmesh_dir, 'vtk_subminor')
+    if len(major_version) != 1 or len(minor_version) != 1 or len(major_version) != 1:
+      return None
+
+    return major_version.pop() + '.' + minor_version.pop() + '.' + subminor_version.pop()
+
+def getLibtorchVersion(moose_dir):
+    libtorch_dir = getMooseConfigOption(moose_dir, 'libtorch_dir')
+
+    if len(libtorch_dir) != 1:
+      return None
+
+    filenames = [libtorch_dir.pop()+'/include/torch/csrc/api/include/torch/version.h']
+    major_version = getConfigOption(filenames, 'libtorch_major', LIBTORCH_OPTIONS)
+    minor_version = getConfigOption(filenames, 'libtorch_minor', LIBTORCH_OPTIONS)
+
+    if len(major_version) != 1 or len(minor_version) != 1 or len(major_version) != 1:
+      return None
+
+    return major_version.pop() + '.' + minor_version.pop()
+
 def checkLogicVersionSingle(checks, iversion, package):
     logic, version = re.search(r'(.*?)(\d\S+)', iversion).groups()
     if logic == '' or logic == '=':
@@ -513,6 +581,50 @@ def checkSlepcVersion(checks, test):
 
     version_string = ' '.join(test['slepc_version'])
     return (checkVersion(checks, version_string, 'slepc_version'), version_string)
+
+# Break down exodus version logic in a new define
+def checkExodusVersion(checks, test):
+    version_string = ' '.join(test['exodus_version'])
+
+    # If any version of Exodus works, return true immediately
+    if 'ALL' in set(test['exodus_version']):
+        return (True, version_string)
+
+    # Exodus not installed or version could not be detected (e.g. old libMesh)
+    if checks['exodus_version'] == None:
+       return (False, version_string)
+
+    return (checkVersion(checks, version_string, 'exodus_version'), version_string)
+
+
+# Break down VTKversion logic in a new define
+def checkVTKVersion(checks, test):
+    version_string = ' '.join(test['vtk_version'])
+
+    # If any version of VTK works, return true immediately
+    if 'ALL' in set(test['vtk_version']):
+        return (True, version_string)
+
+    # VTK not installed or version could not be detected (e.g. old libMesh)
+    if checks['vtk_version'] == None:
+       return (False, version_string)
+
+    return (checkVersion(checks, version_string, 'vtk_version'), version_string)
+
+# Break down libtorch version logic in a new define
+def checkLibtorchVersion(checks, test):
+    version_string = ' '.join(test['libtorch_version'])
+
+    # If any version of libtorch works, return true immediately
+    if 'ALL' in set(test['libtorch_version']):
+        return (True, version_string)
+
+    # libtorch not installed or version could not be detected
+    if checks['libtorch_version'] == None:
+       return (False, version_string)
+
+    return (checkVersion(checks, version_string, 'libtorch_version'), version_string)
+
 
 def getIfAsioExists(moose_dir):
     option_set = set(['ALL'])
@@ -626,6 +738,33 @@ def getInitializedSubmodules(root_dir):
         return []
     # This ignores submodules that have a '-' at the beginning which means they are not initialized
     return re.findall(r'^[ +]\S+ (\S+)', output, flags=re.MULTILINE)
+
+def checkInstalled(root_dir):
+    """
+    Returns a set containing 'ALL' and whether or not the TestHarness
+    is running in an "installed" directory. Since we don't have a fool-proof
+    way of knowing whether a binary is installed or not... Actually we really
+    don't have even a "bad" way of telling. People can install tests just about
+    anywhere that they can write too so we'll see all sorts of good and bad
+    practices. So, for now, let's just detect whether or not we are in a Git
+    repository since usually installed tests won't be in a git area.
+
+    - If somebody tarballs MOOSE up, this report an incorrect result
+    - If somebody installs tests into their git repository, this report an incorrect results
+
+    Neither of these cases a significant risk.
+    """
+
+    option_set = set(['ALL'])
+
+    # If we are in a git repo assume we are not installed
+    output = str(runCommand("git submodule status", cwd=root_dir))
+    if output.startswith("ERROR"):
+        option_set.add('TRUE')
+    else:
+        option_set.add('FALSE')
+
+    return option_set
 
 def addObjectsFromBlock(objs, node, block_name):
     """

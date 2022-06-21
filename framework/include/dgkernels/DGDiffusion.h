@@ -11,12 +11,6 @@
 
 #include "DGKernel.h"
 
-// Forward Declarations
-class DGDiffusion;
-
-template <>
-InputParameters validParams<DGDiffusion>();
-
 /**
  * DG kernel for diffusion
  *
@@ -43,4 +37,3 @@ protected:
   const MaterialProperty<Real> & _diff;
   const MaterialProperty<Real> & _diff_neighbor;
 };
-

@@ -11,9 +11,13 @@
 
 #include "Moose.h"
 #include "ADReal.h"
+#include "ChainedReal.h"
+#include "ChainedADReal.h"
 #include "ADRankTwoTensorForward.h"
 #include "ADRankThreeTensorForward.h"
 #include "ADRankFourTensorForward.h"
+#include "ADSymmetricRankTwoTensorForward.h"
+#include "ADSymmetricRankFourTensorForward.h"
 
 #include "libmesh/libmesh.h"
 #include "libmesh/id_types.h"
@@ -29,6 +33,8 @@
 #include "Eigen/Core"
 #include "libmesh/restore_warnings.h"
 #include "libmesh/tensor_tools.h"
+
+#include "metaphysicl/ct_types.h"
 
 #include <string>
 #include <vector>
@@ -119,15 +125,23 @@ template <typename>
 class ADMaterialProperty;
 class InputParameters;
 
+enum class MaterialPropState
+{
+  CURRENT = 0x1,
+  OLD = 0x2,
+  OLDER = 0x4
+};
+using MaterialPropStateInt = std::underlying_type<MaterialPropState>::type;
+
 namespace libMesh
 {
 template <typename>
 class VectorValue;
 typedef VectorValue<Real> RealVectorValue;
-typedef Eigen::Matrix<Real, LIBMESH_DIM, 1> RealDIMValue;
+typedef Eigen::Matrix<Real, Moose::dim, 1> RealDIMValue;
 typedef Eigen::Matrix<Real, Eigen::Dynamic, 1> RealEigenVector;
-typedef Eigen::Matrix<Real, Eigen::Dynamic, LIBMESH_DIM> RealVectorArrayValue;
-typedef Eigen::Matrix<Real, Eigen::Dynamic, LIBMESH_DIM * LIBMESH_DIM> RealTensorArrayValue;
+typedef Eigen::Matrix<Real, Eigen::Dynamic, Moose::dim> RealVectorArrayValue;
+typedef Eigen::Matrix<Real, Eigen::Dynamic, Moose::dim * Moose::dim> RealTensorArrayValue;
 typedef Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic> RealEigenMatrix;
 template <typename>
 class TypeVector;
@@ -149,21 +163,30 @@ namespace TensorTools
 template <>
 struct IncrementRank<Eigen::Matrix<Real, Eigen::Dynamic, 1>>
 {
-  typedef Eigen::Matrix<Real, Eigen::Dynamic, LIBMESH_DIM> type;
+  typedef Eigen::Matrix<Real, Eigen::Dynamic, Moose::dim> type;
 };
 
 template <>
-struct IncrementRank<Eigen::Matrix<Real, Eigen::Dynamic, LIBMESH_DIM>>
+struct IncrementRank<Eigen::Matrix<Real, Eigen::Dynamic, Moose::dim>>
 {
-  typedef Eigen::Matrix<Real, Eigen::Dynamic, LIBMESH_DIM * LIBMESH_DIM> type;
+  typedef Eigen::Matrix<Real, Eigen::Dynamic, Moose::dim * Moose::dim> type;
 };
 
 template <>
-struct DecrementRank<Eigen::Matrix<Real, Eigen::Dynamic, LIBMESH_DIM>>
+struct DecrementRank<Eigen::Matrix<Real, Eigen::Dynamic, Moose::dim>>
 {
   typedef Eigen::Matrix<Real, Eigen::Dynamic, 1> type;
 };
 }
+}
+
+namespace MetaPhysicL
+{
+template <typename U>
+struct ReplaceAlgebraicType<libMesh::RealEigenVector, U>
+{
+  typedef U type;
+};
 }
 
 /**
@@ -342,6 +365,11 @@ struct ADType<Real>
   typedef ADReal type;
 };
 template <>
+struct ADType<ChainedReal>
+{
+  typedef ChainedADReal type;
+};
+template <>
 struct ADType<RankTwoTensor>
 {
   typedef ADRankTwoTensor type;
@@ -356,6 +384,18 @@ struct ADType<RankFourTensor>
 {
   typedef ADRankFourTensor type;
 };
+
+template <>
+struct ADType<SymmetricRankTwoTensor>
+{
+  typedef ADSymmetricRankTwoTensor type;
+};
+template <>
+struct ADType<SymmetricRankFourTensor>
+{
+  typedef ADSymmetricRankFourTensor type;
+};
+
 template <template <typename> class W>
 struct ADType<W<Real>>
 {
@@ -438,6 +478,8 @@ using GenericType = typename std::conditional<is_ad, typename ADType<T>::type, T
 template <bool is_ad>
 using GenericReal = typename Moose::GenericType<Real, is_ad>;
 template <bool is_ad>
+using GenericChainedReal = typename Moose::GenericType<ChainedReal, is_ad>;
+template <bool is_ad>
 using GenericRealVectorValue = typename Moose::GenericType<RealVectorValue, is_ad>;
 template <bool is_ad>
 using GenericRankTwoTensor = typename Moose::GenericType<RankTwoTensor, is_ad>;
@@ -452,55 +494,13 @@ using GenericVariableGradient = typename Moose::GenericType<VariableGradient, is
 template <bool is_ad>
 using GenericVariableSecond = typename Moose::GenericType<VariableSecond, is_ad>;
 
-#define declareADValidParams(ADObjectType)                                                         \
-  template <>                                                                                      \
-  InputParameters validParams<ADObjectType>()
-
-#define defineADValidParams(ADObjectType, ADBaseObjectType, addedParamCode)                        \
-  template <>                                                                                      \
-  InputParameters validParams<ADObjectType>()                                                      \
-  {                                                                                                \
-    InputParameters params = validParams<ADBaseObjectType>();                                      \
-    addedParamCode;                                                                                \
-    return params;                                                                                 \
-  }                                                                                                \
-  void mooseClangFormatFunction()
-
+// Should be removed with #19439
 #define defineLegacyParams(ObjectType)                                                             \
-  template <>                                                                                      \
-  InputParameters validParams<ObjectType>()                                                        \
-  {                                                                                                \
-    return ObjectType::validParams();                                                              \
-  }                                                                                                \
-  void mooseClangFormatFunction()
-
-#define defineADLegacyParams(ADObjectType)                                                         \
-  template <>                                                                                      \
-  InputParameters validParams<ADObjectType>()                                                      \
-  {                                                                                                \
-    return ADObjectType::validParams();                                                            \
-  }                                                                                                \
-  void mooseClangFormatFunction()
-
-#define defineADBaseValidParams(ADObjectType, BaseObjectType, addedParamCode)                      \
-  template <>                                                                                      \
-  InputParameters validParams<ADObjectType>()                                                      \
-  {                                                                                                \
-    InputParameters params = validParams<BaseObjectType>();                                        \
-    addedParamCode;                                                                                \
-    return params;                                                                                 \
-  }                                                                                                \
-  void mooseClangFormatFunction()
-
-#define defineADValidParamsFromEmpty(ADObjectType, addedParamCode)                                 \
-  template <>                                                                                      \
-  InputParameters validParams<ADObjectType>()                                                      \
-  {                                                                                                \
-    InputParameters params = emptyInputParameters();                                               \
-    addedParamCode;                                                                                \
-    return params;                                                                                 \
-  }                                                                                                \
-  void mooseClangFormatFunction()
+  static_assert(false,                                                                             \
+                "defineLegacyParams is no longer supported as legacy input parameter "             \
+                "construction is no longer supported; see "                                        \
+                "mooseframework.org/newsletter/2021_11.html#legacy-input-parameter-deprecation "   \
+                "for more information");
 
 namespace Moose
 {
@@ -608,6 +608,16 @@ enum class MortarType : unsigned int
 };
 
 /**
+ * The type of nonlinear computation being performed
+ */
+enum class ComputeType
+{
+  Residual,
+  Jacobian,
+  ResidualAndJacobian
+};
+
+/**
  * The filter type applied to a particular piece of "restartable" data. These filters
  * will be applied during deserialization to include or exclude data as appropriate.
  */
@@ -682,8 +692,9 @@ enum EigenSolveType
   EST_JACOBI_DAVIDSON, ///< Jacobi-Davidson
   EST_NONLINEAR_POWER, ///< Nonlinear inverse power
   EST_NEWTON, ///< Newton-based eigensolver with an assembled Jacobian matrix (fully coupled by default)
-  EST_PJFNK, ///< Preconditioned Jacobian-free Newton Krylov
-  EST_JFNK   ///< Jacobian-free Newton Krylov
+  EST_PJFNK,   ///< Preconditioned Jacobian-free Newton Krylov
+  EST_PJFNKMO, ///< The same as PJFNK except that matrix-vector multiplication is employed to replace residual evaluation in linear solver
+  EST_JFNK     ///< Jacobian-free Newton Krylov
 };
 
 /**
@@ -750,18 +761,12 @@ enum LineSearchType
   LS_DEFAULT,
   LS_NONE,
   LS_BASIC,
-#if PETSC_VERSION_LESS_THAN(3, 3, 0)
-  LS_CUBIC,
-  LS_QUADRATIC,
-  LS_BASICNONORMS,
-#else
   LS_SHELL,
   LS_CONTACT,
   LS_PROJECT,
   LS_L2,
   LS_BT,
   LS_CP
-#endif
 };
 
 /**
@@ -938,6 +943,9 @@ DerivativeStringClass(ExtraElementIDName);
 /// Name of a Reporter Value, second argument to ReporterName (see Reporter.h)
 DerivativeStringClass(ReporterValueName);
 
+/// Name of an Executor.  Used for inputs to Executors
+DerivativeStringClass(ExecutorName);
+
 namespace Moose
 {
 extern const TagName SOLUTION_TAG;
@@ -945,3 +953,10 @@ extern const TagName OLD_SOLUTION_TAG;
 extern const TagName OLDER_SOLUTION_TAG;
 extern const TagName PREVIOUS_NL_SOLUTION_TAG;
 }
+
+/// macros for adding Tensor index enums locally
+#define usingTensorIndices(...)                                                                    \
+  enum                                                                                             \
+  {                                                                                                \
+    __VA_ARGS__                                                                                    \
+  }

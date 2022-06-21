@@ -14,14 +14,18 @@
 #include "InfixIterator.h"
 #include "MooseEnumItem.h"
 #include "MooseError.h"
+#include "MooseADWrapper.h"
 #include "Moose.h"
 #include "DualReal.h"
 #include "ExecutablePath.h"
 
 #include "libmesh/compare_types.h"
 #include "libmesh/bounding_box.h"
+#include "libmesh/int_range.h"
 #include "metaphysicl/raw_type.h"
 #include "metaphysicl/metaphysicl_version.h"
+#include "metaphysicl/dualnumber_decl.h"
+#include "metaphysicl/dynamic_std_array_wrapper.h"
 #include "timpi/standard_type.h"
 
 // C++ includes
@@ -30,11 +34,13 @@
 #include <map>
 #include <list>
 #include <iterator>
+#include <deque>
 
 // Forward Declarations
 class InputParameters;
 class ExecFlagEnum;
 class MaterialProperties;
+class MaterialBase;
 
 namespace libMesh
 {
@@ -45,29 +51,6 @@ class Communicator;
 }
 }
 class MultiMooseEnum;
-namespace MetaPhysicL
-{
-#if METAPHYSICL_MAJOR_VERSION < 1
-template <typename, typename>
-class DualNumber;
-#else
-#include "metaphysicl/dualnumber_forward.h"
-#endif
-}
-namespace std
-{
-#if METAPHYSICL_MAJOR_VERSION < 1
-template <typename T, typename D>
-MetaPhysicL::DualNumber<T, D> abs(const MetaPhysicL::DualNumber<T, D> & in);
-template <typename T, typename D>
-MetaPhysicL::DualNumber<T, D> abs(MetaPhysicL::DualNumber<T, D> && in);
-#else
-template <typename T, typename D, bool asd>
-MetaPhysicL::DualNumber<T, D, asd> abs(const MetaPhysicL::DualNumber<T, D, asd> & in);
-template <typename T, typename D, bool asd>
-MetaPhysicL::DualNumber<T, D, asd> abs(MetaPhysicL::DualNumber<T, D, asd> && in);
-#endif
-}
 
 namespace MooseUtils
 {
@@ -83,8 +66,11 @@ pathjoin(const std::string & s, Args... args)
   return s + "/" + pathjoin(args...);
 }
 
+/// Check if the input string can be parsed into a Real
+bool parsesToReal(const std::string & input);
+
 /// Returns the location of either a local repo run_tests script - or an
-/// installed test runner script if run_tests isn't found.
+/// installed test executor script if run_tests isn't found.
 std::string runTestsExecutable();
 
 /// Searches in the current working directory and then recursively up in each
@@ -92,9 +78,10 @@ std::string runTestsExecutable();
 /// the first testroot file found.
 std::string findTestRoot();
 
-/// Returns the directory of any installed tests - or the empty string if none
-/// are found.
-std::string installedTestsDir(const std::string & app_name);
+/// Returns the directory of any installed inputs or the empty string if none are found.
+std::string installedInputsDir(const std::string & app_name,
+                               const std::string & dir_name,
+                               const std::string & extra_error_msg = "");
 
 /// Returns the directory of any installed docs/site.
 std::string docsDir(const std::string & app_name);
@@ -222,7 +209,7 @@ void serialEnd(const libMesh::Parallel::Communicator & comm, bool warn = true);
 bool hasExtension(const std::string & filename, std::string ext, bool strip_exodus_ext = false);
 
 /**
- * Removes any file extension from the fiven string s (i.e. any ".[extension]" suffix of s) and
+ * Removes any file extension from the given string s (i.e. any ".[extension]" suffix of s) and
  * returns the result.
  */
 std::string stripExtension(const std::string & s);
@@ -235,6 +222,13 @@ std::string stripExtension(const std::string & s);
  * If the supplied filename does not contain a path, it returns "." as the path
  */
 std::pair<std::string, std::string> splitFileName(std::string full_file);
+
+/**
+ * Returns the current working directory as a string. If there's a problem
+ * obtaining the current working directory, this function just returns an
+ * empty string. It doesn't not throw.
+ */
+std::string getCurrentWorkingDir();
 
 /**
  * Recursively make directories
@@ -602,11 +596,12 @@ std::string & removeColor(std::string & msg);
 std::list<std::string> listDir(const std::string path, bool files_only = false);
 
 bool pathExists(const std::string & path);
+bool pathIsDirectory(const std::string & path);
 
 /**
- * Retrieves the names of all of the files contained within the list of directories passed into the
- * routine.
- * The names returned will be the paths to the files relative to the current directory.
+ * Retrieves the names of all of the files contained within the list of directories passed into
+ * the routine. The names returned will be the paths to the files relative to the current
+ * directory.
  * @param directory_list The list of directories to retrieve files from.
  */
 std::list<std::string> getFilesInDirs(const std::list<std::string> & directory_list);
@@ -953,9 +948,12 @@ template <typename C, typename M1, typename M2>
 typename C::iterator
 findPair(C & container, const M1 & first, const M2 & second)
 {
-  return std::find_if(container.begin(), container.end(), [&](auto & item) {
-    return wildcardEqual(first, item.first) && wildcardEqual(second, item.second);
-  });
+  return std::find_if(container.begin(),
+                      container.end(),
+                      [&](auto & item) {
+                        return wildcardEqual(first, item.first) &&
+                               wildcardEqual(second, item.second);
+                      });
 }
 
 /**
@@ -975,9 +973,106 @@ findPair(C & container, const M1 & first, const M2 & second)
  */
 BoundingBox buildBoundingBox(const Point & p1, const Point & p2);
 
+template <typename Consumers>
+std::deque<MaterialBase *>
+buildRequiredMaterials(const Consumers & mat_consumers,
+                       const std::vector<std::shared_ptr<MaterialBase>> & mats,
+                       const bool allow_stateful);
+
+/**
+ * Utility class template for a semidynamic vector with a maximum size N
+ * and a chosen dynamic size. This container avoids heap allocation and
+ * is meant as a replacement for small local std::vector variables.
+ * By default this class uses `value initialization`. This can be disabled
+ * using the third template parameter if uninitialized storage is acceptable,
+ */
+template <typename T, std::size_t N, bool value_init = true>
+class SemidynamicVector : public MetaPhysicL::DynamicStdArrayWrapper<T, MetaPhysicL::NWrapper<N>>
+{
+  typedef MetaPhysicL::DynamicStdArrayWrapper<T, MetaPhysicL::NWrapper<N>> Parent;
+
+public:
+  SemidynamicVector(std::size_t size) : Parent()
+  {
+    Parent::resize(size);
+    if constexpr (value_init)
+      for (const auto i : make_range(size))
+        _data[i] = T{};
+  }
+
+  void resize(std::size_t new_size)
+  {
+    [[maybe_unused]] const auto old_dynamic_n = Parent::size();
+
+    Parent::resize(new_size);
+
+    if constexpr (value_init)
+      for (const auto i : make_range(old_dynamic_n, _dynamic_n))
+        _data[i] = T{};
+  }
+
+  void push_back(const T & v)
+  {
+    const auto old_dynamic_n = Parent::size();
+    Parent::resize(old_dynamic_n + 1);
+    _data[old_dynamic_n] = v;
+  }
+
+  template <typename... Args>
+  void emplace_back(Args &&... args)
+  {
+    const auto old_dynamic_n = Parent::size();
+    Parent::resize(old_dynamic_n + 1);
+    (::new (&_data[old_dynamic_n]) T(std::forward<Args>(args)...));
+  }
+
+  std::size_t max_size() const { return N; }
+
+  using Parent::_data;
+  using Parent::_dynamic_n;
+};
+
+/**
+ * The MooseUtils::get() specializations are used to support making
+ * forwards-compatible code changes from dumb pointers to smart pointers.
+ * The same line of code, e.g.
+ *
+ * libMesh::Parameters::Value * value = MooseUtils::get(map_iter->second);
+ *
+ * will then work regardless of whether map_iter->second is a dumb pointer
+ * or a smart pointer. Note that the smart pointer get() functions are const
+ * so they can be (ab)used to get a non-const pointer to the underlying
+ * resource. We are simply following this convention here.
+ */
+template <typename T>
+T *
+get(const std::unique_ptr<T> & u)
+{
+  return u.get();
+}
+
+template <typename T>
+T *
+get(T * p)
+{
+  return p;
+}
+
+template <typename T>
+T *
+get(const std::shared_ptr<T> & s)
+{
+  return s.get();
+}
+
 } // MooseUtils namespace
 
 /**
  * find, erase, length algorithm for removing a substring from a string
  */
 void removeSubstring(std::string & main, const std::string & sub);
+
+/**
+ * find, erase, length algorithm for removing a substring from a copy of a string
+ */
+std::string removeSubstring(const std::string & main, const std::string & sub);

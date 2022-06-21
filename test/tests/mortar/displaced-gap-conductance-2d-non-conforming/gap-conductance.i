@@ -61,13 +61,13 @@
 
 [BCs]
   [./left]
-    type = DirichletBC
+    type = ADDirichletBC
     variable = T
     boundary = '5'
     value = 0
   [../]
   [./right]
-    type = DirichletBC
+    type = ADDirichletBC
     variable = T
     boundary = '8'
     value = 1
@@ -76,7 +76,7 @@
 
 [Kernels]
   [./conduction]
-    type = Diffusion
+    type = ADDiffusion
     variable = T
     block = '1 2'
   [../]
@@ -96,6 +96,7 @@
     variable = lambda
     secondary_variable = T
     use_displaced_mesh = true
+    correct_edge_dropping = true
   [../]
 []
 

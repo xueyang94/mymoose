@@ -20,6 +20,7 @@ class TestObject : public MooseObject
 {
 public:
   TestObject(const InputParameters & params) : MooseObject(params) {}
+  static InputParameters validParams();
   virtual bool enabled() const override { return on; }
   std::vector<int> vals;
   bool on = true;
@@ -27,11 +28,10 @@ public:
 
 registerMooseObject("MooseUnitApp", TestObject);
 
-template <>
 InputParameters
-validParams<TestObject>()
+TestObject::validParams()
 {
-  auto p = validParams<MooseObject>();
+  auto p = MooseObject::validParams();
   p.registerBase("TestObject");
   return p;
 }
@@ -91,6 +91,7 @@ public:
     w.registerAttribute<TestAttrib>("1", 1, 0);
     w.registerAttribute<TestAttrib>("2", 2, 0);
     w.registerAttribute<TestAttrib>("3", 3, 0);
+    w.registerAttribute<AttribSorted>("sorted");
   }
 
   std::shared_ptr<TestObject> obj(int val1, int val2, int val3, int val4)

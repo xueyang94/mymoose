@@ -3,7 +3,7 @@ MOOSE performs several sanity checks when parsing the input file and command lin
 # Parsing
 
 The HIT (formerly GetPot) syntax is strict but fairly easy to use
-and understand. The syntax consists of nesting blocks deliniated by square brackets. Name/value pairs are then used to set parameters
+and understand. The syntax consists of nesting blocks delineated by square brackets. Name/value pairs are then used to set parameters
 throughout the system. The token rules are fairly loose. Most tokens are allowed (letters, numbers, underscores). Notably, spaces may
 not occur inside any section names, nor parameter names. When the parser runs, several different kinds of errors are detected:
 
@@ -33,6 +33,17 @@ MOOSE performs several sanity checks just before the simulation runs. This inclu
 - All pluggable systems must refer to the right type of variable (scalar, vector, array, "nonlinear", "auxiliary", etc)
 - Material properties must be defined on every block or boundary where they are consumed.
 - Multiple material properties with the same name be defined on overlapping blocks/boundaries.
+- Variable definition on boundary restricted objects. Nodal object integrity
+  checking is controlled with
+  [!param](/Problem/FEProblem/boundary_restricted_node_integrity_check). Elemental object
+  integrity checking is controlled with
+  [!param](/Problem/FEProblem/boundary_restricted_elem_integrity_check). Checked objects include
+    - Nodal user objects
+    - Nodal auxiliary kernels
+    - Nodal boundary conditions
+    - Side user objects
+    - Elemental auxiliary kernels
+    - Integrated boundary conditions
 
 Some of these checks can be disabled. This often comes in handy for testing purposes. One of the most common
 pair of parameters used in testing can be used to disable the kernel coverage check when a solve is not necessary.

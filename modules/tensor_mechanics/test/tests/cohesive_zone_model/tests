@@ -9,7 +9,7 @@
              'source/interfacekernels/CZMInterfaceKernelTotalLagrangian.md '
     issues = '#11546 #14527 #17156 #18611'
     requirement = "The system shall be able to use the small strain and total lagrangian cohesive "
-                  "zone model formulation, demonstrate an exact jacobian, and use the master action "
+                  "zone model formulation, demonstrate an exact jacobian, and use the parent action "
                   "to simplify input an doutput and provide the correct results"
     [jacobian_small_strain]
       type = CSVDiff
@@ -295,8 +295,8 @@
 
   [bilinear_mixed_mode]
     design = 'source/materials/cohesive_zone_model/BiLinearMixedModeTraction.md'
-    requirement = 'The MOOSE shall be able to model decohesion of composites using cohesive znoe '
-                  'model.'
+    requirement = 'The system shall be able to model decohesion of composites using cohesive zone '
+                  'model'
     issues = '#18611 #18763'
     [normal]
       type = Exodiff
@@ -343,7 +343,7 @@
     design = 'source/materials/cohesive_zone_model/SalehaniIrani3DCTraction.md'
     issues = '#11546 #14527 #17156'
     requirement = "The system shall be able to use the small strain and total lagrangian cohesive "
-                  "zone model formulation, demonstrate an exact jacobian, and use the master action "
+                  "zone model formulation, demonstrate an exact jacobian, and use the parent action "
                   "to simplify input an doutput and provide the correct results"
     [jacobian]
       type = CSVDiff

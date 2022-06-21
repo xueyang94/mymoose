@@ -8,8 +8,8 @@
   [name_blocks]
     type = RenameBlockGenerator
     input = basic_mesh
-    old_block_id = '2 3 4'
-    new_block_name = 'bot_aquifer aquitard top_aquifer'
+    old_block = '2 3 4'
+    new_block = 'bot_aquifer aquitard top_aquifer'
   []
   [zmax]
     type = SideSetsFromNormalsGenerator
@@ -151,6 +151,7 @@
   [baseflow_l_per_m_per_day]
     type = FunctionValuePostprocessor
     function = baseflow_rate
+    indirect_dependencies = 'baseflow_kg dt'
   []
 []
 
@@ -186,4 +187,3 @@
     type = CSV
   []
 []
-

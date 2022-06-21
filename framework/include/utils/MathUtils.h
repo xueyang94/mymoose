@@ -19,6 +19,9 @@
 namespace MathUtils
 {
 
+/// std::sqrt is not constexpr, so we add sqrt(2) as a constant (used in Mandel notation)
+static constexpr Real sqrt2 = 1.4142135623730951;
+
 Real poly1Log(Real x, Real tol, unsigned int derivative_order);
 Real poly2Log(Real x, Real tol, unsigned int derivative_order);
 Real poly3Log(Real x, Real tol, unsigned int derivative_order);
@@ -316,4 +319,26 @@ mooseSetToZero(std::vector<Real> & vec)
     v = 0.;
 }
 
+/**
+ * generate a complete multi index table for given dimension and order
+ * i.e. given dim = 2, order = 2, generated table will have the following content
+ * 0 0
+ * 1 0
+ * 0 1
+ * 2 0
+ * 1 1
+ * 0 2
+ * The first number in each entry represents the order of the first variable, i.e. x;
+ * The second number in each entry represents the order of the second variable, i.e. y.
+ * Multiplication is implied between numbers in each entry, i.e. 1 1 represents x^1 * y^1
+ *
+ * @param dim dimension of the multi-index, here dim = mesh dimension
+ * @param order generate the multi-index up to certain order
+ * @return a data structure holding entries representing the complete multi index
+ */
+std::vector<std::vector<unsigned int>> multiIndex(unsigned int dim, unsigned int order);
+
 } // namespace MathUtils
+
+/// A helper function for MathUtils::multiIndex
+std::vector<std::vector<unsigned int>> multiIndexHelper(unsigned int N, unsigned int K);

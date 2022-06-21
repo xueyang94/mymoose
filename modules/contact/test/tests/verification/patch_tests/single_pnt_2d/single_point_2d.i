@@ -200,7 +200,7 @@
   type = Transient
   solve_type = 'PJFNK'
 
-  petsc_options_iname = '-pc_type -pc_factor_mat_solver_package -mat_superlu_dist_iterrefine'
+  petsc_options_iname = '-pc_type -pc_factor_mat_solver_type -mat_superlu_dist_iterrefine'
   petsc_options_value = 'lu    superlu_dist 1'
 
   line_search = 'none'
@@ -218,7 +218,6 @@
 
 [Outputs]
   file_base = single_point_2d_out_glued_kin
-  exodus = true
   print_linear_residuals = true
   perf_graph = true
   csv = true

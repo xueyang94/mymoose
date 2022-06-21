@@ -26,6 +26,8 @@ public:
   std::unique_ptr<MeshBase> generate() override;
 
 protected:
+  /// The input meshes
+  const std::vector<std::unique_ptr<MeshBase> *> _mesh_ptrs;
   /// Names of input meshes
   const std::vector<MeshGeneratorName> & _input_names;
   /// 2D vector of the hexagonal pattern
@@ -42,7 +44,7 @@ protected:
   /// Size parameter(s) of duct(s)
   std::vector<Real> _duct_sizes;
   /// Style of the duct size parameter(s)
-  const enum class DuctStyle { apothem, radius } _duct_sizes_style;
+  const PolygonSizeStyle _duct_sizes_style;
   /// Number(s) of radial intervals of duct layer(s)
   const std::vector<unsigned int> _duct_intervals;
   /// Whether the nodes on the external boundary are uniformly distributed
@@ -62,7 +64,7 @@ protected:
   /// Boundary name of mesh's external boundary
   const std::string _external_boundary_name;
   /// Style of the polygon size parameter
-  const enum class PolygonStyle { apothem, radius } _hexagon_size_style;
+  const PolygonSizeStyle _hexagon_size_style;
   /// Pitch size of the input assembly mesh
   Real _pattern_pitch;
   /// MeshMetaData of the assembly pitch size
@@ -77,18 +79,10 @@ protected:
   std::vector<std::vector<Real>> & _control_drums_azimuthal_meta;
   /// Filename of the text file containing the control drum positions
   const std::string _position_file_name;
-  /// Pointers of input mesh pointers
-  std::vector<std::unique_ptr<MeshBase> *> _mesh_ptrs;
+  /// a Boolean flag to tell PeripheralModifyGenerator that the input is valid
+  const bool & _peripheral_modifier_compatible;
   /// Subdomain IDs of the peripheral regions
   std::vector<subdomain_id_type> _peripheral_block_ids;
   /// Subdomain Names of the peripheral regions
   std::vector<SubdomainName> _peripheral_block_names;
-  /// Input meshes
-  std::vector<std::unique_ptr<ReplicatedMesh>> _meshes;
-  /// Output mesh <MeshBase>
-  std::unique_ptr<MeshBase> _out_meshes_ptrs;
-  /// Output mesh <ReplicatedMesh>
-  std::unique_ptr<ReplicatedMesh> _out_meshes;
-  /// Temporary peripheral mesh
-  std::unique_ptr<ReplicatedMesh> _tmp_peripheral_mesh;
 };

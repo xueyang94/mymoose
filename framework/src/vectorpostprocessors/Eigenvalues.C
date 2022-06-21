@@ -18,8 +18,6 @@
 
 registerMooseObject("MooseApp", Eigenvalues);
 
-defineLegacyParams(Eigenvalues);
-
 InputParameters
 Eigenvalues::validParams()
 {
@@ -38,6 +36,13 @@ Eigenvalues::Eigenvalues(const InputParameters & parameters)
 {
   if (!_nl_eigen)
     mooseError("Given system is not a NonlinearEigenSystem \n");
+}
+
+void
+Eigenvalues::initialize()
+{
+  _eigen_values_real.clear();
+  _eigen_values_imag.clear();
 }
 
 void

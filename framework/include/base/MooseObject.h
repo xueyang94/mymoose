@@ -14,6 +14,7 @@
 #include "ConsoleStreamInterface.h"
 #include "Registry.h"
 #include "MooseUtils.h"
+#include "DataFileInterface.h"
 
 #include "libmesh/parallel_object.h"
 
@@ -22,11 +23,6 @@
   using MooseObject::paramError
 
 class MooseApp;
-class MooseObject;
-
-template <>
-InputParameters validParams<MooseObject>();
-
 // needed to avoid #include cycle with MooseApp and MooseObject
 [[noreturn]] void callMooseErrorRaw(std::string & msg, MooseApp * app);
 
@@ -46,7 +42,9 @@ std::string paramErrorPrefix(const InputParameters & params, const std::string &
 /**
  * Every object that can be built by the factory should be derived from this class.
  */
-class MooseObject : public ConsoleStreamInterface, public libMesh::ParallelObject
+class MooseObject : public ConsoleStreamInterface,
+                    public libMesh::ParallelObject,
+                    public DataFileInterface<MooseObject>
 {
 public:
   static InputParameters validParams();

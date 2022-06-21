@@ -9,23 +9,31 @@
 
 #include "ComputeDilatationThermalExpansionEigenstrainBase.h"
 
+template <bool is_ad>
 InputParameters
-ComputeDilatationThermalExpansionEigenstrainBase::validParams()
+ComputeDilatationThermalExpansionEigenstrainBaseTempl<is_ad>::validParams()
 {
-  return ComputeThermalExpansionEigenstrainBase::validParams();
+  return ComputeThermalExpansionEigenstrainBaseTempl<is_ad>::validParams();
 }
 
-ComputeDilatationThermalExpansionEigenstrainBase::ComputeDilatationThermalExpansionEigenstrainBase(
-    const InputParameters & parameters)
-  : ComputeThermalExpansionEigenstrainBase(parameters)
+template <bool is_ad>
+ComputeDilatationThermalExpansionEigenstrainBaseTempl<is_ad>::
+    ComputeDilatationThermalExpansionEigenstrainBaseTempl(const InputParameters & parameters)
+  : ComputeThermalExpansionEigenstrainBaseTempl<is_ad>(parameters)
 {
 }
 
-void
-ComputeDilatationThermalExpansionEigenstrainBase::computeThermalStrain(Real & thermal_strain,
-                                                                       Real & dthermal_strain_dT)
+template <bool is_ad>
+ValueAndDerivative<is_ad>
+ComputeDilatationThermalExpansionEigenstrainBaseTempl<is_ad>::computeThermalStrain()
 {
-  const Real stress_free_thexp = computeDilatation(_stress_free_temperature[_qp]);
-  thermal_strain = computeDilatation(_temperature[_qp]) - stress_free_thexp;
-  dthermal_strain_dT = computeDilatationDerivative(_temperature[_qp]);
+  const auto stress_free = computeDilatation(this->_stress_free_temperature[_qp]);
+  const auto current = computeDilatation(this->_temperature[_qp]);
+
+  // in non-AD mode the T derivative of the stress_free term needs get dropped.
+  // We assume _stress_free_temperature does not depend on T. In AD mode this is automatic.
+  return current - (is_ad ? stress_free : stress_free.value());
 }
+
+template class ComputeDilatationThermalExpansionEigenstrainBaseTempl<false>;
+template class ComputeDilatationThermalExpansionEigenstrainBaseTempl<true>;

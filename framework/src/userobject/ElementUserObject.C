@@ -14,8 +14,6 @@
 
 #include "libmesh/elem.h"
 
-defineLegacyParams(ElementUserObject);
-
 InputParameters
 ElementUserObject::validParams()
 {
@@ -32,7 +30,7 @@ ElementUserObject::ElementUserObject(const InputParameters & parameters)
     BlockRestrictable(this),
     MaterialPropertyInterface(this, blockIDs(), Moose::EMPTY_BOUNDARY_IDS),
     Coupleable(this, false),
-    MooseVariableDependencyInterface(),
+    MooseVariableDependencyInterface(this),
     TransientInterface(this),
     RandomInterface(parameters, _fe_problem, _tid, false),
     ElementIDInterface(this),

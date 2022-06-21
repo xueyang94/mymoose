@@ -13,8 +13,6 @@
 
 registerMooseObject("MooseApp", RealFunctionControl);
 
-defineLegacyParams(RealFunctionControl);
-
 InputParameters
 RealFunctionControl::validParams()
 {
@@ -38,6 +36,6 @@ RealFunctionControl::RealFunctionControl(const InputParameters & parameters)
 void
 RealFunctionControl::execute()
 {
-  Real value = _function.value(_t, Point());
+  Real value = _function.value(_t);
   setControllableValue<Real>("parameter", value);
 }

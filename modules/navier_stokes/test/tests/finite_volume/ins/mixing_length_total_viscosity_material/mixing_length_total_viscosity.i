@@ -12,6 +12,19 @@ mu = ${fparse rho * bulk_u * 2 * H / Re}
 advected_interp_method='upwind'
 velocity_interp_method='rc'
 
+[GlobalParams]
+  rhie_chow_user_object = 'rc'
+[]
+
+[UserObjects]
+  [rc]
+    type = INSFVRhieChowInterpolator
+    u = vel_x
+    v = vel_y
+    pressure = pressure
+  []
+[]
+
 [Mesh]
   [gen]
     type = CartesianMeshGenerator
@@ -28,11 +41,11 @@ velocity_interp_method='rc'
 []
 
 [Variables]
-  [u]
+  [vel_x]
     type = INSFVVelocityVariable
     initial_condition = 1e-6
   []
-  [v]
+  [vel_y]
     type = INSFVVelocityVariable
     initial_condition = 1e-6
   []
@@ -42,17 +55,7 @@ velocity_interp_method='rc'
 []
 
 [AuxVariables]
-  [mixing_len]
-    order = CONSTANT
-    family = MONOMIAL
-    fv = true
-  []
-  [wall_shear_stress]
-    order = CONSTANT
-    family = MONOMIAL
-    fv = true
-  []
-  [wall_yplus]
+  [mixing_length]
     order = CONSTANT
     family = MONOMIAL
     fv = true
@@ -65,80 +68,79 @@ velocity_interp_method='rc'
     variable = pressure
     advected_interp_method = ${advected_interp_method}
     velocity_interp_method = ${velocity_interp_method}
-    vel = 'velocity'
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
   []
 
+  [u_time]
+    type = INSFVMomentumTimeDerivative
+    variable = vel_x
+    rho = ${rho}
+    momentum_component = 'x'
+  []
   [u_advection]
     type = INSFVMomentumAdvection
-    variable = u
-    advected_quantity = 'rhou'
-    vel = 'velocity'
+    variable = vel_x
     advected_interp_method = ${advected_interp_method}
     velocity_interp_method = ${velocity_interp_method}
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
+    momentum_component = 'x'
   []
   [u_viscosity]
-    type = FVDiffusion
-    variable = u
-    coeff = ${mu}
+    type = INSFVMomentumDiffusion
+    variable = vel_x
+    mu = ${mu}
+    momentum_component = 'x'
   []
   [u_viscosity_rans]
     type = INSFVMixingLengthReynoldsStress
-    variable = u
+    variable = vel_x
     rho = ${rho}
-    mixing_length = mixing_len
+    mixing_length = mixing_length
     momentum_component = 'x'
-    u = u
-    v = v
+    u = vel_x
+    v = vel_y
   []
   [u_pressure]
     type = INSFVMomentumPressure
-    variable = u
+    variable = vel_x
     momentum_component = 'x'
-    p = pressure
+    pressure = pressure
   []
 
+  [v_time]
+    type = INSFVMomentumTimeDerivative
+    variable = vel_y
+    rho = ${rho}
+    momentum_component = 'y'
+  []
   [v_advection]
     type = INSFVMomentumAdvection
-    variable = v
-    advected_quantity = 'rhov'
-    vel = 'velocity'
+    variable = vel_y
     advected_interp_method = ${advected_interp_method}
     velocity_interp_method = ${velocity_interp_method}
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
+    momentum_component = 'y'
   []
   [v_viscosity]
-    type = FVDiffusion
-    variable = v
-    coeff = ${mu}
+    type = INSFVMomentumDiffusion
+    variable = vel_y
+    mu = ${mu}
+    momentum_component = 'y'
   []
   [v_viscosity_rans]
     type = INSFVMixingLengthReynoldsStress
-    variable = v
+    variable = vel_y
     rho = ${rho}
-    mixing_length = mixing_len
+    mixing_length = mixing_length
     momentum_component = 'y'
-    u = u
-    v = v
+    u = vel_x
+    v = vel_y
   []
   [v_pressure]
     type = INSFVMomentumPressure
-    variable = v
+    variable = vel_y
     momentum_component = 'y'
-    p = pressure
+    pressure = pressure
   []
 []
 
@@ -146,7 +148,7 @@ velocity_interp_method='rc'
   [mixing_len]
     type = WallDistanceMixingLengthAux
     walls = 'top'
-    variable = mixing_len
+    variable = mixing_length
     execute_on = 'initial'
     von_karman_const = ${von_karman_const}
     delta = 0.5
@@ -157,31 +159,31 @@ velocity_interp_method='rc'
   [inlet-u]
     type = INSFVInletVelocityBC
     boundary = 'left'
-    variable = u
+    variable = vel_x
     function = '1'
   []
   [inlet-v]
     type = INSFVInletVelocityBC
     boundary = 'left'
-    variable = v
+    variable = vel_y
     function = '0'
   []
   [wall-u]
     type = INSFVWallFunctionBC
-    variable = u
+    variable = vel_x
     boundary = 'top'
-    u = u
-    v = v
+    u = vel_x
+    v = vel_y
     mu = ${mu}
     rho = ${rho}
     momentum_component = x
   []
   [wall-v]
     type = INSFVWallFunctionBC
-    variable = v
+    variable = vel_y
     boundary = 'top'
-    u = u
-    v = v
+    u = vel_x
+    v = vel_y
     mu = ${mu}
     rho = ${rho}
     momentum_component = y
@@ -189,18 +191,18 @@ velocity_interp_method='rc'
   [sym-u]
     type = INSFVSymmetryVelocityBC
     boundary = 'bottom'
-    variable = u
-    u = u
-    v = v
+    variable = vel_x
+    u = vel_x
+    v = vel_y
     mu = total_viscosity
     momentum_component = x
   []
   [sym-v]
     type = INSFVSymmetryVelocityBC
     boundary = 'bottom'
-    variable = v
-    u = u
-    v = v
+    variable = vel_y
+    u = vel_x
+    v = vel_y
     mu = total_viscosity
     momentum_component = y
   []
@@ -218,32 +220,34 @@ velocity_interp_method='rc'
 []
 
 [Materials]
-  [ins_fv]
-    type = INSFVMaterial
-    u = 'u'
-    v = 'v'
-    pressure = 'pressure'
-    rho = ${rho}
-  []
   [total_viscosity]
     type = MixingLengthTurbulentViscosityMaterial
-    u = 'u'                             #computes total viscosity = mu_t + mu
-    v = 'v'                             #property is called total_viscosity
-    mixing_length = mixing_len
+    u = 'vel_x'                             #computes total viscosity = mu_t + mu
+    v = 'vel_y'                             #property is called total_viscosity
+    mixing_length = mixing_length
     mu = ${mu}
     rho = ${rho}
   []
 []
 
 [Executioner]
-  type = Steady
+  type = Transient
   solve_type = 'NEWTON'
-  petsc_options_iname = '-pc_type -ksp_gmres_restart -sub_pc_type -sub_pc_factor_shift_type'
-  petsc_options_value = 'asm      200                lu           NONZERO'
+  petsc_options_iname = '-pc_type -pc_factor_shift_type'
+  petsc_options_value = 'lu       NONZERO'
   line_search = 'none'
-  nl_rel_tol = 1e-12
+  [TimeStepper]
+    type = IterationAdaptiveDT
+    optimal_iterations = 6
+    dt = 1e-3
+  []
+  nl_abs_tol = 1e-8
+  end_time = 1e9
 []
 
 [Outputs]
-  exodus = true
+  [out]
+    type = Exodus
+    execute_on = 'final'
+  []
 []

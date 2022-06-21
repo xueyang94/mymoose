@@ -15,6 +15,20 @@ velocity_interp_method='rc'
   []
 []
 
+[GlobalParams]
+  rhie_chow_user_object = 'rc'
+[]
+
+[UserObjects]
+  [rc]
+    type = PINSFVRhieChowInterpolator
+    u = u
+    v = v
+    porosity = porosity
+    pressure = pressure
+  []
+[]
+
 [Variables]
   [u]
     type = PINSFVSuperficialVelocityVariable
@@ -31,9 +45,7 @@ velocity_interp_method='rc'
 
 [AuxVariables]
   [porosity]
-    family = MONOMIAL
-    order = CONSTANT
-    fv = true
+    type = MooseVariableFVReal
   []
 []
 
@@ -67,43 +79,29 @@ velocity_interp_method='rc'
 []
 
 [FVKernels]
-  inactive = 'u_advection_porosity_gradient v_advection_porosity_gradient'
   [mass]
     type = PINSFVMassAdvection
     variable = pressure
     advected_interp_method = ${advected_interp_method}
     velocity_interp_method = ${velocity_interp_method}
-    vel = 'velocity'
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
-    porosity = porosity
   []
 
   [u_advection]
     type = PINSFVMomentumAdvection
     variable = u
-    advected_quantity = 'rhou'
-    vel = 'velocity'
     advected_interp_method = ${advected_interp_method}
     velocity_interp_method = ${velocity_interp_method}
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
     porosity = porosity
+    momentum_component = 'x'
   []
   [u_viscosity]
     type = PINSFVMomentumDiffusion
     variable = u
     mu = ${mu}
     porosity = porosity
-
     momentum_component = 'x'
-    vel = 'velocity'
   []
   [u_pressure]
     type = PINSFVMomentumPressure
@@ -112,52 +110,27 @@ velocity_interp_method='rc'
     porosity = porosity
     momentum_component = 'x'
   []
-  [u_advection_porosity_gradient]
-    type = PINSFVMomentumAdvectionPorosityGradient
-    variable = u
-    u = u
-    v = v
-    rho = ${rho}
-    porosity = porosity
-    momentum_component = 'x'
-  []
 
   [v_advection]
     type = PINSFVMomentumAdvection
     variable = v
-    advected_quantity = 'rhov'
-    vel = 'velocity'
     advected_interp_method = ${advected_interp_method}
     velocity_interp_method = ${velocity_interp_method}
-    pressure = pressure
-    u = u
-    v = v
-    mu = ${mu}
     rho = ${rho}
     porosity = porosity
+    momentum_component = 'y'
   []
   [v_viscosity]
     type = PINSFVMomentumDiffusion
     variable = v
     mu = ${mu}
     porosity = porosity
-
     momentum_component = 'y'
-    vel = 'velocity'
   []
   [v_pressure]
     type = PINSFVMomentumPressure
     variable = v
     pressure = pressure
-    porosity = porosity
-    momentum_component = 'y'
-  []
-  [v_advection_porosity_gradient]
-    type = PINSFVMomentumAdvectionPorosityGradient
-    variable = v
-    u = u
-    v = v
-    rho = ${rho}
     porosity = porosity
     momentum_component = 'y'
   []
@@ -181,11 +154,13 @@ velocity_interp_method='rc'
     type = INSFVNaturalFreeSlipBC
     boundary = 'top bottom'
     variable = u
+    momentum_component = 'x'
   []
   [walls-v]
     type = INSFVNaturalFreeSlipBC
     boundary = 'top bottom'
     variable = v
+    momentum_component = 'y'
   []
 
   [outlet_p]
@@ -197,21 +172,27 @@ velocity_interp_method='rc'
 []
 
 [Materials]
-  [ins_fv]
-    type = INSFVMaterial
-    u = 'u'
-    v = 'v'
-    pressure = 'pressure'
-    rho = ${rho}
+  inactive = 'smooth'
+  [jump]
+    type = ADPiecewiseByBlockFunctorMaterial
+    prop_name = 'porosity'
+    subdomain_to_prop_value = '1 1
+                               2 0.5'
+  []
+  [smooth]
+    type = ADGenericFunctionFunctorMaterial
+    prop_names = 'porosity'
+    prop_values = 'smooth_jump'
   []
 []
 
 [Executioner]
   type = Steady
   solve_type = 'NEWTON'
-  petsc_options_iname = '-pc_type -ksp_gmres_restart -sub_pc_type -sub_pc_factor_shift_type'
-  petsc_options_value = 'asm      100                lu           NONZERO'
+  petsc_options_iname = '-pc_type -pc_factor_shift_type'
+  petsc_options_value = 'lu       NONZERO'
   line_search = 'none'
+  nl_rel_tol = 1e-10
 []
 
 [Postprocessors]

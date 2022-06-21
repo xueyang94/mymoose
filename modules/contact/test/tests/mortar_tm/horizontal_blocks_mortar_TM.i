@@ -50,8 +50,8 @@ offset = 0.01
   [./block_rename]
     type = RenameBlockGenerator
     input = combined
-    old_block_id = '1 2'
-    new_block_name = 'left_block right_block'
+    old_block = '1 2'
+    new_block = 'left_block right_block'
   [../]
 []
 
@@ -182,8 +182,4 @@ offset = 0.01
   nl_rel_tol = 1e-10
   nl_abs_tol = 1e-6
   nl_max_its = 100
-[]
-
-[Outputs]
-  exodus = true
 []

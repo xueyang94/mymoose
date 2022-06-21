@@ -12,8 +12,6 @@
 #include "NonlinearSystem.h"
 #include "AuxiliarySystem.h"
 
-defineLegacyParams(ExternalProblem);
-
 InputParameters
 ExternalProblem::validParams()
 {
@@ -50,6 +48,8 @@ ExternalProblem::ExternalProblem(const InputParameters & parameters) : FEProblem
 void
 ExternalProblem::solve()
 {
+  TIME_SECTION("solve", 1, "Solving", false)
+
   syncSolutions(Direction::TO_EXTERNAL_APP);
   externalSolve();
   syncSolutions(Direction::FROM_EXTERNAL_APP);

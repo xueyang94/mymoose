@@ -26,8 +26,6 @@ paramErrorPrefix(const InputParameters & params, const std::string & param)
   return params.errorPrefix(param);
 }
 
-defineLegacyParams(MooseObject);
-
 InputParameters
 MooseObject::validParams()
 {
@@ -49,12 +47,14 @@ MooseObject::validParams()
   params.addPrivateParam<AuxiliarySystem *>("_aux_sys", nullptr);
   params.addPrivateParam<Transient *>("_executioner", nullptr);
   params.addPrivateParam<THREAD_ID>("_tid");
+  params.addPrivateParam<bool>("_residual_object", false);
   return params;
 }
 
 MooseObject::MooseObject(const InputParameters & parameters)
   : ConsoleStreamInterface(*parameters.getCheckedPointerParam<MooseApp *>("_moose_app")),
     ParallelObject(*parameters.getCheckedPointerParam<MooseApp *>("_moose_app")),
+    DataFileInterface<MooseObject>(*this),
     _pars(parameters),
     _app(*getCheckedPointerParam<MooseApp *>("_moose_app")),
     _type(getParam<std::string>("_type")),

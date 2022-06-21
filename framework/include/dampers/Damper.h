@@ -15,13 +15,8 @@
 #include "Restartable.h"
 #include "MeshChangedInterface.h"
 
-// Forward Declarations
-class Damper;
 class SubProblem;
 class SystemBase;
-
-template <>
-InputParameters validParams<Damper>();
 
 /**
  * Base class for deriving dampers
@@ -50,4 +45,3 @@ protected:
   /// Minimum allowable value of damping
   const Real & _min_damping;
 };
-

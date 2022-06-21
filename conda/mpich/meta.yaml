@@ -1,15 +1,13 @@
-{% set build = 7 %}
+{% set build = 2 %}
 {% set strbuild = "build_" + build|string %}
-{% set version = "3.3.2" %}
+{% set version = "4.0.1" %}
 
 package:
   name: moose-mpich
   version: {{ version }}
 
 source:
-  fn: mpich-{{ version }}.tar.gz
-  url: https://www.mpich.org/static/downloads/{{ version }}/mpich-{{ version }}.tar.gz
-  sha256: 4bfaf8837a54771d3e4922c84071ef80ffebddbb6971a006038d91ee7ef959b9
+  - path: .
 
 build:
   number: {{ build }}
@@ -20,54 +18,40 @@ build:
 
 requirements:
   build:
-    - gcc_linux-64 {{ gcc }}                 # [linux]
-    - gxx_linux-64 {{ gxx }}                 # [linux]
-    - gfortran_linux-64 {{ fortran }}        # [linux]
-    - gcc_impl_linux-64 {{ gccimpl }}        # [linux]
-    - clang {{ clang }}                      # [osx]
-    - clang_osx-64 {{ clangosx }}            # [osx]
-    - clangxx {{ clangxx }}                  # [osx]
-    - clangxx_osx-64 {{ clangxxosx }}        # [osx]
-    - compiler-rt {{ compilerrt }}           # [osx]
-    - compiler-rt_osx-64 {{ compilerrtosx }} # [osx]
-    - libllvm11 {{ libllvm }}                # [osx]
-    - clang-tools                            # [osx]
-    - llvm-openmp {{ llvmopenmp }}           # [osx]
-    - gfortran_osx-64 {{ osxfortran }}       # [osx]
-    - libclang {{ libclang }}                # [osx]
-    - libcxx {{ libcxx }}                    # [osx]
-    - make  # [unix]
+    - {{ base_mpich }}
+    - {{ base_mpicc }}
+    - {{ base_mpicxx }}
+    - {{ base_mpifort }}
+    - {{ moose_hdf5 }}
+    - {{ moose_ld64 }}          # [osx]
+    - autoconf                  # [unix]
+    - automake                  # [unix]
+    - libtool                   # [unix]
+    - make                      # [unix]
+    - gnuconfig                 # [arm64]
   host: []
   run:
-    - gcc_linux-64 {{ gcc }}                 # [linux]
-    - gxx_linux-64 {{ gxx }}                 # [linux]
-    - gfortran_linux-64 {{ fortran }}        # [linux]
-    - gcc_impl_linux-64 {{ gccimpl }}        # [linux]
-    - clang {{ clang }}                      # [osx]
-    - clang_osx-64 {{ clangosx }}            # [osx]
-    - clangxx {{ clangxx }}                  # [osx]
-    - clangxx_osx-64 {{ clangxxosx }}        # [osx]
-    - compiler-rt {{ compilerrt }}           # [osx]
-    - compiler-rt_osx-64 {{ compilerrtosx }} # [osx]
-    - libllvm11 {{ libllvm }}                # [osx]
-    - clang-tools                            # [osx]
-    - llvm-openmp {{ llvmopenmp }}           # [osx]
-    - gfortran_osx-64 {{ osxfortran }}       # [osx]
-    - libclang {{ libclang }}                # [osx]
-    - libcxx {{ libcxx }}                    # [osx]
+    - {{ base_mpich }}
+    - {{ base_mpicc }}
+    - {{ base_mpicxx }}
+    - {{ base_mpifort }}
+    - {{ moose_hdf5 }}
+    - {{ moose_ld64 }}          # [osx]
+    - autoconf                  # [osx]
+    - automake                  # [osx]
+    - libtool                   # [osx]
+    - make                      # [osx]
+    - openssl <3
+    - setuptools <60
     - mpi 1.0 mpich
 test:
-  script: run_test.sh
-  files:
-    - mpiexec.sh
-    - tests/helloworld.sh
+  commands:
+    - test -f $PREFIX/etc/conda/activate.d/activate_moose-mpich.sh
 
 about:
-  home: http://www.mpich.org/
-  license: MPICH
-  license_file: COPYRIGHT
-  license_family: Other
-  summary: 'A high performance widely portable implementation of the MPI standard.'
+  home: https://mooseframework.org/
+  license: LGPL 2.1
+  summary: 'A top-level package designed to control environment variables related to conda-forge provided MPICH'
   description: |
     MPICH is a high performance and widely portable implementation of the
     Message Passing Interface (MPI) standard.

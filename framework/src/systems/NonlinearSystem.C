@@ -94,6 +94,7 @@ NonlinearSystem::NonlinearSystem(FEProblemBase & fe_problem, const std::string &
     _nl_implicit_sys(fe_problem.es().get_system<NonlinearImplicitSystem>(name)),
     _nl_residual_functor(_fe_problem),
     _fd_residual_functor(_fe_problem),
+    _resid_and_jac_functor(_fe_problem),
     _use_coloring_finite_difference(false)
 {
   nonlinearSolver()->residual_object = &_nl_residual_functor;
@@ -208,22 +209,15 @@ NonlinearSystem::solve()
   _final_residual = _nl_implicit_sys.final_nonlinear_residual();
 
   if (_use_coloring_finite_difference)
-#if PETSC_VERSION_LESS_THAN(3, 2, 0)
-    MatFDColoringDestroy(_fdcoloring);
-#else
     MatFDColoringDestroy(&_fdcoloring);
-#endif
 }
 
 void
 NonlinearSystem::stopSolve()
 {
-#if PETSC_VERSION_LESS_THAN(3, 0, 0)
-#else
   PetscNonlinearSolver<Real> & solver =
       static_cast<PetscNonlinearSolver<Real> &>(*sys().nonlinear_solver);
   SNESSetFunctionDomainError(solver.snes());
-#endif
 
   // Insert a NaN into the residual vector.  As of PETSc-3.6, this
   // should make PETSc return DIVERGED_NANORINF the next time it does
@@ -283,11 +277,7 @@ NonlinearSystem::setupStandardFiniteDifferencedPreconditioner()
   SNESSetJacobian(petsc_nonlinear_solver->snes(),
                   petsc_mat->mat(),
                   petsc_mat->mat(),
-#if PETSC_VERSION_LESS_THAN(3, 4, 0)
-                  SNESDefaultComputeJacobian,
-#else
                   SNESComputeJacobianDefault,
-#endif
                   nullptr);
 }
 
@@ -304,12 +294,6 @@ NonlinearSystem::setupColoringFiniteDifferencedPreconditioner()
   PetscMatrix<Number> * petsc_mat =
       dynamic_cast<PetscMatrix<Number> *>(&_nl_implicit_sys.get_system_matrix());
 
-#if PETSC_VERSION_LESS_THAN(3, 2, 0)
-  // This variable is only needed for PETSC < 3.2.0
-  PetscVector<Number> * petsc_vec =
-      dynamic_cast<PetscVector<Number> *>(_nl_implicit_sys.solution.get());
-#endif
-
   Moose::compute_jacobian(*_nl_implicit_sys.current_local_solution, *petsc_mat, _nl_implicit_sys);
 
   if (!petsc_mat)
@@ -320,15 +304,6 @@ NonlinearSystem::setupColoringFiniteDifferencedPreconditioner()
   PetscErrorCode ierr = 0;
   ISColoring iscoloring;
 
-#if PETSC_VERSION_LESS_THAN(3, 2, 0)
-  // PETSc 3.2.x
-  ierr = MatGetColoring(petsc_mat->mat(), MATCOLORING_LF, &iscoloring);
-  CHKERRABORT(libMesh::COMM_WORLD, ierr);
-#elif PETSC_VERSION_LESS_THAN(3, 5, 0)
-  // PETSc 3.3.x, 3.4.x
-  ierr = MatGetColoring(petsc_mat->mat(), MATCOLORINGLF, &iscoloring);
-  CHKERRABORT(_communicator.get(), ierr);
-#else
   // PETSc 3.5.x
   MatColoring matcoloring;
   ierr = MatColoringCreate(petsc_mat->mat(), &matcoloring);
@@ -341,7 +316,6 @@ NonlinearSystem::setupColoringFiniteDifferencedPreconditioner()
   CHKERRABORT(_communicator.get(), ierr);
   ierr = MatColoringDestroy(&matcoloring);
   CHKERRABORT(_communicator.get(), ierr);
-#endif
 
   MatFDColoringCreate(petsc_mat->mat(), iscoloring, &_fdcoloring);
   MatFDColoringSetFromOptions(_fdcoloring);
@@ -351,36 +325,14 @@ NonlinearSystem::setupColoringFiniteDifferencedPreconditioner()
                                libMesh::libmesh_petsc_snes_fd_residual,
                            &petsc_nonlinear_solver);
   // clang-format on
-#if !PETSC_RELEASE_LESS_THAN(3, 5, 0)
   MatFDColoringSetUp(petsc_mat->mat(), iscoloring, _fdcoloring);
-#endif
-#if PETSC_VERSION_LESS_THAN(3, 4, 0)
-  SNESSetJacobian(petsc_nonlinear_solver.snes(),
-                  petsc_mat->mat(),
-                  petsc_mat->mat(),
-                  SNESDefaultComputeJacobianColor,
-                  _fdcoloring);
-#else
   SNESSetJacobian(petsc_nonlinear_solver.snes(),
                   petsc_mat->mat(),
                   petsc_mat->mat(),
                   SNESComputeJacobianDefaultColor,
                   _fdcoloring);
-#endif
-#if PETSC_VERSION_LESS_THAN(3, 2, 0)
-  Mat my_mat = petsc_mat->mat();
-  MatStructure my_struct;
-
-  SNESComputeJacobian(
-      petsc_nonlinear_solver.snes(), petsc_vec->vec(), &my_mat, &my_mat, &my_struct);
-#endif
-
-#if PETSC_VERSION_LESS_THAN(3, 2, 0)
-  ISColoringDestroy(iscoloring);
-#else
-  // PETSc 3.3.0
+  // PETSc >=3.3.0
   ISColoringDestroy(&iscoloring);
-#endif
 }
 
 bool
@@ -420,4 +372,17 @@ NonlinearSystem::getSNES()
     return petsc_solver->snes();
   else
     mooseError("It is not a petsc nonlinear solver");
+}
+
+void
+NonlinearSystem::residualAndJacobianTogether()
+{
+  if (_fe_problem.solverParams()._type == Moose::ST_JFNK)
+    mooseError(
+        "Evaluting the residual and Jacobian together does not make sense for a JFNK solve type in "
+        "which only function evaluations are required, e.g. there is no need to form a matrix");
+
+  nonlinearSolver()->residual_object = nullptr;
+  nonlinearSolver()->jacobian = nullptr;
+  nonlinearSolver()->residual_and_jacobian_object = &_resid_and_jac_functor;
 }

@@ -9,11 +9,11 @@
 
 #pragma once
 
-#include "ADMaterial.h"
+#include "Material.h"
 
 class INSADObjectTracker;
 
-class INSADMaterial : public ADMaterial
+class INSADMaterial : public Material
 {
 public:
   static InputParameters validParams();
@@ -80,6 +80,12 @@ protected:
   /// The quadrature points with potential partial derivatives with respect to displacement degrees
   /// of freedom
   const MooseArray<ADPoint> & _ad_q_point;
+
+  /// The radial coordinate index for RZ coordinate systems
+  const unsigned int _rz_radial_coord;
+
+  /// The axial coordinate index for RZ coordinate systems
+  const unsigned int _rz_axial_coord;
 
   /// A user object that consumes information from INSAD residual objects and feeds it into this
   /// material

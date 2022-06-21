@@ -26,6 +26,7 @@
 #include "NeighborCoupleableMooseVariableDependencyIntermediateInterface.h"
 #include "TwoMaterialPropertyInterface.h"
 #include "FunctorInterface.h"
+#include "FVFaceResidualObject.h"
 
 #include <set>
 
@@ -54,7 +55,8 @@ class FVInterfaceKernel : public MooseObject,
                           public TaggingInterface,
                           public NeighborCoupleableMooseVariableDependencyIntermediateInterface,
                           public TwoMaterialPropertyInterface,
-                          public FunctorInterface
+                          public FunctorInterface,
+                          public FVFaceResidualObject
 {
 public:
   /**
@@ -71,15 +73,9 @@ public:
    */
   const SubProblem & subProblem() const { return _subproblem; }
 
-  /**
-   * Compute the residual on the supplied face
-   */
-  virtual void computeResidual(const FaceInfo & fi);
-
-  /**
-   * Compute the jacobian on the supplied face
-   */
-  virtual void computeJacobian(const FaceInfo & fi);
+  void computeResidual(const FaceInfo & fi) override;
+  void computeJacobian(const FaceInfo & fi) override;
+  void computeResidualAndJacobian(const FaceInfo & fi) override;
 
 protected:
   /**
@@ -135,22 +131,39 @@ protected:
    */
   void processResidual(Real resid, unsigned int var_num, bool neighbor);
 
+#ifdef MOOSE_GLOBAL_AD_INDEXING
   /**
    * Process the derivatives for the provided residual and dof index
    */
-  void processDerivatives(const ADReal & resid, dof_id_type dof_index);
+  void processJacobian(const ADReal & resid, dof_id_type dof_index);
+#endif
 
   /**
-   * @return a tuple corresponding to the face info element, the face info, and the face info
-   * element subdomain id for use with functors
+   * @return A structure that contains information about the face info element, face info, skewness
+   * correction and element subdomain id for use with functors
    */
-  std::tuple<const libMesh::Elem *, const FaceInfo *, SubdomainID> elemFromFace() const;
+  Moose::ElemFromFaceArg elemFromFace(bool correct_skewness = false) const;
 
   /**
-   * @return a tuple corresponding to the face info neighbor, the face info, and the face info
-   * neighbor subdomain id for use with functors
+   * @return A structure that contains information about the face info neighbor, the face info,
+   * skewness correction and the face info neighbor subdomain id for use with functors
    */
-  std::tuple<const libMesh::Elem *, const FaceInfo *, SubdomainID> neighborFromFace() const;
+  Moose::ElemFromFaceArg neighborFromFace(bool correct_skenewss = false) const;
+
+  /**
+   * Determine the single sided face argument when evaluating a functor on a face.
+   * This is used to perform evaluations of material properties with the actual face values of
+   * their dependences, rather than interpolate the material property to the boundary.
+   * @param fi the FaceInfo for this face
+   * @param limiter_type the limiter type, to be specified if more than the default average
+   *        interpolation is required for the parameters of the functor
+   * @param correct_skewness whether to perform skew correction at the face
+   */
+  Moose::SingleSidedFaceArg singleSidedFaceArg(
+      const MooseVariableFV<Real> & variable,
+      const FaceInfo * fi = nullptr,
+      Moose::FV::LimiterType limiter_type = Moose::FV::LimiterType::CentralDifference,
+      bool correct_skewness = false) const;
 
   /// To be consistent with FE interfaces we introduce this quadrature point member. However, for FV
   /// calculations there should every only be one qudrature point and it should be located at the

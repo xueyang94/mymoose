@@ -53,6 +53,8 @@ class Tester(MooseObject):
         params.addParam('petsc_version', ['ALL'], "A list of petsc versions for which this test will run on, supports normal comparison operators ('<', '>', etc...)")
         params.addParam('petsc_version_release', ['ALL'], "A test that runs against PETSc master if FALSE ('ALL', 'TRUE', 'FALSE')")
         params.addParam('slepc_version', [], "A list of slepc versions for which this test will run on, supports normal comparison operators ('<', '>', etc...)")
+        params.addParam('exodus_version', ['ALL'], "A list of Exodus versions for which this test will run on, supports normal comparison operators ('<', '>', etc...)")
+        params.addParam('vtk_version', ['ALL'], "A list of VTK versions for which this test will run on, supports normal comparison operators ('<', '>', etc...)")
         params.addParam('mesh_mode',     ['ALL'], "A list of mesh modes for which this test will run ('DISTRIBUTED', 'REPLICATED')")
         params.addParam('min_ad_size',   None, "A minimum AD size for which this test will run")
         params.addParam('ad_mode',       ['ALL'], "A list of AD modes for which this test will run ('SPARSE', 'NONSPARSE')")
@@ -81,6 +83,9 @@ class Tester(MooseObject):
         params.addParam('asio',          ['ALL'], "A test that runs only if ASIO is available ('ALL', 'TRUE', 'FALSE')")
         params.addParam('fparser_jit',   ['ALL'], "A test that runs only if FParser JIT is available ('ALL', 'TRUE', 'FALSE')")
         params.addParam('libpng',        ['ALL'], "A test that runs only if libpng is available ('ALL', 'TRUE', 'FALSE')")
+        params.addParam('libtorch',      ['ALL'], "A test that runs only if libtorch is available ('ALL', 'TRUE', 'FALSE')")
+        params.addParam('libtorch_version', ['ALL'], "A list of libtorch versions for which this test will run on, supports normal comparison operators ('<', '>', etc...)")
+        params.addParam('installed',     ['ALL'], "A test that runs only if it is installed ('ALL', 'TRUE', 'FALSE')")
 
         params.addParam('depend_files',  [], "A test that only runs if all depend files exist (files listed are expected to be relative to the base directory, not the test directory")
         params.addParam('env_vars',      [], "A test that only runs if all the environment variables listed exist")
@@ -313,6 +318,14 @@ class Tester(MooseObject):
         cmd = self.getCommand(options)
         cwd = self.getTestDir()
 
+        # Verify that the working directory is available right before we execute.
+        if not os.path.exists(cwd):
+            # Timers must be used since they are directly indexed in the Job class
+            timer.start()
+            self.setStatus(self.fail, 'WORKING DIRECTORY NOT FOUND')
+            timer.stop()
+            return
+
         self.process = None
         try:
             f = SpooledTemporaryFile(max_size=1000000) # 1M character buffer
@@ -521,10 +534,32 @@ class Tester(MooseObject):
             elif slepc_version == None:
                 reasons['slepc_version'] = 'SLEPc is not installed'
 
+        # Check for ExodusII versions
+        (exodus_status, exodus_version) = util.checkExodusVersion(checks, self.specs)
+        if not exodus_status:
+            if checks['exodus_version'] != None:
+                reasons['exodus_version'] = 'using ExodusII ' + str(checks['exodus_version']) + ' REQ: ' + exodus_version
+            else:
+                reasons['exodus_version'] = 'Exodus version not detected. REQ: ' + exodus_version
+
+        # Check for VTK versions
+        (vtk_status, vtk_version) = util.checkVTKVersion(checks, self.specs)
+        if not vtk_status:
+            if checks['vtk_version'] != None:
+                reasons['vtk_version'] = 'using VTK ' + str(checks['vtk_version']) + ' REQ: ' + vtk_version
+            else:
+                reasons['vtk_version'] = 'VTK version not detected. REQ: ' + vtk_version
+
+        # Check for libtorch version
+        (libtorch_status, libtorch_version) = util.checkLibtorchVersion(checks, self.specs)
+        if not libtorch_status:
+            reasons['libtorch_version'] = 'using libtorch ' + str(checks['libtorch_version']) + ' REQ: ' + libtorch_version
+
         # PETSc and SLEPc is being explicitly checked above
         local_checks = ['platform', 'compiler', 'mesh_mode', 'ad_mode', 'ad_indexing_type', 'method', 'library_mode', 'dtk', 'unique_ids', 'vtk', 'tecplot',
                         'petsc_debug', 'curl', 'superlu', 'mumps', 'strumpack', 'cxx11', 'asio', 'unique_id', 'slepc', 'petsc_version_release', 'boost', 'fparser_jit',
-                        'parmetis', 'chaco', 'party', 'ptscotch', 'threading', 'libpng']
+                        'parmetis', 'chaco', 'party', 'ptscotch', 'threading', 'libpng', 'libtorch', 'installed']
+
         for check in local_checks:
             test_platforms = set()
             operator_display = '!='
@@ -627,12 +662,10 @@ class Tester(MooseObject):
             if missing:
                 reasons['requires'] = ', '.join(['no {}'.format(p) for p in missing])
 
-        # Verify working_directory is relative and available
+        # Verify working_directory is relative. We'll check to make sure it's available just in time.
         if self.specs['working_directory']:
             if self.specs['working_directory'][:1] == os.path.sep:
                 self.setStatus(self.fail, 'ABSOLUTE PATH DETECTED')
-            elif not os.path.exists(self.getTestDir()):
-                self.setStatus(self.fail, 'WORKING DIRECTORY NOT FOUND')
 
         ##### The below must be performed last to register all above caveats #####
         # Remove any matching user supplied caveats from accumulated checkRunnable caveats that

@@ -69,6 +69,13 @@ public:
   const Point & faceCentroid() const { return _face_centroid; }
 
   ///@{
+  /// Returns the coordinates of the approximate face centroid
+  /// (intersection of the face and the line between the cell centroids)
+  /// in case of skewed meshes.
+  const Point & rIntersection() const { return _r_intersection; }
+  ///@}
+
+  ///@{
   /// Returns the elem and neighbor elements adjacent to the face.
   /// If a face is on a mesh boundary, the neighborPtr
   /// will return nullptr - the elem will never be null.
@@ -105,33 +112,6 @@ public:
   /// the maximum unsigned int is returned for the neighbor side ID.
   unsigned int elemSideID() const { return _elem_side_id; }
   unsigned int neighborSideID() const { return _neighbor_side_id; }
-  ///@}
-
-  ///@{
-  /// This is just a convenient cache of DOF indices (into the solution
-  /// vector) associated with each variable on this face.
-  const std::vector<dof_id_type> & elemDofIndices(const std::string & var_name) const
-  {
-    auto it = _elem_dof_indices.find(var_name);
-    if (it == _elem_dof_indices.end())
-      mooseError("Variable ", var_name, " not found in FaceInfo object");
-    return it->second;
-  }
-  std::vector<dof_id_type> & elemDofIndices(const std::string & var_name)
-  {
-    return _elem_dof_indices[var_name];
-  }
-  const std::vector<dof_id_type> & neighborDofIndices(const std::string & var_name) const
-  {
-    auto it = _neighbor_dof_indices.find(var_name);
-    if (it == _neighbor_dof_indices.end())
-      mooseError("Variable ", var_name, " not found in FaceInfo object");
-    return it->second;
-  }
-  std::vector<dof_id_type> & neighborDofIndices(const std::string & var_name)
-  {
-    return _neighbor_dof_indices[var_name];
-  }
   ///@}
 
   /// Returns which side(s) the given variable is defined on for this face.
@@ -183,11 +163,6 @@ public:
   processor_id_type processor_id() const { return _processor_id; }
 
   /**
-   * @return the vertices attached to this face
-   */
-  const std::vector<const Node *> & vertices() const { return _vertices; }
-
-  /**
    * @return a unique identifier of this face object. It's formed using the element id and the
    * element's side that corresponds to this face
    */
@@ -231,26 +206,24 @@ private:
   const Point _neighbor_centroid;
   const Real _neighbor_volume;
 
-  /// Geometric weighting factor
-  const Real _gc;
-
   /// the distance vector between neighbor and element centroids
   const RealVectorValue _d_cf;
+
   /// the distance norm between neighbor and element centroids
   const Real _d_cf_mag;
+
   /// The unit normal vector pointing from element center C to element center F
   const RealVectorValue _e_cf;
 
-  /// cached locations of variables in solution vectors
-  /// TODO: make this more efficient by not using a map if possible
-  std::map<std::string, std::vector<dof_id_type>> _elem_dof_indices;
-  std::map<std::string, std::vector<dof_id_type>> _neighbor_dof_indices;
+  /// The vector to the intersection of d_{CF} and the face.
+  Point _r_intersection;
+
+  /// Geometric weighting factor for face value interpolation
+  Real _gc;
 
   /// a map that provides the information what face type this is for each variable
   std::map<std::string, VarFaceNeighbors> _face_types_by_var;
 
   /// the set of boundary ids that this face is associated with
   std::set<BoundaryID> _boundary_ids;
-
-  std::vector<const Node *> _vertices;
 };

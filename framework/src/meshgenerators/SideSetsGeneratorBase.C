@@ -20,8 +20,6 @@
 #include "libmesh/fe_base.h"
 #include "libmesh/elem.h"
 
-defineLegacyParams(SideSetsGeneratorBase);
-
 InputParameters
 SideSetsGeneratorBase::validParams()
 {
@@ -62,7 +60,7 @@ SideSetsGeneratorBase::setup(MeshBase & mesh)
   FEType fe_type(Utility::string_to_enum<Order>("CONSTANT"),
                  Utility::string_to_enum<FEFamily>("MONOMIAL"));
   _fe_face = FEBase::build(dim, fe_type);
-  _qface = libmesh_make_unique<QGauss>(dim - 1, FIRST);
+  _qface = std::make_unique<QGauss>(dim - 1, FIRST);
   _fe_face->attach_quadrature_rule(_qface.get());
 
   // We will want to Change the below code when we have more fine-grained control over advertising

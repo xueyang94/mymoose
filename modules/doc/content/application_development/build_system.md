@@ -208,3 +208,69 @@ when building MOOSE or a MOOSE-based application.
 
 - `framework/conf_var.mk.in` - This file is where you put your new expansion expressions. Typically these
   are in the form of "@VARAIBLE@".
+
+### Make Install
+
+MOOSE's build system has the ability to create installed binaries suitable for use with the conda package manager, or installation on a shared computing resource such as Sawtooth. The `install` target will copy binary and required libraries to a file tree based on the prefix you configured with (set by the variable `PREFIX` or the `--prefix` argument.
+
+```
+$ cd moose
+$ ./configure --prefix=<installation path>
+$ cd <application_dir>
+$ make [make options]
+$ make install
+```
+
+Additionally each application may wish to make an one or more file structures available for end users to install into their own environment. This allows for end-users to install and run the application test suite, examples, tutorials, or other inputs of interest. To customize what is available for installation, the application developer will define the list of source directories that can be installed by end users in their application Makefile. For example:
+
+```
+INSTALLABLE_DIRS := tests examples tutorials
+```
+
+These paths should all be relative to the root of the application.
+
+To give application developers the ability to customize the layout of the installed directories it's possible to specify the destination path as well by using a "key/value" syntax. For example:
+
+```
+INSTALLABLE_DIRS := test/tests->tests examples/01->example_01 examples/02->example_02 tutorials
+```
+
+In this case, if the user chooses to install each of these directories into a writable workspace the resulting directory structure will look like this:
+
+```
+$ ls -l
+tests  example_01  example_02  tutorials
+```
+
+!alert warning
+Make sure that installed paths do not include source code. This could result in an accidental export of information for those cleared for only binary access.
+
+### Copying and Running Installed Inputs
+
+Once an application has been installed, end users that have access to those binaries can install or copy those paths to their home directories and also run the tests using the test harness using convenient command line parameters.
+
+Example:
+
+```
+$ cd <user writable location>
+$ export PATH=$PATH:<prefix>/bin  # See instructions for HPC computers below
+$ bison-opt --copy-inputs <directory>  # e.g. from the second example above: tests, example_01, example_02, tutorials, etc.
+$ cd <directory>
+$ bison-opt --run -j8 # Note: Command line parameters appearing after --run are passed to the TestHarness
+```
+
+For a complete list of the directories that may be copied use the `--show-copyable-inputs` flag.
+
+Example:
+
+```
+$ bison-opt --show-copyable-inputs
+```
+
+When using INL HPC systems to run your input, you will load a module that will set your path correctly.
+
+Example:
+
+```
+$ module load use.moose <app name> # e.g bison
+```

@@ -10,8 +10,6 @@
 #include "RelationshipManager.h"
 #include "MooseApp.h"
 
-defineLegacyParams(RelationshipManager);
-
 InputParameters
 RelationshipManager::validParams()
 {
@@ -140,9 +138,8 @@ RelationshipManager::zeroLayerGhosting()
   auto params = dummyParams();
   params.addRelationshipManager("ElementSideNeighborLayers",
                                 Moose::RelationshipManagerType::COUPLING,
-                                [](const InputParameters &, InputParameters & rm_params) {
-                                  rm_params.set<unsigned short>("layers") = 0;
-                                });
+                                [](const InputParameters &, InputParameters & rm_params)
+                                { rm_params.set<unsigned short>("layers") = 0; });
   return params;
 }
 

@@ -15,6 +15,7 @@
 #include "TwoMaterialPropertyInterface.h"
 #include "NeighborMooseVariableInterface.h"
 #include "NeighborCoupleableMooseVariableDependencyIntermediateInterface.h"
+#include "FVFaceResidualObject.h"
 
 class FaceInfo;
 
@@ -28,20 +29,21 @@ class FaceInfo;
 class FVFluxKernel : public FVKernel,
                      public TwoMaterialPropertyInterface,
                      public NeighborMooseVariableInterface<Real>,
-                     public NeighborCoupleableMooseVariableDependencyIntermediateInterface
+                     public NeighborCoupleableMooseVariableDependencyIntermediateInterface,
+                     public FVFaceResidualObject
 {
 public:
   static InputParameters validParams();
   FVFluxKernel(const InputParameters & params);
 
-  /// Usually you should not override these functions - they have some super
-  /// tricky stuff in them that you don't want to mess up!
-  // @{
-  virtual void computeResidual(const FaceInfo & fi);
-  virtual void computeJacobian(const FaceInfo & fi);
-  /// @}
+  void computeResidual() override;
+  void computeJacobian() override;
+  void computeResidualAndJacobian() override;
+  void computeResidual(const FaceInfo & fi) override;
+  void computeJacobian(const FaceInfo & fi) override;
+  void computeResidualAndJacobian(const FaceInfo & fi) override;
 
-  const MooseVariableFV<Real> & variable() const { return _var; }
+  const MooseVariableFV<Real> & variable() const override { return _var; }
 
 protected:
   /// This is the primary function that must be implemented for flux kernel
@@ -62,7 +64,7 @@ protected:
   /// should be skipped.
   virtual bool skipForBoundary(const FaceInfo & fi) const;
 
-  const ADRealVectorValue & normal() const { return _normal; }
+  const RealVectorValue & normal() const { return _normal; }
 
   MooseVariableFV<Real> & _var;
 
@@ -76,11 +78,14 @@ protected:
   /// This is the outward unit normal vector for the face the kernel is currently
   /// operating on.  By convention, this is set to be pointing outward from the
   /// face's elem element and residual calculations should keep this in mind.
-  ADRealVectorValue _normal;
+  RealVectorValue _normal;
 
   /// This is holds meta-data for geometric information relevant to the current
   /// face including elem+neighbor cell centroids, cell volumes, face area, etc.
   const FaceInfo * _face_info = nullptr;
+
+  /// The face type
+  FaceInfo::VarFaceNeighbors _face_type;
 
   /**
    * Return whether the supplied face is on a boundary of this object's execution
@@ -88,26 +93,14 @@ protected:
   bool onBoundary(const FaceInfo & fi) const;
 
   /**
-   * This creates a tuple of an element, \p FaceInfo, and subdomain ID. The element returned will
-   * correspond to the method argument. The \p FaceInfo part of the tuple will simply correspond to
-   * the current \p _face_info. The subdomain ID part of the tuple will correspond to the subdomain
-   * ID of the method element argument except in the case that the subdomain ID does not correspond
-   * to a subdomain ID that this flux kernel is defined on. In that case the subdomain ID of the
-   * tuple will correspond to the subdomain ID of the element across the face, on which this objects
-   * *is* defined
-   */
-  std::tuple<const libMesh::Elem *, const FaceInfo *, SubdomainID>
-  makeSidedFace(const Elem * elem, const FaceInfo * face_info) const;
-
-  /**
    * @return the value of \p makeSidedFace called with the face info element
    */
-  std::tuple<const libMesh::Elem *, const FaceInfo *, SubdomainID> elemFromFace() const;
+  Moose::ElemFromFaceArg elemFromFace(bool correct_skewness = false) const;
 
   /**
    * @return the value of \p makeSidedFace called with the face info neighbor
    */
-  std::tuple<const libMesh::Elem *, const FaceInfo *, SubdomainID> neighborFromFace() const;
+  Moose::ElemFromFaceArg neighborFromFace(bool correct_skewness = false) const;
 
   /**
    * Determine the subdomain ID pair that should be used when creating a face argument for a
@@ -119,6 +112,26 @@ protected:
    */
   std::pair<SubdomainID, SubdomainID> faceArgSubdomains(const FaceInfo * face_info = nullptr) const;
 
+  /**
+   * Determine the single sided face argument when evaluating a functor on a face.
+   * This is used to perform evaluations of material properties with the actual face values of
+   * their dependences, rather than interpolate the material property to the boundary.
+   * @param fi the FaceInfo for this face
+   * @param limiter_type the limiter type, to be specified if more than the default average
+   *        interpolation is required for the parameters of the functor
+   * @param correct_skewness whether to perform skew correction at the face
+   */
+  Moose::SingleSidedFaceArg singleSidedFaceArg(
+      const FaceInfo * fi = nullptr,
+      Moose::FV::LimiterType limiter_type = Moose::FV::LimiterType::CentralDifference,
+      bool correct_skewness = false) const;
+
+  /**
+   * Returns whether to avoid execution on a boundary
+   * @param fi the FaceInformation currently considered
+   */
+  bool avoidBoundary(const FaceInfo & fi) const;
+
 private:
   /// Computes the Jacobian contribution for every coupled variable.
   ///
@@ -128,10 +141,14 @@ private:
   ///
   /// @param residual The already computed residual (probably done with \p computeQpResidual) that
   /// also holds derivative information for filling in the Jacobians.
-  void computeJacobian(Moose::DGJacobianType type, const ADReal & residual);
+  void computeJacobianType(Moose::DGJacobianType type, const ADReal & residual);
 
+  /// Whether to force execution of flux kernels on all external boundaries
   const bool _force_boundary_execution;
 
+  /// Which boundaries/sidesets to force the execution of flux kernels on
   std::unordered_set<BoundaryID> _boundaries_to_force;
-  std::unordered_set<BoundaryID> _boundaries_to_not_force;
+
+  /// Which boundaries/sidesets to prevent the execution of flux kernels on
+  std::unordered_set<BoundaryID> _boundaries_to_avoid;
 };

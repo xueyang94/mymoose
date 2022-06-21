@@ -26,8 +26,6 @@
 
 registerMooseObject("MooseApp", Console);
 
-defineLegacyParams(Console);
-
 InputParameters
 Console::validParams()
 {
@@ -264,10 +262,6 @@ Console::initialSetup()
   if (_app.getExecutioner()->isParamValid("verbose") &&
       _app.getExecutioner()->getParam<bool>("verbose"))
     _verbose = true;
-
-  // Display a message to indicate the application is running (useful for MultiApps)
-  if (_problem_ptr->hasMultiApps() || _app.multiAppLevel() > 0)
-    write(std::string("\nRunning App: ") + _app.name() + "\n");
 
   // If the user adds "final" to the execute on, append this to the postprocessors, scalars, etc.,
   // but only
@@ -615,6 +609,11 @@ Console::outputScalarVariables()
 void
 Console::outputSystemInformation()
 {
+  // skip system information output for sub-apps other than the zero-th of a MultiApp
+  // because they are using the same inputs and are most likely having the same information.
+  if (_app.multiAppNumber() > 0)
+    return;
+
   if (_system_info_flags.contains("framework"))
     _console << ConsoleUtils::outputFrameworkInformation(_app);
 

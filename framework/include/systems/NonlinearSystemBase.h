@@ -268,6 +268,19 @@ public:
   void computeResidualTags(const std::set<TagID> & tags);
 
   /**
+   * Form possibly multiple tag-associated vectors and matrices
+   */
+  void computeResidualAndJacobianTags(const std::set<TagID> & vector_tags,
+                                      const std::set<TagID> & matrix_tags);
+
+  /**
+   * Compute residual and Jacobian from contributions not related to constraints, such as nodal
+   * boundary conditions
+   */
+  void computeResidualAndJacobianInternal(const std::set<TagID> & vector_tags,
+                                          const std::set<TagID> & matrix_tags);
+
+  /**
    * Form a residual vector for a given tag
    */
   void computeResidual(NumericVector<Number> & residual, TagID tag_id);
@@ -626,6 +639,11 @@ public:
   TagID residualVectorTag() const override { return _Re_tag; }
   TagID systemMatrixTag() const override { return _Ke_system_tag; }
 
+  /**
+   * Call this method if you want the residual and Jacobian to be computed simultaneously
+   */
+  virtual void residualAndJacobianTogether() = 0;
+
   bool computeScalingOnce() const { return _compute_scaling_once; }
   void computeScalingOnce(bool compute_scaling_once)
   {
@@ -645,6 +663,12 @@ public:
   void scalingGroupVariables(const std::vector<std::vector<std::string>> & scaling_group_variables)
   {
     _scaling_group_variables = scaling_group_variables;
+  }
+
+  void
+  ignoreVariablesForAutoscaling(const std::vector<std::string> & ignore_variables_for_autoscaling)
+  {
+    _ignore_variables_for_autoscaling = ignore_variables_for_autoscaling;
   }
 
   bool offDiagonalsInAutoScaling() const { return _off_diagonals_in_auto_scaling; }
@@ -700,6 +724,11 @@ protected:
   void computeNodalBCs(const std::set<TagID> & tags);
 
   /**
+   * compute the residual and Jacobian for nodal boundary conditions
+   */
+  void computeNodalBCsResidualAndJacobian();
+
+  /**
    * Form multiple matrices for all the tags. Users should not call this func directly.
    */
   void computeJacobianInternal(const std::set<TagID> & tags);
@@ -717,7 +746,7 @@ protected:
   /**
    * Do mortar constraint residual/jacobian computations
    */
-  void mortarConstraints();
+  void mortarConstraints(Moose::ComputeType compute_type);
 
   /**
    * Compute a "Jacobian" for automatic scaling purposes
@@ -927,6 +956,15 @@ protected:
   /// like for solid/fluid mechanics
   std::vector<std::vector<std::string>> _scaling_group_variables;
 
+  /// Container to hold flag if field variable is to partipate in autoscaling
+  std::vector<bool> _field_variable_autoscaled;
+
+  /// Container to hold flag if scalar variable is to partipate in autoscaling
+  std::vector<bool> _scalar_variable_autoscaled;
+
+  /// A container for variables that do not partipate in autoscaling
+  std::vector<std::string> _ignore_variables_for_autoscaling;
+
   /// Whether to include off diagonals when determining automatic scaling factors
   bool _off_diagonals_in_auto_scaling;
 
@@ -944,7 +982,7 @@ private:
   /**
    * Setup group scaling containers
    */
-  void setupScalingGrouping();
+  void setupScalingData();
 
   /// Functors for computing undisplaced mortar constraints
   std::unordered_map<std::pair<BoundaryID, BoundaryID>, ComputeMortarFunctor>

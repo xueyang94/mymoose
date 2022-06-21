@@ -187,31 +187,6 @@ PerfGraphLivePrint::printStats(PerfGraph::SectionIncrement & section_increment_s
 }
 
 void
-PerfGraphLivePrint::printStack()
-{
-  _console << "\n\n-------\n";
-
-  _console << "stack_level: " << _stack_level << std::endl;
-
-  if (_stack_level < 1)
-  {
-    _console << "-------\n" << std::endl;
-    return;
-  }
-
-  for (unsigned int s = 0; s < _stack_level; s++)
-  {
-    auto & section = _print_thread_stack[s];
-
-    auto & section_info = _perf_graph_registry.sectionInfo(section._id);
-
-    _console << std::string(s * 2, ' ') << section_info._live_message << '\n';
-  }
-
-  _console << "-------\n" << std::endl;
-}
-
-void
 PerfGraphLivePrint::printStackUpToLast()
 {
   if (_stack_level < 1)
@@ -303,7 +278,8 @@ PerfGraphLivePrint::iterateThroughExecutionList()
       if (_perf_graph._live_print_all ||
           section_increment_start._state == PerfGraph::IncrementState::PRINTED ||
           section_increment_start._state == PerfGraph::IncrementState::CONTINUED ||
-          time_increment > _time_limit || memory_increment > _mem_limit)
+          time_increment > _time_limit.load(std::memory_order_relaxed) ||
+          memory_increment > _mem_limit.load(std::memory_order_relaxed))
       {
         printStackUpToLast();
 
@@ -341,21 +317,28 @@ PerfGraphLivePrint::start()
     // can occur - but the predicate here keeps us from doing anything in that case.
     // This will either wait until 1 second has passed, the signal is sent, _or_ a spurious
     // wakeup happens to find that there is work to do.
-    _perf_graph._finished_section.wait_for(lock, std::chrono::duration<Real>(_time_limit), [this] {
-      // Get destructing first so that the execution_list will be in sync
-      this->_currently_destructing = _perf_graph._destructing;
+    _perf_graph._finished_section.wait_for(
+        lock,
+        std::chrono::duration<Real>(_time_limit.load(std::memory_order_relaxed)),
+        [this]
+        {
+          // Get destructing first so that the execution_list will be in sync
+          this->_currently_destructing = _perf_graph._destructing;
 
-      // The end will be one past the last
-      this->_current_execution_list_end =
-          _perf_graph._execution_list_end.load(std::memory_order_relaxed);
+          // The end will be one past the last
+          // This "acquire" synchronizes with the "release" in the PerfGraph
+          // to ensure that all of the writes to the execution list have been
+          // published to this thread for the "end" we're reading
+          this->_current_execution_list_end =
+              _perf_graph._execution_list_end.load(std::memory_order_acquire);
 
-      // Save off the number of things currently printed to the console
-      this->_console_num_printed = _console.numPrinted();
+          // Save off the number of things currently printed to the console
+          this->_console_num_printed = _console.numPrinted();
 
-      // If we are destructing or there is new work to do... allow moving on
-      return this->_currently_destructing ||
-             this->_last_execution_list_end != this->_current_execution_list_end;
-    });
+          // If we are destructing or there is new work to do... allow moving on
+          return this->_currently_destructing ||
+                 this->_last_execution_list_end != this->_current_execution_list_end;
+        });
 
     // If the PerfGraph is destructing and we don't have anything left to print - we need to quit
     // Otherwise, if there are still things to print - do it... afterwards, the loop above
@@ -375,10 +358,6 @@ PerfGraphLivePrint::start()
     _current_execution_list_last = static_cast<long int>(_current_execution_list_end) - 1 >= 0
                                        ? _current_execution_list_end - 1
                                        : MAX_EXECUTION_LIST_SIZE;
-
-    // This will synchronize with the thread_fence in addToExecutionList() so that all of the below
-    // reads, will be reading synchronized memory
-    std::atomic_thread_fence(std::memory_order_acquire);
 
     // Only happens if nothing has been added
     if (_current_execution_list_end == 0 && _last_execution_list_end == _current_execution_list_end)

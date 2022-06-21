@@ -25,14 +25,13 @@
 
 registerMooseObject("MooseApp", DisplacedProblem);
 
-defineLegacyParams(DisplacedProblem);
-
 InputParameters
 DisplacedProblem::validParams()
 {
   InputParameters params = SubProblem::validParams();
-  params.addClassDescription("A Problem object for provided access to the displaced finite element "
-                             "mesh and associated variables.");
+  params.addClassDescription(
+      "A Problem object for providing access to the displaced finite element "
+      "mesh and associated variables.");
   params.addPrivateParam<MooseMesh *>("mesh");
   params.addPrivateParam<std::vector<std::string>>("displacements");
   return params;
@@ -63,7 +62,7 @@ DisplacedProblem::DisplacedProblem(const InputParameters & parameters)
 
   _assembly.reserve(n_threads);
   for (unsigned int i = 0; i < n_threads; ++i)
-    _assembly.emplace_back(libmesh_make_unique<Assembly>(_displaced_nl, i));
+    _assembly.emplace_back(std::make_unique<Assembly>(_displaced_nl, i));
 
   _displaced_nl.addTimeIntegrator(_mproblem.getNonlinearSystemBase().getSharedTimeIntegrator());
   _displaced_aux.addTimeIntegrator(_mproblem.getAuxiliarySystem().getSharedTimeIntegrator());
@@ -80,18 +79,14 @@ DisplacedProblem::DisplacedProblem(const InputParameters & parameters)
   //   _mesh.getMesh().remove_ghosting_functor(_mesh.getMesh().default_ghosting());
 
   automaticScaling(_mproblem.automaticScaling());
+
+  _mesh.setCoordData(_ref_mesh);
 }
 
 bool
 DisplacedProblem::isTransient() const
 {
   return _mproblem.isTransient();
-}
-
-Moose::CoordinateSystemType
-DisplacedProblem::getCoordSystem(SubdomainID sid) const
-{
-  return _mproblem.getCoordSystem(sid);
 }
 
 std::set<dof_id_type> &

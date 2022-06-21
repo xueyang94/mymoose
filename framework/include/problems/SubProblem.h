@@ -34,7 +34,6 @@ class GhostingFunctor;
 }
 
 class MooseMesh;
-class SubProblem;
 class Factory;
 class Assembly;
 class MooseVariableFieldBase;
@@ -51,7 +50,7 @@ class FaceInfo;
 class MooseObjectName;
 namespace Moose
 {
-class FunctorBase;
+class FunctorEnvelopeBase;
 }
 
 // libMesh forward declarations
@@ -66,9 +65,6 @@ template <typename T>
 class NumericVector;
 class System;
 } // namespace libMesh
-
-template <>
-InputParameters validParams<SubProblem>();
 
 /**
  * Generic class for solving transient nonlinear problems
@@ -288,39 +284,6 @@ public:
    */
   virtual void clearActiveElementalMooseVariables(THREAD_ID tid);
 
-  /**
-   * Record and set the material properties required by the current computing thread.
-   * @param mat_prop_ids The set of material properties required by the current computing thread.
-   *
-   * @param tid The thread id
-   */
-  virtual void setActiveMaterialProperties(const std::set<unsigned int> & mat_prop_ids,
-                                           THREAD_ID tid);
-
-  /**
-   * Get the material properties required by the current computing thread.
-   *
-   * @param tid The thread id
-   */
-  virtual const std::set<unsigned int> & getActiveMaterialProperties(THREAD_ID tid) const;
-
-  /**
-   * Method to check whether or not a list of active material roperties has been set. This method
-   * is called by reinitMaterials to determine whether Material computeProperties methods need to be
-   * called. If the return is False, this check prevents unnecessary material property computation
-   * @param tid The thread id
-   *
-   * @return True if there has been a list of active material properties set, False otherwise
-   */
-  virtual bool hasActiveMaterialProperties(THREAD_ID tid) const;
-
-  /**
-   * Clear the active material properties. Should be called at the end of every computing thread
-   *
-   * @param tid The thread id
-   */
-  virtual void clearActiveMaterialProperties(THREAD_ID tid);
-
   virtual Assembly & assembly(THREAD_ID tid) = 0;
   virtual const Assembly & assembly(THREAD_ID tid) const = 0;
 
@@ -338,7 +301,7 @@ public:
   virtual void prepareShapes(unsigned int var, THREAD_ID tid) = 0;
   virtual void prepareFaceShapes(unsigned int var, THREAD_ID tid) = 0;
   virtual void prepareNeighborShapes(unsigned int var, THREAD_ID tid) = 0;
-  virtual Moose::CoordinateSystemType getCoordSystem(SubdomainID sid) const = 0;
+  Moose::CoordinateSystemType getCoordSystem(SubdomainID sid) const;
 
   /**
    * Returns the desired radial direction for RZ coordinate transformation
@@ -663,6 +626,16 @@ public:
   }
 
   /**
+   * Returns true if the problem is in the process of computing the residual and the Jacobian
+   */
+  const bool & currentlyComputingResidualAndJacobian() const;
+
+  /**
+   * Set whether or not the problem is in the process of computing the Jacobian
+   */
+  void setCurrentlyComputingResidualAndJacobian(bool currently_computing_residual_and_jacobian);
+
+  /**
    * Returns true if the problem is in the process of computing the nonlinear residual
    */
   bool computingNonlinearResid() const { return _computing_nonlinear_residual; }
@@ -803,37 +776,16 @@ public:
   void clearAllDofIndices();
 
   /**
-   * @tparam T The type that the functor material property will return when evaluated, e.g. \p
+   * @tparam T The type that the functor will return when evaluated, e.g. \p
                ADReal or \p Real
-   * @tparam P \p P<T> corresponds to the functor material property class. If a \p P argument is not
-               provided to this method, then we will create a \p FunctorMaterialProperty. This
-               template parameter exists in order to enable users to create derivatives of \p
-               FunctorMaterialProperty
-   * @param name The name of the functor material property to declare
-   * @param tid The thread ID that we are declaring the functor property for
-   * @param called_from_getter Whether this method is being called from \p getFunctorProperty. This
-                               is useful for determining whether we are actually declaring the
-                               property or we are creating this property for a requestor and we are
-                               hoping that someone will actually declare the property later
-   * @param construction_args Optional arguments that may be used to help construct derivatives of
-                              \p FunctorMaterialProperty. These will be forwarded, along with the
-                              name of the property (which will be the first constructor argument),
-                              to the functor material property (potentially derivative) constructor
-   * @return a non-constant reference to the functor material property
-   */
-  template <typename T,
-            template <typename> class P = FunctorMaterialPropertyImpl,
-            class... ConstructionArgs>
-  FunctorMaterialProperty<T> & declareFunctorProperty(const std::string & name,
-                                                      THREAD_ID tid,
-                                                      bool called_from_getter,
-                                                      ConstructionArgs &&... construction_args);
-
-  /**
-   * Returns a functor corresponding to \p name on the thread id \p tid
+   * @param name The name of the functor to retrieve
+   * @param tid The thread ID that we are retrieving the functor property for
+   * @param requestor_name The name of the object that is requesting this functor property
+   * @return a constant reference to the functor
    */
   template <typename T>
-  const Moose::Functor<T> & getFunctor(const std::string & name, THREAD_ID tid);
+  const Moose::Functor<T> &
+  getFunctor(const std::string & name, THREAD_ID tid, const std::string & requestor_name);
 
   /**
    * checks whether we have a functor corresponding to \p name on the thread id \p tid
@@ -841,9 +793,38 @@ public:
   bool hasFunctor(const std::string & name, THREAD_ID tid) const;
 
   /**
+   * checks whether we have a functor of type T corresponding to \p name on the thread id \p tid
+   */
+  template <typename T>
+  bool hasFunctorWithType(const std::string & name, THREAD_ID tid) const;
+
+  /**
    * add a functor to the problem functor container
    */
-  void addFunctor(const std::string & name, const Moose::FunctorBase * functor, THREAD_ID tid);
+  template <typename T>
+  void addFunctor(const std::string & name, const Moose::FunctorBase<T> & functor, THREAD_ID tid);
+
+  /**
+   * Add a functor that has blockwise lambda definitions, e.g. the evaluations of the functor are
+   * based on a user-provided lambda expression.
+   * @param name The name of the functor to add
+   * @param my_lammy The lambda expression that will be called when the functor is evaluated
+   * @param clearance_schedule How often to clear functor evaluations. The default value is always,
+   * which means that the functor will be re-evaluated every time it is called. If it is something
+   * other than always, than cached values may be returned
+   * @param mesh The mesh on which this functor operates
+   * @param block_ids The blocks on which the lambda expression is defined
+   * @param tid The thread on which the functor we are adding will run
+   * @return The added functor
+   */
+  template <typename T, typename PolymorphicLambda>
+  const Moose::Functor<T> &
+  addPiecewiseByBlockLambdaFunctor(const std::string & name,
+                                   PolymorphicLambda my_lammy,
+                                   const std::set<ExecFlagType> & clearance_schedule,
+                                   const MooseMesh & mesh,
+                                   const std::set<SubdomainID> & block_ids,
+                                   THREAD_ID tid);
 
   virtual void initialSetup();
   virtual void timestepSetup();
@@ -877,9 +858,6 @@ protected:
   Factory & _factory;
 
   CouplingMatrix _nonlocal_cm; /// nonlocal coupling matrix;
-
-  /// Type of coordinate system per subdomain
-  std::map<SubdomainID, Moose::CoordinateSystemType> _coord_sys;
 
   DiracKernelInfo _dirac_kernel_info;
 
@@ -933,11 +911,11 @@ protected:
   /// Elements that should have Dofs ghosted to the local processor
   std::set<dof_id_type> _ghosted_elems;
 
-  /// Storage for RZ axis selection
-  unsigned int _rz_coord_axis;
-
   /// Flag to determine whether the problem is currently computing Jacobian
   bool _currently_computing_jacobian;
+
+  /// Flag to determine whether the problem is currently computing the residual and Jacobian
+  bool _currently_computing_residual_and_jacobian;
 
   /// Whether the non-linear residual is being evaluated
   bool _computing_nonlinear_residual;
@@ -955,17 +933,13 @@ protected:
   bool _have_ad_objects;
 
 private:
-  /// Functor material properties for this problem. Outer vector is indexed by thread ID. Map key
-  /// corresponds to the functor material property name. Map values are pairs where the first member
-  /// of the pair is a boolean that indicates whether the functor property has been declared (if
-  /// we've created a name key then by the time we're setting up the problem this boolean must
-  /// evaluate to true or else it means someone has requested property that won't be provided) and
-  /// the second member of the pair is a unique pointer to the functor material property object
-  std::vector<std::map<std::string, std::pair<bool, std::unique_ptr<Moose::FunctorBase>>>>
-      _functor_material_properties;
-
   /// A container holding pointers to all the functors in our problem
-  std::vector<std::multimap<std::string, const Moose::FunctorBase *>> _functors;
+  std::vector<std::multimap<std::string, std::unique_ptr<Moose::FunctorEnvelopeBase>>> _functors;
+
+private:
+  /// The requestors of functors where the key is the prop name and the value is a set of names of
+  /// requestors
+  std::map<std::string, std::set<std::string>> _functor_to_requestors;
 
   /// The declared vector tags
   std::vector<VectorTag> _vector_tags;
@@ -999,106 +973,131 @@ private:
   friend class Restartable;
 };
 
-template <typename T, template <typename> class P, class... ConstructionArgs>
-FunctorMaterialProperty<T> &
-SubProblem::declareFunctorProperty(const std::string & name,
-                                   const THREAD_ID tid,
-                                   const bool called_from_getter,
-                                   ConstructionArgs &&... construction_args)
-{
-  mooseAssert(tid < _functor_material_properties.size(),
-              "Requested thread ID " << std::to_string(tid) << " too large");
-  const bool actually_declaring_property = !called_from_getter;
-  auto & functor_material_properties = _functor_material_properties[tid];
-  auto it = functor_material_properties.find(name);
-  if (it == functor_material_properties.end())
-  {
-    // No material property created yet so create it
-    it = functor_material_properties
-             .emplace(
-                 name,
-                 std::make_pair(actually_declaring_property,
-                                std::make_unique<FunctorMaterialProperty<T>>(std::make_unique<P<T>>(
-                                    name, std::forward<ConstructionArgs>(construction_args)...))))
-             .first;
-    // And add it to our all-functors container
-    auto & functors = _functors[tid];
-    functors.emplace(std::make_pair(name, it->second.second.get()));
-  }
-  else
-  // The property already exists
-  {
-    auto & prop_pair = it->second;
-    bool & already_declared = prop_pair.first;
-    auto * const wrapper_property =
-        dynamic_cast<FunctorMaterialProperty<T> *>(prop_pair.second.get());
-    if (!wrapper_property)
-      mooseError("Inconsistent return types for functor material property '",
-                 name,
-                 "'. Did you declare and retrieve the property with different return types?");
-
-    if (actually_declaring_property)
-    {
-      if (already_declared)
-      {
-        // Let's make sure all of our declarations of a given property have the same template P,
-        // e.g. underlying/wrapped type
-        if (!wrapper_property->template wrapsType<P<T>>())
-          mooseError("Inconsistent types for functor material property '",
-                     name,
-                     "'. Did you declare this property name with different types in different "
-                     "FunctorMaterials?");
-      }
-      else
-      {
-        // Let's make sure we're the correct template P. If we're not, this is the first
-        // declaration so we're free to re-create with the correct P (if we're not the correct P,
-        // it means P is a derived class of FunctorMaterialPropertyImpl)
-        if (!wrapper_property->template wrapsType<P<T>>())
-          (*wrapper_property) =
-              std::make_unique<P<T>>(name, std::forward<ConstructionArgs>(construction_args)...);
-
-        // Now we can update the declaration status
-        already_declared = true;
-      }
-    }
-  }
-
-  auto * const property = dynamic_cast<FunctorMaterialProperty<T> *>(it->second.second.get());
-  mooseAssert(property, "We should have handled all cases");
-  return *property;
-}
-
 template <typename T>
 const Moose::Functor<T> &
-SubProblem::getFunctor(const std::string & name, const THREAD_ID tid)
+SubProblem::getFunctor(const std::string & name,
+                       const THREAD_ID tid,
+                       const std::string & requestor_name)
 {
-  // Do we already have the functor?
   mooseAssert(tid < _functors.size(), "Too large a thread ID");
-  const auto & functors = _functors[tid];
-  auto it = functors.find(name);
-  if (it != functors.end())
+
+  // Log the requestor
+  _functor_to_requestors["wraps_" + name].insert(requestor_name);
+
+  // Get the requested functor if we already have it
+  auto & functors = _functors[tid];
+  auto find_ret = functors.find("wraps_" + name);
+  if (find_ret != functors.end())
   {
-    if (functors.count(name) > 1)
+    if (functors.count("wraps_" + name) > 1)
       mooseError("Attempted to get a functor with the name '",
                  name,
                  "' but multiple functors match. Make sure that you do not have functor material "
                  "properties, functions, and variables with the same names");
-
-    const auto * const functor = dynamic_cast<const Moose::Functor<T> *>(it->second);
+    auto * const functor = dynamic_cast<Moose::Functor<T> *>(find_ret->second.get());
     if (!functor)
       mooseError("A call to SubProblem::getFunctor requested a functor named '",
                  name,
-                 "' that returns the type: ",
+                 "' that returns the type: '",
                  libMesh::demangle(typeid(T).name()),
-                 ". However, that functor already exists and returns a different type.");
+                 "'. However, that functor already exists and returns a different type: '",
+                 find_ret->second->returnType(),
+                 "'");
     return *functor;
   }
+  // We don't have the functor yet but we could have it in the future. We'll create a null-functor
+  // for now
+  auto emplace_ret = functors.emplace(std::make_pair(
+      "wraps_" + name,
+      std::make_unique<Moose::Functor<T>>(std::make_unique<Moose::NullFunctor<T>>())));
 
-  // If we don't then we're going to assume for now that it will be created in the future as a
-  // functor material property. We will almost certainly want to change this assumption eventually
-  // if functors take over the world
-  return declareFunctorProperty<T>(name, tid, true);
+  return static_cast<Moose::Functor<T> &>(*emplace_ret->second);
+}
+
+template <typename T>
+bool
+SubProblem::hasFunctorWithType(const std::string & name, const THREAD_ID tid) const
+{
+  mooseAssert(tid < _functors.size(), "Too large a thread ID");
+  auto & functors = _functors[tid];
+
+  const auto & it = functors.find("wraps_" + name);
+  if (it == functors.end())
+    return false;
+  else
+    return dynamic_cast<Moose::Functor<T> *>(it->second.get());
+}
+
+template <typename T, typename PolymorphicLambda>
+const Moose::Functor<T> &
+SubProblem::addPiecewiseByBlockLambdaFunctor(const std::string & name,
+                                             PolymorphicLambda my_lammy,
+                                             const std::set<ExecFlagType> & clearance_schedule,
+                                             const MooseMesh & mesh,
+                                             const std::set<SubdomainID> & block_ids,
+                                             const THREAD_ID tid)
+{
+  auto & wrapper = const_cast<Moose::Functor<T> &>(getFunctor<T>(name, tid, "subproblem"));
+  if (wrapper.template wrapsType<Moose::NullFunctor<T>>())
+    wrapper.assign(std::make_unique<PiecewiseByBlockLambdaFunctor<T>>(
+        name, my_lammy, clearance_schedule, mesh, block_ids));
+  else if (wrapper.template wrapsType<PiecewiseByBlockLambdaFunctor<T>>())
+  {
+    mooseAssert(wrapper._owned,
+                "This API is for creating functors that are owned by the subproblem. If you are "
+                "calling this once for '"
+                    << name
+                    << "', then hopefully you have not used the non-owning functor API additions "
+                       "for the same functor name.");
+    static_cast<PiecewiseByBlockLambdaFunctor<T> *>(wrapper._owned.get())
+        ->setFunctor(mesh, block_ids, my_lammy);
+  }
+  else
+    mooseError("Attempted to add a lambda functor with the name '",
+               name,
+               "' but another functor of different type has that name. Make sure that you do not "
+               "have functor material properties, functions, and variables with the same names");
+  return wrapper;
+}
+
+template <typename T>
+void
+SubProblem::addFunctor(const std::string & name,
+                       const Moose::FunctorBase<T> & functor,
+                       const THREAD_ID tid)
+{
+  mooseAssert(tid < _functors.size(), "Too large a thread ID");
+
+  auto & functors = _functors[tid];
+  auto it = functors.find("wraps_" + name);
+  if (it != functors.end())
+  {
+    // We have this functor already. If it's a null functor, we want to replace it with the valid
+    // functor we have now. If it's not then we'll add a new entry into the multimap and then we'll
+    // error later if a user requests a functor because their request is ambiguous
+    auto * const existing_wrapper = dynamic_cast<Moose::Functor<T> *>(it->second.get());
+    if (existing_wrapper && existing_wrapper->template wrapsType<Moose::NullFunctor<T>>())
+    {
+      existing_wrapper->assign(functor);
+      return;
+    }
+  }
+
+  auto new_wrapper = std::make_unique<Moose::Functor<T>>(functor);
+  _functors[tid].emplace(std::make_pair("wraps_" + name, std::move(new_wrapper)));
+}
+
+inline const bool &
+SubProblem::currentlyComputingResidualAndJacobian() const
+{
+  return _currently_computing_residual_and_jacobian;
+}
+
+inline void
+SubProblem::setCurrentlyComputingResidualAndJacobian(
+    const bool currently_computing_residual_and_jacobian)
+{
+  _currently_computing_residual_and_jacobian = currently_computing_residual_and_jacobian;
 }
 
 namespace Moose

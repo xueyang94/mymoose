@@ -14,19 +14,30 @@ registerMooseObject("NavierStokesApp", INSFVScalarFieldAdvection);
 InputParameters
 INSFVScalarFieldAdvection::validParams()
 {
-  auto params = INSFVMomentumAdvection::validParams();
-  params.addClassDescription(
-      "Advects an arbitrary quantity. If the 'advected_quantity' parameter is specified, it will "
-      "be used. Else the default is to advect the associated nonlinear 'variable'.");
+  auto params = INSFVAdvectionKernel::validParams();
+  params.addClassDescription("Advects an arbitrary quantity, the associated nonlinear 'variable'.");
   return params;
 }
 
 INSFVScalarFieldAdvection::INSFVScalarFieldAdvection(const InputParameters & params)
-  : INSFVMomentumAdvection(params)
+  : INSFVAdvectionKernel(params)
 {
 #ifndef MOOSE_GLOBAL_AD_INDEXING
   mooseError("INSFV is not supported by local AD indexing. In order to use INSFV, please run the "
              "configure script in the root MOOSE directory with the configure option "
              "'--with-ad-indexing-type=global'");
 #endif
+}
+
+ADReal
+INSFVScalarFieldAdvection::computeQpResidual()
+{
+  const auto v = _rc_vel_provider.getVelocity(_velocity_interp_method, *_face_info, _tid);
+  const auto var_face = onBoundary(*_face_info)
+                            ? _var(singleSidedFaceArg())
+                            : _var(Moose::FV::makeFace(*_face_info,
+                                                       limiterType(_advected_interp_method),
+                                                       MetaPhysicL::raw_value(v) * _normal > 0,
+                                                       faceArgSubdomains()));
+  return _normal * v * var_face;
 }

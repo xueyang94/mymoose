@@ -44,7 +44,6 @@ public:
                           BoundaryID bnd_id,
                           const Elem * lower_d_elem = nullptr) override;
   virtual void onInternalSide(const Elem * elem, unsigned int side) override;
-  void postElement(const Elem * elem) override;
 
   void join(const ProjectMaterialProperties & /*y*/);
 
@@ -64,4 +63,14 @@ protected:
   const MaterialWarehouse & _materials;
   /// Discrete materials warehouse
   const MaterialWarehouse & _discrete_materials;
+
+private:
+  bool shouldComputeInternalSide(const Elem & /*elem*/, const Elem & /*neighbor*/) const override;
 };
+
+inline bool
+ProjectMaterialProperties::shouldComputeInternalSide(const Elem & /*elem*/,
+                                                     const Elem & /*neighbor*/) const
+{
+  return true;
+}

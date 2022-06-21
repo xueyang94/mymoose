@@ -13,11 +13,6 @@
 
 // Forward Declarations
 class MaterialData;
-class TwoMaterialPropertyInterface;
-
-template <>
-InputParameters validParams<TwoMaterialPropertyInterface>();
-
 class TwoMaterialPropertyInterface : public MaterialPropertyInterface
 {
 public:
@@ -114,7 +109,10 @@ TwoMaterialPropertyInterface::getNeighborADMaterialProperty(const std::string & 
   if (default_property)
     return *default_property;
   else
+  {
+    _material_property_dependencies.insert(_material_data->getPropertyId(prop_name));
     return _neighbor_material_data->getADProperty<T>(prop_name);
+  }
 }
 
 template <typename T>

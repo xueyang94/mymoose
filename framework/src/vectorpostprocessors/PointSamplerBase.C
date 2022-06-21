@@ -15,8 +15,6 @@
 
 #include "libmesh/mesh_tools.h"
 
-defineLegacyParams(PointSamplerBase);
-
 InputParameters
 PointSamplerBase::validParams()
 {
@@ -195,7 +193,7 @@ PointSamplerBase::getLocalElemContainingPoint(const Point & p)
 
       // Print a warning if it's on a face and a variable is discontinuous
       if (_warn_discontinuous_face_values && candidate_ids.size() > 1)
-        mooseWarning("A discontinuous variable is sampled on a face, at ", p);
+        mooseDoOnce(mooseWarning("A discontinuous variable is sampled on a face, at ", p));
     }
   }
   else // continuous variables

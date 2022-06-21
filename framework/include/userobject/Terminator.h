@@ -16,12 +16,6 @@
 #include "GeneralUserObject.h"
 #include "libmesh/fparser.hh"
 
-// Forward Declarations
-class Terminator;
-
-template <>
-InputParameters validParams<Terminator>();
-
 /**
  * This Userobject requests termination of the current solve based on
  * the values of Postprocessors (and a logical expression testing them)
@@ -68,6 +62,7 @@ protected:
   /// Postprocessor values
   std::vector<const PostprocessorValue *> _pp_values;
 
+  /// Expression of the criterion, to be parsed for evaluation
   std::string _expression;
 
   /// Fparser object

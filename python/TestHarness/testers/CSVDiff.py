@@ -21,8 +21,6 @@ class CSVDiff(FileTester):
         params.addParam('override_rel_err',   [], "A list of customized relative error tolerances.")
         params.addParam('override_abs_zero',   [], "A list of customized absolute zero tolerances.")
         params.addParam('comparison_file', "Use supplied custom comparison config file.")
-        params.addParam('rel_err', "A customized relative error tolerances.")
-        params.addParam('abs_zero', "A customized relative error tolerances.")
 
         return params
 
@@ -78,7 +76,7 @@ class CSVDiff(FileTester):
         return commands
 
     def processResults(self, moose_dir, options, output):
-        output = FileTester.processResults(self, moose_dir, options, output)
+        output += FileTester.processResults(self, moose_dir, options, output)
 
         if self.isFail() or self.specs['skip_checks']:
             return output
@@ -86,6 +84,13 @@ class CSVDiff(FileTester):
         # Don't Run CSVDiff on Scaled Tests
         if options.scaling and self.specs['scale_refine']:
             return output
+
+        # Make sure that all of the CSVDiff files are actually available
+        for file in self.specs['csvdiff']:
+            if not os.path.exists(os.path.join(self.getTestDir(), self.specs['gold_dir'], file)):
+                output += "File Not Found: " + os.path.join(self.getTestDir(), self.specs['gold_dir'], file)
+                self.setStatus(self.fail, 'MISSING GOLD FILE')
+                break
 
         if not self.isFail():
             # Retrieve the commands

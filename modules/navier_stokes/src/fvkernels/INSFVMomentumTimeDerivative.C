@@ -8,7 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "INSFVMomentumTimeDerivative.h"
-
+#include "SystemBase.h"
 #include "NS.h"
 
 registerMooseObject("NavierStokesApp", INSFVMomentumTimeDerivative);
@@ -16,21 +16,27 @@ registerMooseObject("NavierStokesApp", INSFVMomentumTimeDerivative);
 InputParameters
 INSFVMomentumTimeDerivative::validParams()
 {
-  InputParameters params = FVTimeKernel::validParams();
+  InputParameters params = INSFVTimeKernel::validParams();
   params.addClassDescription(
       "Adds the time derivative term to the incompressible Navier-Stokes momentum equation.");
-  params.addRequiredParam<Real>("rho", "The value for the density");
-  params.declareControllable("rho");
+  params.addRequiredParam<MooseFunctorName>(NS::density, "The density functor");
   return params;
 }
 
 INSFVMomentumTimeDerivative::INSFVMomentumTimeDerivative(const InputParameters & params)
-  : FVTimeKernel(params), _rho(getParam<Real>("rho"))
+  : INSFVTimeKernel(params), _rho(getFunctor<ADReal>(NS::density))
 {
 }
 
-ADReal
-INSFVMomentumTimeDerivative::computeQpResidual()
+void
+INSFVMomentumTimeDerivative::gatherRCData(const Elem & elem)
 {
-  return _rho * FVTimeKernel::computeQpResidual();
+  const auto e = makeElemArg(&elem);
+  const auto residual = _rho(e) * _var.dot(e) * _assembly.elementVolume(&elem);
+  const auto dof_number = elem.dof_number(_sys.number(), _var.number(), 0);
+  const Real a = residual.derivatives()[dof_number];
+
+  _rc_uo.addToA(&elem, _index, a);
+
+  processResidualAndJacobian(residual, dof_number);
 }

@@ -1,8 +1,8 @@
 [Tests]
   issues = "#18214"
-  design = "ADCoupledForce.md"
+  design = "CoupledForce.md"
   [jacobians]
-    requirement = "MOOSE shall provide a source term proportional to the value of"
+    requirement = "The system shall provide a source term proportional to the value of"
     [aux]
       type = 'PetscJacobianTester'
       input = 'aux_test.i'

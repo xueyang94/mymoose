@@ -1,33 +1,39 @@
 # Do not use jinja templating (A physical change to this file is required to trigger a build)
 {% set build = 0 %}
 {% set strbuild = "build_" + build|string %}
-{% set version = "2021.09.15" %}
+{% set version = "2022.06.06" %}
 
 package:
   name: moose-libmesh
   version: {{ version }}
 
 source:
-  path: ../../libmesh
+  - path: ../../libmesh
+  - path: ../../scripts/configure_libmesh.sh
 
 build:
   number: {{ build }}
   string: {{ strbuild }}
   skip: true                                            # [win]
+  script_env:
+    - MOOSE_JOBS
 
 requirements:
   build:
+    - libtool                                           # [arm64]
+    - autoconf                                          # [arm64]
+    - automake                                          # [arm64]
+    - make                                              # [arm64]
+    - m4                                                # [arm64]
     - pkg-config
-    - cctools                                           # [osx]
-    - ld64                                              # [osx]
-    - moose-libmesh-vtk {{ moose_libmesh_vtk }}
-    - moose-petsc {{ moose_petsc }}
+    - {{ moose_libmesh_vtk }}
+    - {{ moose_petsc }}
 
   run:
     - pkg-config
-    - moose-libmesh-vtk {{ moose_libmesh_vtk }}
-    - moose-petsc {{ moose_petsc }}
-    - libpng {{ libpng }}
+    - {{ moose_libmesh_vtk }}
+    - {{ moose_petsc }}
+    - {{ moose_libpng }}
 
 test:
   commands:

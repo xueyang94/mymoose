@@ -79,10 +79,7 @@ ADComputeMultipleInelasticStress::ADComputeMultipleInelasticStress(
                            : std::vector<Real>(_num_models, true)),
     _cycle_models(getParam<bool>("cycle_models")),
     _material_timestep_limit(declareProperty<Real>(_base_name + "material_timestep_limit")),
-    _is_elasticity_tensor_guaranteed_isotropic(false),
-    _damage_model(isParamValid("damage_model")
-                      ? dynamic_cast<DamageBaseTempl<true> *>(&getMaterial("damage_model"))
-                      : nullptr)
+    _is_elasticity_tensor_guaranteed_isotropic(false)
 {
   if (_inelastic_weights.size() != _num_models)
     paramError("combined_inelastic_strain_weights",
@@ -102,6 +99,15 @@ ADComputeMultipleInelasticStress::initQpStatefulProperties()
 void
 ADComputeMultipleInelasticStress::initialSetup()
 {
+  _damage_model = isParamValid("damage_model")
+                      ? dynamic_cast<DamageBaseTempl<true> *>(&getMaterial("damage_model"))
+                      : nullptr;
+
+  if (isParamValid("damage_model") && !_damage_model)
+    paramError("damage_model",
+               "Damage Model " + getMaterial("damage_model").name() +
+                   " is not compatible with ADComputeMultipleInelasticStress");
+
   _is_elasticity_tensor_guaranteed_isotropic =
       this->hasGuaranteedMaterialProperty(_elasticity_tensor_name, Guarantee::ISOTROPIC);
 
@@ -123,11 +129,6 @@ ADComputeMultipleInelasticStress::initialSetup()
     else
       mooseError("Model " + models[i] + " is not compatible with ADComputeMultipleInelasticStress");
   }
-
-  if (isParamValid("damage_model") && !_damage_model)
-    paramError("damage_model",
-               "Damage Model " + _damage_model->name() +
-                   " is not compatible with ADComputeMultipleInelasticStress");
 }
 
 void
@@ -283,9 +284,9 @@ ADComputeMultipleInelasticStress::updateQpState(
       }
       else
       {
-        for (unsigned int i = 0; i < LIBMESH_DIM; ++i)
+        for (const auto i : make_range(Moose::dim))
         {
-          for (unsigned int j = 0; j < LIBMESH_DIM; ++j)
+          for (const auto j : make_range(Moose::dim))
           {
             if (_stress[_qp](i, j) > stress_max(i, j))
               stress_max(i, j) = _stress[_qp](i, j);
@@ -390,6 +391,9 @@ ADComputeMultipleInelasticStress::computeAdmissibleState(
     ADRankTwoTensor & elastic_strain_increment,
     ADRankTwoTensor & inelastic_strain_increment)
 {
+  // Properly update material properties (necessary if substepping is employed).
+  _models[model_number]->resetIncrementalMaterialProperties();
+
   if (_damage_model)
     _models[model_number]->updateState(elastic_strain_increment,
                                        inelastic_strain_increment,

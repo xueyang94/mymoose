@@ -12,10 +12,6 @@
   advected_interp_method = 'average'
 []
 
-[Problem]
-  kernel_coverage_check = false
-[]
-
 [Variables]
   [fv_rho]
     order = CONSTANT
@@ -94,7 +90,7 @@
     velocity = 'fv_velocity'
   []
   [diff]
-    type = ADGenericConstantFunctorMaterial
+    type = ADGenericFunctorMaterial
     prop_names = 'coeff'
     prop_values = '1'
   []
@@ -107,7 +103,6 @@
 []
 
 [Outputs]
-  csv = true
   exodus = true
 []
 
@@ -135,19 +130,16 @@
     type = ElementL2Error
     variable = fv_rho
     function = exact_rho
-    outputs = 'console csv'
-    execute_on = 'timestep_end'
+    outputs = 'console'    execute_on = 'timestep_end'
   [../]
   [./l2_vel]
     type = ElementL2Error
     variable = fv_vel
     function = exact_vel
-    outputs = 'console csv'
-    execute_on = 'timestep_end'
+    outputs = 'console'    execute_on = 'timestep_end'
   [../]
   [h]
     type = AverageElementSize
-    outputs = 'console csv'
-    execute_on = 'timestep_end'
+    outputs = 'console'    execute_on = 'timestep_end'
   []
 []

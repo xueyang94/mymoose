@@ -16,7 +16,7 @@ registerMooseObject("MooseApp", ADPiecewiseLinearInterpolationMaterial);
 InputParameters
 ADPiecewiseLinearInterpolationMaterial::validParams()
 {
-  InputParameters params = ADMaterial::validParams();
+  InputParameters params = Material::validParams();
   params.addClassDescription("Compute a property using a piecewise linear interpolation to define "
                              "its dependence on a variable");
   params.addRequiredParam<std::string>("property",
@@ -38,7 +38,7 @@ ADPiecewiseLinearInterpolationMaterial::validParams()
 
 ADPiecewiseLinearInterpolationMaterial::ADPiecewiseLinearInterpolationMaterial(
     const InputParameters & parameters)
-  : ADMaterial(parameters),
+  : Material(parameters),
     _prop_name(getParam<std::string>("property")),
     _coupled_var(adCoupledValue("variable")),
     _scale_factor(getParam<Real>("scale_factor")),
@@ -78,7 +78,7 @@ ADPiecewiseLinearInterpolationMaterial::ADPiecewiseLinearInterpolationMaterial(
 
   try
   {
-    _linear_interp = libmesh_make_unique<LinearInterpolation>(x, y, _extrap);
+    _linear_interp = std::make_unique<LinearInterpolation>(x, y, _extrap);
   }
   catch (std::domain_error & e)
   {
@@ -89,8 +89,5 @@ ADPiecewiseLinearInterpolationMaterial::ADPiecewiseLinearInterpolationMaterial(
 void
 ADPiecewiseLinearInterpolationMaterial::computeQpProperties()
 {
-  _property[_qp].value() = _scale_factor * _linear_interp->sample(_coupled_var[_qp].value());
-  _property[_qp].derivatives() = _scale_factor *
-                                 _linear_interp->sampleDerivative(_coupled_var[_qp].value()) *
-                                 _coupled_var[_qp].derivatives();
+  _property[_qp] = _scale_factor * _linear_interp->sample(_coupled_var[_qp]);
 }

@@ -15,15 +15,9 @@ diff=1.1
   [../]
 []
 
-[Problem]
-  kernel_coverage_check = off
-[]
-
 [Variables]
   [./v]
-    family = MONOMIAL
-    order = CONSTANT
-    fv = true
+    family = MooseVariableFVReal
     initial_condition = 1
   [../]
 []
@@ -81,7 +75,6 @@ diff=1.1
 []
 
 [Outputs]
-  exodus = true
   csv = true
 []
 

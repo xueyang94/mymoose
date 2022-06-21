@@ -36,8 +36,6 @@
 
 registerMooseObject("MooseApp", ElementGenerator);
 
-defineLegacyParams(ElementGenerator);
-
 InputParameters
 ElementGenerator::validParams()
 {
@@ -64,7 +62,7 @@ ElementGenerator::validParams()
 
 ElementGenerator::ElementGenerator(const InputParameters & parameters)
   : MeshGenerator(parameters),
-    _input(getMesh("input")),
+    _input(getMesh("input", /* allow_invalid = */ true)),
     _nodal_positions(getParam<std::vector<Point>>("nodal_positions")),
     _element_connectivity(getParam<std::vector<dof_id_type>>("element_connectivity")),
     _elem_type(getParam<MooseEnum>("elem_type"))

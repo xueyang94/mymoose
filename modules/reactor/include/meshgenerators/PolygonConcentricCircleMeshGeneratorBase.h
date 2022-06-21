@@ -31,16 +31,28 @@ protected:
   const std::vector<Real> _ring_radii;
   /// Number of rings in each circle or in the enclosing square
   const std::vector<unsigned int> _ring_intervals;
+  /// Bias values used to induce biasing to radial meshing in ring regions
+  const std::vector<Real> _ring_radial_biases;
+  /// Widths, fractions, radial sectors and growth factors of the inner boundary layers of the ring regions
+  multiBdryLayerParams _ring_inner_boundary_layer_params;
+  /// Widths, fractions, radial sectors and growth factors of the outer boundary layers of the ring regions
+  multiBdryLayerParams _ring_outer_boundary_layer_params;
   /// Subdomain IDs of the ring regions
   const std::vector<subdomain_id_type> _ring_block_ids;
   /// Subdomain Names of the ting regions
   const std::vector<SubdomainName> _ring_block_names;
   /// Thickness of each enclosing duct
-  const enum class DuctStyle { apothem, radius } _duct_sizes_style;
+  const PolygonSizeStyle _duct_sizes_style;
   /// Size parameters of the duct regions
   std::vector<Real> _duct_sizes;
   /// Number of layers in each enclosing duct
   const std::vector<unsigned int> _duct_intervals;
+  /// Bias values used to induce biasing to radial meshing in duct regions
+  const std::vector<Real> _duct_radial_biases;
+  /// Widths, fractions, radial sectors and growth factors of the inner boundary layers of the duct regions
+  multiBdryLayerParams _duct_inner_boundary_layer_params;
+  /// Widths, fractions, radial sectors and growth factors of the inner boundary layers of the duct regions
+  multiBdryLayerParams _duct_outer_boundary_layer_params;
   /// Subdomain IDs of the duct regions
   const std::vector<subdomain_id_type> _duct_block_ids;
   /// Subdomain Names of the duct regions
@@ -50,13 +62,19 @@ protected:
   /// Whether the generated mesh contains duct regions
   const bool _has_ducts;
   /// Type of polygon size parameter
-  const enum class PolygonStyle { apothem, radius } _polygon_size_style;
+  const PolygonSizeStyle _polygon_size_style;
   /// Polygon size parameter
   const Real _polygon_size;
   /// Mesh sector number of each polygon side
   const std::vector<unsigned int> _num_sectors_per_side;
   /// Numbers of radial intervals of the background regions
   const unsigned int _background_intervals;
+  /// Bias value used to induce biasing to radial meshing in background region
+  const Real _background_radial_bias;
+  /// Width, fraction, radiation sectors and growth factor of the inner boundary layer of the background region
+  singleBdryLayerParams _background_inner_boundary_layer_params;
+  /// Width, fraction, radiation sectors and growth factor of the outer boundary layer of the background region
+  singleBdryLayerParams _background_outer_boundary_layer_params;
   /// Subdomain IDs of the background regions
   const std::vector<subdomain_id_type> _background_block_ids;
   /// Subdomain Names of the background regions
@@ -77,6 +95,10 @@ protected:
   const bool _uniform_mesh_on_sides;
   /// Whether the central elements need to be QUAD4
   const bool _quad_center_elements;
+  /// A fractional radius factor used to determine the radial positions of transition nodes in the center region meshed by quad elements (default is 1.0 - 1.0/div_num)
+  const Real _center_quad_factor;
+  /// Whether to rotate the generated polygon mesh to ensure that one flat side faces up
+  const bool & _flat_side_up;
   /// Maximum smooth iteration number
   const unsigned int _smoothing_max_it;
   /// Indices of the hexagon sides that need to adapt

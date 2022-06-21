@@ -11,11 +11,6 @@
 
 #include "ElementVectorPostprocessor.h"
 
-class MaterialVectorPostprocessor;
-
-template <>
-InputParameters validParams<MaterialVectorPostprocessor>();
-
 /// This postprocessor records all scalar material properties of the specified
 /// material object on specified elements at the indicated execution points
 /// (e.g. initial, timestep_begin, etc.).  Non-scalar properties are ignored
@@ -27,7 +22,7 @@ public:
 
   MaterialVectorPostprocessor(const InputParameters & parameters);
 
-  virtual void initialize() override{};
+  virtual void initialize() override;
   virtual void execute() override;
   virtual void finalize() override;
   virtual void threadJoin(const UserObject & y) override;
@@ -58,4 +53,3 @@ private:
   /// properties are scalar or not.
   std::vector<std::string> _prop_names;
 };
-

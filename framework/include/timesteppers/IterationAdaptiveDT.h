@@ -60,8 +60,8 @@ protected:
   /// The dt from the input file.
   const Real _input_dt;
 
-  bool _tfunc_last_step;
-  bool _sync_last_step;
+  bool & _tfunc_last_step;
+  bool & _sync_last_step;
 
   /// Adapt the timestep to maintain this non-linear iteration count...
   int _optimal_iterations;
@@ -72,8 +72,8 @@ protected:
   /// adaptive timestepping is active if the optimal_iterations input parameter is specified
   bool _adaptive_timestepping;
 
-  /// if specified, the postprocessor value is an upper limit for the time step length
-  const PostprocessorValue * const _pps_value;
+  /// if specified, the postprocessor values used to determine an upper limit for the time step length
+  std::vector<const PostprocessorValue *> _pps_value;
 
   std::vector<const Function *> _timestep_limiting_functions;
   std::vector<const PiecewiseBase *> _piecewise_timestep_limiting_functions;
@@ -84,7 +84,9 @@ protected:
 
   Real _max_function_change;
   /// insert sync points at the time nodes of the _piecewise_timestep_limiting_function
-  bool _force_step_every_function_point;
+  const bool _force_step_every_function_point;
+  /// Set timestep size if previous timestep is synced with function
+  const Real _post_function_sync_dt;
 
   std::set<Real> _tfunc_times;
 
@@ -111,6 +113,3 @@ protected:
   /// Threshold used to detect whether we need to reject a step
   double _large_step_rejection_threshold;
 };
-
-template <>
-InputParameters validParams<IterationAdaptiveDT>();

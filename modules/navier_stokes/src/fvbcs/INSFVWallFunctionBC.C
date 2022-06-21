@@ -9,32 +9,27 @@
 
 #include "INSFVWallFunctionBC.h"
 #include "INSFVMethods.h"
+#include "NS.h"
 
 registerMooseObject("NavierStokesApp", INSFVWallFunctionBC);
 
 InputParameters
 INSFVWallFunctionBC::validParams()
 {
-  InputParameters params = FVFluxBC::validParams();
+  InputParameters params = INSFVNaturalFreeSlipBC::validParams();
   params.addClassDescription("Implements a wall shear BC for the momentum equation based on "
                              "algebraic standard velocity wall functions.");
   params.addRequiredCoupledVar("u", "The velocity in the x direction.");
   params.addCoupledVar("v", "The velocity in the y direction.");
   params.addCoupledVar("w", "The velocity in the z direction.");
-  params.addParam<Real>("rho", "fluid density");
-  params.addRequiredParam<MaterialPropertyName>("mu", "Dynamic viscosity");
-  MooseEnum momentum_component("x=0 y=1 z=2", "x");
-  params.addRequiredParam<MooseEnum>(
-      "momentum_component",
-      momentum_component,
-      "The component of the momentum equation that this kernel applies to.");
+  params.addRequiredParam<MooseFunctorName>(NS::density, "fluid density");
+  params.addRequiredParam<MooseFunctorName>("mu", "Dynamic viscosity");
   return params;
 }
 
 INSFVWallFunctionBC::INSFVWallFunctionBC(const InputParameters & params)
   : INSFVNaturalFreeSlipBC(params),
     _dim(_subproblem.mesh().dimension()),
-    _axis_index(getParam<MooseEnum>("momentum_component")),
     _u_var(dynamic_cast<const INSFVVelocityVariable *>(getFieldVar("u", 0))),
     _v_var(params.isParamValid("v")
                ? dynamic_cast<const INSFVVelocityVariable *>(getFieldVar("v", 0))
@@ -42,13 +37,13 @@ INSFVWallFunctionBC::INSFVWallFunctionBC(const InputParameters & params)
     _w_var(params.isParamValid("w")
                ? dynamic_cast<const INSFVVelocityVariable *>(getFieldVar("w", 0))
                : nullptr),
-    _rho(getParam<Real>("rho")),
-    _mu(getADMaterialProperty<Real>("mu"))
+    _rho(getFunctor<ADReal>(NS::density)),
+    _mu(getFunctor<ADReal>("mu"))
 {
 }
 
 ADReal
-INSFVWallFunctionBC::computeQpResidual()
+INSFVWallFunctionBC::computeStrongResidual()
 {
   // Get the velocity vector
   const FaceInfo & fi = *_face_info;
@@ -65,7 +60,7 @@ INSFVWallFunctionBC::computeQpResidual()
   ADReal perpendicular_speed = velocity * _normal;
   ADRealVectorValue parallel_velocity = velocity - perpendicular_speed * _normal;
   ADReal parallel_speed = parallel_velocity.norm();
-  ADRealVectorValue parallel_dir = parallel_velocity / parallel_speed;
+  _a = 1 / parallel_speed;
 
   if (parallel_speed.value() < 1e-7)
     return 0;
@@ -74,14 +69,33 @@ INSFVWallFunctionBC::computeQpResidual()
     return parallel_speed;
 
   // Compute the friction velocity and the wall shear stress
-  ADReal u_star = findUStar(_mu[_qp].value(), _rho, parallel_speed, dist.value());
-  ADReal tau = u_star * u_star * _rho;
+  const auto rho = _rho(makeElemArg(&elem));
+  ADReal u_star = findUStar(_mu(makeElemArg(&elem)), rho, parallel_speed, dist.value());
+  ADReal tau = u_star * u_star * rho;
+  _a *= tau;
 
   // Compute the shear stress component for this momentum equation
-  if (_axis_index == 0)
-    return tau * parallel_dir(0);
-  else if (_axis_index == 1)
-    return tau * parallel_dir(1);
+  if (_index == 0)
+    return _a * parallel_velocity(0);
+  else if (_index == 1)
+    return _a * parallel_velocity(1);
   else
-    return tau * parallel_dir(2);
+    return _a * parallel_velocity(2);
+}
+
+void
+INSFVWallFunctionBC::gatherRCData(const FaceInfo & fi)
+{
+  _face_info = &fi;
+  _face_type = fi.faceType(_var.name());
+  _normal = fi.normal();
+
+  // Fill-in the coefficient _a (but without multiplication by A)
+  const auto strong_resid = computeStrongResidual();
+
+  _rc_uo.addToA((_face_type == FaceInfo::VarFaceNeighbors::ELEM) ? &fi.elem() : fi.neighborPtr(),
+                _index,
+                _a * (fi.faceArea() * fi.faceCoord()));
+
+  processResidualAndJacobian(strong_resid * (fi.faceArea() * fi.faceCoord()));
 }

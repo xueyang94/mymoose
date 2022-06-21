@@ -51,8 +51,8 @@ name = 'small'
   [block_rename]
     type = RenameBlockGenerator
     input = combined
-    old_block_id = '1 2'
-    new_block_name = 'plank block'
+    old_block = '1 2'
+    new_block = 'plank block'
   []
 []
 
@@ -84,11 +84,9 @@ name = 'small'
 
 [Contact]
   [frictionless]
-    mesh = block_rename
     primary = plank_right
     secondary = block_left
     formulation = mortar
-    mortar_approach = weighted
     c_normal = 1e0
   []
 []
@@ -207,7 +205,6 @@ name = 'small'
 []
 
 [Outputs]
-  exodus = true
   file_base = ${name}
   [comp]
     type = CSV

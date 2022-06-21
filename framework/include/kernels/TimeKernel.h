@@ -11,12 +11,6 @@
 
 #include "Kernel.h"
 
-// Forward Declaration
-class TimeKernel;
-
-template <>
-InputParameters validParams<TimeKernel>();
-
 /**
  * All time kernels should inherit from this class
  *
@@ -45,4 +39,3 @@ protected:
   /// Derivative of u_dot with respect to u
   const VariableValue & _du_dot_du;
 };
-

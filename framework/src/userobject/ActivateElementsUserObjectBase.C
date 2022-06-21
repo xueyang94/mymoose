@@ -245,12 +245,13 @@ ActivateElementsUserObjectBase::push_boundary_side_info(
 {
   auto elem_action_functor =
       [&mesh, this](processor_id_type,
-                    const std::vector<std::pair<dof_id_type, unsigned int>> & received_elem) {
-        // remove the side
-        for (const auto & pr : received_elem)
-          mesh.getMesh().get_boundary_info().remove_side(
-              mesh.getMesh().elem_ptr(pr.first), pr.second, this->getExpandedBoundaryID());
-      };
+                    const std::vector<std::pair<dof_id_type, unsigned int>> & received_elem)
+  {
+    // remove the side
+    for (const auto & pr : received_elem)
+      mesh.getMesh().get_boundary_info().remove_side(
+          mesh.getMesh().elem_ptr(pr.first), pr.second, this->getExpandedBoundaryID());
+  };
 
   Parallel::push_parallel_vector_data(
       mesh.getMesh().get_boundary_info().comm(), elems_to_push, elem_action_functor);
@@ -261,8 +262,9 @@ ActivateElementsUserObjectBase::push_boundary_node_info(
     MooseMesh & mesh,
     std::unordered_map<processor_id_type, std::vector<dof_id_type>> & nodes_to_push)
 {
-  auto node_action_functor = [&mesh, this](processor_id_type,
-                                           const std::vector<dof_id_type> & received_nodes) {
+  auto node_action_functor =
+      [&mesh, this](processor_id_type, const std::vector<dof_id_type> & received_nodes)
+  {
     for (const auto & pr : received_nodes)
     {
       // remove the node
@@ -297,7 +299,7 @@ ActivateElementsUserObjectBase::getNewlyActivatedElementRange()
   const auto elems_end =
       MeshBase::const_element_iterator(elemend, elemend, Predicates::NotNull<Elem * const *>());
   if (!_activated_elem_range)
-    _activated_elem_range = libmesh_make_unique<ConstElemRange>(elems_begin, elems_end);
+    _activated_elem_range = std::make_unique<ConstElemRange>(elems_begin, elems_end);
 
   return _activated_elem_range.get();
 }
@@ -334,7 +336,7 @@ ActivateElementsUserObjectBase::getNewlyActivatedBndNodeRange()
       nodeend, nodeend, Predicates::NotNull<BndNode * const *>());
 
   if (!_activated_bnd_node_range)
-    _activated_bnd_node_range = libmesh_make_unique<ConstBndNodeRange>(nodes_begin, nodes_end);
+    _activated_bnd_node_range = std::make_unique<ConstBndNodeRange>(nodes_begin, nodes_end);
 
   return _activated_bnd_node_range.get();
 }
@@ -372,7 +374,7 @@ ActivateElementsUserObjectBase::getNewlyActivatedNodeRange()
       MeshBase::const_node_iterator(nodeend, nodeend, Predicates::NotNull<Node * const *>());
 
   if (!_activated_node_range)
-    _activated_node_range = libmesh_make_unique<ConstNodeRange>(nodes_begin, nodes_end);
+    _activated_node_range = std::make_unique<ConstNodeRange>(nodes_begin, nodes_end);
 
   return _activated_node_range.get();
 }

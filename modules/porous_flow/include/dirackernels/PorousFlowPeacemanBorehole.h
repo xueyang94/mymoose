@@ -29,6 +29,8 @@ public:
 
   PorousFlowPeacemanBorehole(const InputParameters & parameters);
 
+  void virtual initialSetup() override;
+
 protected:
   /**
    * If positive then the borehole acts as a sink (producion well) for porepressure > borehole
@@ -40,7 +42,7 @@ protected:
   const Function & _character;
 
   /// Bottomhole pressure of borehole
-  const Real _p_bot;
+  const Function & _p_bot;
 
   /// Unit weight of fluid in borehole (for calculating bottomhole pressure at each Dirac Point)
   const RealVectorValue _unit_weight;

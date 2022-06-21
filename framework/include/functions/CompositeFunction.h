@@ -12,11 +12,6 @@
 #include "Function.h"
 #include "FunctionInterface.h"
 
-class CompositeFunction;
-
-template <>
-InputParameters validParams<CompositeFunction>();
-
 /**
  * Base class for function objects.  Functions override value to supply a
  * value at a point.
@@ -28,7 +23,9 @@ public:
 
   CompositeFunction(const InputParameters & parameters);
 
+  using Function::value;
   virtual Real value(Real t, const Point & pt) const override;
+  virtual ADReal value(const ADReal & t, const ADPoint & p) const override;
 
 private:
   const Real _scale_factor;

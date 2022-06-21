@@ -13,11 +13,7 @@
 #include "MooseEnum.h"
 #include "MoosePartitioner.h"
 
-class PetscExternalPartitioner;
 class MooseMesh;
-
-template <>
-InputParameters validParams<PetscExternalPartitioner>();
 
 /**
  * Partitions a mesh using external petsc partitioners such as parmetis, ptscotch, chaco, party,
@@ -52,6 +48,11 @@ public:
                              const dof_id_type num_parts_per_compute_node,
                              const std::string & part_package,
                              std::vector<dof_id_type> & partition);
+
+  /**
+   * Called immediately before partitioning
+   */
+  virtual void initialize(MeshBase & /* mesh */){};
 
 protected:
   virtual void _do_partition(MeshBase & mesh, const unsigned int n) override;

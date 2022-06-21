@@ -132,7 +132,7 @@ ViewFactorRayStudy::ViewFactorRayStudy(const InputParameters & parameters)
   }
   else
   {
-    _3d_aq = libmesh_make_unique<RayTracingAngularQuadrature>(
+    _3d_aq = std::make_unique<RayTracingAngularQuadrature>(
         _mesh.dimension(),
         getParam<unsigned int>("polar_quad_order"),
         4 * getParam<unsigned int>("azimuthal_quad_order"),
@@ -428,8 +428,8 @@ ViewFactorRayStudy::generateStartElems()
   if (_internal_convention == 0)
   {
     // Functor that takes in StartElems and appends them to our local list
-    auto append_start_elems = [this](processor_id_type,
-                                     const std::vector<StartElem> & start_elems) {
+    auto append_start_elems = [this](processor_id_type, const std::vector<StartElem> & start_elems)
+    {
       _start_elems.reserve(_start_elems.size() + start_elems.size());
       for (const StartElem & start_elem : start_elems)
         _start_elems.emplace_back(start_elem);

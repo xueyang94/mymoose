@@ -4,7 +4,7 @@
     input = 'test.i'
     exodiff = 'test_out.e-s005'
     group = 'adpative'
-    requirement = 'MOOSE shall provide a polycrystalline material model with grain growth'
+    requirement = 'The system shall provide a polycrystalline material model with grain growth'
     design = 'PolycrystalKernelAction.md'
     issues = '98e22eda8bfaa1f6ded00c127145d832542aff70'
   [../]
@@ -33,6 +33,16 @@
     input = 'hex.i'
     exodiff = 'hex_out.e'
     requirement = 'A hexagonal grain structure IC shall be provided'
+    design = 'PolycrystalHex.md'
+    issues = '#8810'
+  [../]
+
+  [./hex_kdtree]
+    type = 'Exodiff'
+    input = 'hex.i'
+    exodiff = 'hex_out.e'
+    cli_args = 'UserObjects/hex_ic/use_kdtree=true UserObjects/hex_ic/point_patch_size=4'
+    requirement = 'A hexagonal grain structure IC shall be provided using KDTree'
     design = 'PolycrystalHex.md'
     issues = '#8810'
   [../]

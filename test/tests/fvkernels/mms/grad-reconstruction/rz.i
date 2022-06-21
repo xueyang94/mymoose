@@ -15,7 +15,6 @@ diff=1.1
 []
 
 [Problem]
-  kernel_coverage_check = off
   coord_type = 'RZ'
 []
 
@@ -81,7 +80,6 @@ diff=1.1
 
 [Outputs]
   exodus = true
-  csv = true
 []
 
 [Postprocessors]
@@ -89,12 +87,10 @@ diff=1.1
     type = ElementL2Error
     variable = v
     function = exact
-    outputs = 'console csv'
-    execute_on = 'timestep_end'
+    outputs = 'console'    execute_on = 'timestep_end'
   [../]
   [h]
     type = AverageElementSize
-    outputs = 'console csv'
-    execute_on = 'timestep_end'
+    outputs = 'console'    execute_on = 'timestep_end'
   []
 []

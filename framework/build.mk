@@ -50,7 +50,7 @@ ifeq ($(METHOD),$(filter $(METHOD), dbg devel))
     $(error It does not make sense to profile with the $(METHOD) method due to assertions. Please unset GPERF_DIR)
 else
     libmesh_CXXFLAGS += -DHAVE_GPERFTOOLS -I$(GPERF_DIR)/include
-    libmesh_LDFLAGS := -L$(GPERF_DIR)/lib -ltcmalloc_and_profiler $(libmesh_LDFLAGS)
+    libmesh_LDFLAGS := -L$(GPERF_DIR)/lib -Wl,-rpath,$(GPERF_DIR)/lib -ltcmalloc_and_profiler $(libmesh_LDFLAGS)
 endif
 endif
 
@@ -268,7 +268,7 @@ endif
 
 # compile with gcov support if using the gcc compiler suite
 ifeq ($(coverage),true)
-	libmesh_CXXFLAGS += -fprofile-arcs -ftest-coverage
+	libmesh_CXXFLAGS += -DCOVERAGE_ENABLED -fprofile-arcs -ftest-coverage
 	ifeq (,$(findstring clang++,$(cxx_compiler)))
 		libmesh_LDFLAGS += -lgcov
 		libmesh_LIBS += -lgcov
@@ -307,18 +307,19 @@ endif
 # TODO[JWP]: These plugins might also be able to use libtool...but it turned
 # out to be more trouble than it was worth to get working.
 #
+PLUGIN_FLAGS := -shared -fPIC -Wl,-undefined,dynamic_lookup
 %-$(METHOD).plugin : %.C
-	@echo "Compiling C++ Plugin (in "$(METHOD)" mode) "$<"..."
-	@$(libmesh_CXX) $(libmesh_CPPFLAGS) $(ADDITIONAL_CPPFLAGS) $(CXXFLAGS) $(libmesh_CXXFLAGS) -shared -fPIC $(app_INCLUDES) $(libmesh_INCLUDE) $< -o $@
+	# we add include/base so that MooseConfig.h can be found, which is absent from the symlink dirs
+	@$(libmesh_CXX) $(libmesh_CPPFLAGS) $(ADDITIONAL_CPPFLAGS) $(CXXFLAGS) $(libmesh_CXXFLAGS) $(PLUGIN_FLAGS) $(app_INCLUDES) $(libmesh_INCLUDE) -I $(FRAMEWORK_DIR)/include/base $< -o $@
 %-$(METHOD).plugin : %.c
 	@echo "Compiling C Plugin (in "$(METHOD)" mode) "$<"..."
-	@$(libmesh_CC) $(libmesh_CPPFLAGS) $(ADDITIONAL_CPPFLAGS) $(libmesh_CFLAGS) -shared -fPIC $(app_INCLUDES) $(libmesh_INCLUDE) $< -o $@
+	@$(libmesh_CC) $(libmesh_CPPFLAGS) $(ADDITIONAL_CPPFLAGS) $(libmesh_CFLAGS) $(PLUGIN_FLAGS) $(app_INCLUDES) $(libmesh_INCLUDE) $< -o $@
 %-$(METHOD).plugin : %.f
 	@echo "Compiling Fortan Plugin (in "$(METHOD)" mode) "$<"..."
-	@$(libmesh_F77) $(libmesh_FFLAGS) -shared -fPIC $(app_INCLUDES) $(libmesh_INCLUDE) $< -o $@
+	@$(libmesh_F77) $(libmesh_FFLAGS) $(PLUGIN_FLAGS) $(app_INCLUDES) $(libmesh_INCLUDE) $< -o $@
 %-$(METHOD).plugin : %.f90
 	@echo "Compiling Fortan Plugin (in "$(METHOD)" mode) "$<"..."
-	@$(libmesh_F90) $(libmesh_FFLAGS) -shared -fPIC $(app_INCLUDES) $(libmesh_INCLUDE) $< -o $@
+	@$(libmesh_F90) $(libmesh_FFLAGS) $(PLUGIN_FLAGS) $(app_INCLUDES) $(libmesh_INCLUDE) $< -o $@
 
 # Define the "test" target, we'll use a variable name so that we can override it without warnings if needed
 TEST ?= test

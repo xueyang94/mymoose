@@ -11,14 +11,9 @@
 
 #include "Marker.h"
 
-class ComboMarker;
-
 /**
  * Combines multiple marker fields.  The most conservative wins.
  */
-template <>
-InputParameters validParams<ComboMarker>();
-
 class ComboMarker : public Marker
 {
 public:
@@ -33,4 +28,3 @@ protected:
 
   std::vector<const VariableValue *> _markers;
 };
-

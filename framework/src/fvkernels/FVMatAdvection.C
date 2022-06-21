@@ -23,27 +23,28 @@ FVMatAdvection::validParams()
       "is not specified, then the advected quantity will simply be the variable that this object "
       "is acting on");
 
-  MooseEnum advected_interp_method("average upwind", "upwind");
-
-  params.addParam<MooseEnum>("advected_interp_method",
-                             advected_interp_method,
-                             "The interpolation to use for the advected quantity. Options are "
-                             "'upwind' and 'average', with the default being 'upwind'.");
+  MooseEnum advected_interp_method("average upwind skewness-corrected", "upwind");
+  params.addParam<MooseEnum>(
+      "advected_interp_method",
+      advected_interp_method,
+      "The interpolation to use for the advected quantity. Options are "
+      "'upwind', 'average', and 'skewness-corrected' with the default being 'upwind'.");
   return params;
 }
 
 FVMatAdvection::FVMatAdvection(const InputParameters & params)
   : FVFluxKernel(params),
     _vel(getFunctor<ADRealVectorValue>("vel")),
-    _adv_quant(isParamValid("advected_quantity")
-                   ? getFunctor<ADReal>("advected_quantity")
-                   : static_cast<const Moose::Functor<ADReal> &>(variable()))
+    _adv_quant(getFunctor<ADReal>(isParamValid("advected_quantity") ? "advected_quantity"
+                                                                    : variable().name()))
 {
   using namespace Moose::FV;
 
   const auto & advected_interp_method = getParam<MooseEnum>("advected_interp_method");
   if (advected_interp_method == "average")
     _advected_interp_method = InterpMethod::Average;
+  else if (advected_interp_method == "skewness-corrected")
+    _advected_interp_method = Moose::FV::InterpMethod::SkewCorrectedAverage;
   else if (advected_interp_method == "upwind")
     _advected_interp_method = InterpMethod::Upwind;
   else
@@ -54,7 +55,6 @@ FVMatAdvection::FVMatAdvection(const InputParameters & params)
 ADReal
 FVMatAdvection::computeQpResidual()
 {
-  ADReal adv_quant_interface;
   ADRealVectorValue v;
 
   using namespace Moose::FV;
@@ -65,12 +65,12 @@ FVMatAdvection::computeQpResidual()
   // Currently only Average is supported for the velocity
   interpolate(InterpMethod::Average, v, _vel(elem_face), _vel(neighbor_face), *_face_info, true);
 
-  interpolate(_advected_interp_method,
-              adv_quant_interface,
-              _adv_quant(elem_face),
-              _adv_quant(neighbor_face),
-              v,
-              *_face_info,
-              true);
+  const auto adv_quant_interface =
+      interpolate(_adv_quant,
+                  makeFace(*_face_info,
+                           limiterType(_advected_interp_method),
+                           MetaPhysicL::raw_value(v) * _normal > 0,
+                           faceArgSubdomains(),
+                           _advected_interp_method == InterpMethod::SkewCorrectedAverage));
   return _normal * v * adv_quant_interface;
 }
