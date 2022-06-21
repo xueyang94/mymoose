@@ -63,14 +63,6 @@ KKSPhaseConcentrationMultiPhaseMaterial::KKSPhaseConcentrationMultiPhaseMaterial
     _ci_old(_num_c * _num_j),
     _ci_IC(getParam<std::vector<Real>>("ci_IC")),
 
-    ////////////////////////////////////// need change start
-    _f1(getMaterial("F1_material")),
-    _f2(getMaterial("F2_material")),
-    _f3(getMaterial("F3_material")),
-    // _f4(getMaterial("F4_material")),
-    // _f5(getMaterial("F5_material")),
-    ////////////////////////////////////// need change end
-
     _Fi_names(getParam<std::vector<MaterialPropertyName>>("Fi_names")),
     _first_dFi(_num_j),
     _second_dFi(_num_j),
@@ -81,17 +73,6 @@ KKSPhaseConcentrationMultiPhaseMaterial::KKSPhaseConcentrationMultiPhaseMaterial
     _nested_solve(NestedSolve(parameters))
 
 {
-  // // error check parameters
-  // if (_hj_names.size() != 0 && _hj_names.size() != _num_j)
-  //   paramError("hj_names",
-  //              "Specify either as many entries are eta values or none at all for auto-naming the
-  //              " "hj material properties.");
-  //
-  // if (_ci_names.size() != 0 && _ci_names.size() != _num_j)
-  //   paramError("ci_names",
-  //              "Specify either as many entries are eta values or none at all for auto-naming the
-  //              " "ci material properties.");
-
   for (unsigned int m = 0; m < _num_c * _num_j; ++m)
   {
     _ci_old[m] = &getMaterialPropertyOld<Real>(_ci_names[m]);
@@ -127,6 +108,14 @@ KKSPhaseConcentrationMultiPhaseMaterial::initQpStatefulProperties()
 }
 
 void
+KKSPhaseConcentrationMultiPhaseMaterial::initialSetup()
+{
+  _F1 = &getMaterial("F1_material");
+  _F2 = &getMaterial("F2_material");
+  _F3 = &getMaterial("F3_material");
+}
+
+void
 KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
 {
   // dynamicaly sized vector class from the Eigen library
@@ -135,12 +124,12 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
   ////////////////////////////////////// need change start
   // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp];
 
-  // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
-  //     (*_ci_old[4])[_qp], (*_ci_old[5])[_qp];
-
   solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
-      (*_ci_old[4])[_qp], (*_ci_old[5])[_qp], (*_ci_old[6])[_qp], (*_ci_old[7])[_qp],
-      (*_ci_old[8])[_qp], (*_ci_old[9])[_qp], (*_ci_old[10])[_qp], (*_ci_old[11])[_qp];
+      (*_ci_old[4])[_qp], (*_ci_old[5])[_qp];
+
+  // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
+  //     (*_ci_old[4])[_qp], (*_ci_old[5])[_qp], (*_ci_old[6])[_qp], (*_ci_old[7])[_qp],
+  //     (*_ci_old[8])[_qp], (*_ci_old[9])[_qp], (*_ci_old[10])[_qp], (*_ci_old[11])[_qp];
 
   // solution << (*_ci_old[0])[_qp], (*_ci_old[1])[_qp], (*_ci_old[2])[_qp], (*_ci_old[3])[_qp],
   //     (*_ci_old[4])[_qp], (*_ci_old[5])[_qp], (*_ci_old[6])[_qp], (*_ci_old[7])[_qp],
@@ -159,11 +148,9 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
       (*_prop_ci[m])[_qp] = guess(m);
 
     ////////////////////////////////////// need change start
-    _f1.computePropertiesAtQp(_qp);
-    _f2.computePropertiesAtQp(_qp);
-    _f3.computePropertiesAtQp(_qp);
-    // _f4.computePropertiesAtQp(_qp);
-    // _f5.computePropertiesAtQp(_qp);
+    _F1->computePropertiesAtQp(_qp);
+    _F2->computePropertiesAtQp(_qp);
+    _F3->computePropertiesAtQp(_qp);
     ////////////////////////////////////// need change end
 
     // assign residual functions

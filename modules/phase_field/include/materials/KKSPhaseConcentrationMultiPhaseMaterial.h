@@ -21,6 +21,7 @@ public:
 
 protected:
   virtual void initQpStatefulProperties() override;
+  virtual void initialSetup() override;
   virtual void computeQpProperties() override;
 
   const std::vector<const VariableValue *> _prop_c;
@@ -34,12 +35,6 @@ protected:
   std::vector<const MaterialProperty<Real> *> _ci_old;
   std::vector<Real> _ci_IC;
 
-  MaterialBase & _f1;
-  MaterialBase & _f2;
-  MaterialBase & _f3;
-  // MaterialBase & _f4;
-  // MaterialBase & _f5;
-
   std::vector<MaterialPropertyName> _Fi_names;
   std::vector<std::vector<const MaterialProperty<Real> *>> _first_dFi;
   std::vector<std::vector<std::vector<const MaterialProperty<Real> *>>> _second_dFi;
@@ -47,4 +42,8 @@ protected:
   const Real _abs_tol;
   const Real _rel_tol;
   NestedSolve _nested_solve;
+
+  MaterialBase * _F1;
+  MaterialBase * _F2;
+  MaterialBase * _F3;
 };
