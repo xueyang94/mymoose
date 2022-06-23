@@ -47,7 +47,6 @@ KKSPhaseConcentrationMultiPhaseDerivatives::KKSPhaseConcentrationMultiPhaseDeriv
     const InputParameters & parameters)
   : DerivativeMaterialInterface<Material>(parameters),
     _num_c(coupledComponents("global_cs")),
-    _c_names(coupledComponents("global_cs")),
     _eta_names(coupledNames("all_etas")),
     _num_j(coupledComponents("all_etas")),
     _prop_ci(_num_c * _num_j),
@@ -216,4 +215,18 @@ KKSPhaseConcentrationMultiPhaseDerivatives::computeQpProperties()
         (*_prop_dcidetaj[m][n][i])[_qp] = x_eta[m * _num_j + n];
     }
   }
+
+  // std::cout << "dc1dc " << (*_prop_dcidb[0][0][0])[_qp] << std::endl;
+  // std::cout << "dc2dc " << (*_prop_dcidb[0][1][0])[_qp] << std::endl;
+  // std::cout << "dc3dc " << (*_prop_dcidb[0][2][0])[_qp] << std::endl;
+  // std::cout << "db1dc " << (*_prop_dcidb[1][0][0])[_qp] << std::endl;
+  // std::cout << "db2dc " << (*_prop_dcidb[1][1][0])[_qp] << std::endl;
+  // std::cout << "db3dc " << (*_prop_dcidb[1][2][0])[_qp] << std::endl;
+  // std::cout << "dc1db " << (*_prop_dcidb[0][0][1])[_qp] << std::endl;
+  // std::cout << "dc2db " << (*_prop_dcidb[0][1][1])[_qp] << std::endl;
+  // std::cout << "dc3db " << (*_prop_dcidb[0][2][1])[_qp] << std::endl;
+  // std::cout << "db1db " << (*_prop_dcidb[1][0][1])[_qp] << std::endl;
+  // std::cout << "db2db " << (*_prop_dcidb[1][1][1])[_qp] << std::endl;
+  // std::cout << "db3db " << (*_prop_dcidb[1][2][1])[_qp] << std::endl;
+  // std::cout << '\n' << std::endl;
 }

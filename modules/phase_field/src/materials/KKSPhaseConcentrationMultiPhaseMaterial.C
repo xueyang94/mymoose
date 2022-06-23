@@ -208,4 +208,12 @@ KKSPhaseConcentrationMultiPhaseMaterial::computeQpProperties()
   // assign solution to ci
   for (unsigned int m = 0; m < _num_c * _num_j; ++m)
     (*_prop_ci[m])[_qp] = solution[m];
+
+  // std::cout << "c1 " << (*_prop_ci[0])[_qp] << std::endl;
+  // std::cout << "c2 " << (*_prop_ci[1])[_qp] << std::endl;
+  // std::cout << "c3 " << (*_prop_ci[2])[_qp] << std::endl;
+  // std::cout << "b1 " << (*_prop_ci[3])[_qp] << std::endl;
+  // std::cout << "b2 " << (*_prop_ci[4])[_qp] << std::endl;
+  // std::cout << "b3 " << (*_prop_ci[5])[_qp] << std::endl;
+  // std::cout << '\n' << std::endl;
 }

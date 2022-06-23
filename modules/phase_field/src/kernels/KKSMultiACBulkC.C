@@ -39,10 +39,9 @@ KKSMultiACBulkC::validParams()
 
 KKSMultiACBulkC::KKSMultiACBulkC(const InputParameters & parameters)
   : KKSMultiACBulkBase(parameters),
-    _c_names(coupledComponents("global_cs")),
     _c_map(getParameterJvarMap("global_cs")),
     _num_c(coupledComponents("global_cs")),
-    _eta_names(coupledComponents("all_etas")),
+    _eta_names(coupledNames("all_etas")),
     _eta_map(getParameterJvarMap("all_etas")),
     _k(-1),
     _ci_names(getParam<std::vector<MaterialPropertyName>>("ci_names")),
